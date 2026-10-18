@@ -7,10 +7,10 @@ This directory contains the database schema, functions, and migration scripts fo
 ```
 supabase/
 ├── migrations/       # SQL migration scripts (ordered by timestamp)
+├── seed.sql          # Seed data for local testing (categories, demo products/batches)
 └── README.md         # Migration and database instructions
 ```
 
-> **Note:** Tables and database functions will be created in upcoming migration tasks under the `DATABASE` scope.
 
 ## How to Run Migrations
 
