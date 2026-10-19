@@ -14,9 +14,9 @@ export type ScanStackParamList = {
   ScanChooser: undefined;
   ScanBarcode: { mode: 'add' | 'sell' };
   TypeBarcode: { mode: 'add' | 'sell' } | undefined;
-  AddStockForm: { barcode?: string; productName?: string } | undefined;
+  AddStockForm: { productId?: string; barcode?: string; productName?: string } | undefined;
   NewProduct: { barcode?: string } | undefined;
-  AddStockDone: { units?: number; batchCode?: string; expiryDate?: string } | undefined;
+  AddStockDone: { units?: number; batchCode?: string; expiryDate?: string; productId?: string } | undefined;
   SaleList: undefined;
   ConfirmSale: undefined;
   SaleDone: { count?: number } | undefined;
@@ -34,7 +34,7 @@ export type ProfileStackParamList = {
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  InventoryTab: undefined;
+  InventoryTab: { screen?: keyof InventoryStackParamList; params?: { productId?: string; productName?: string } } | undefined;
   ScanTab: undefined;
   AlertsTab: undefined;
   ProfileTab: undefined;
