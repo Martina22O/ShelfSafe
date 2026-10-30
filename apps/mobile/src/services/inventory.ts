@@ -2,12 +2,14 @@ import { supabase } from './supabase';
 import {
   Category,
   Product,
+  Batch,
   ProductWithBatches,
+  ProductStockStatus,
   AddStockParams,
   CreateProductWithBatchParams,
 } from '../types/inventory';
 import { getBarcodeVariants } from '../utils/barcode';
-import { getTodayInManila } from '../utils/date';
+import { getTodayInManila, NEAR_EXPIRY_DAYS, addDaysToDate } from '../utils/date';
 
 export type FindProductResult =
   | { kind: 'found'; product: Product }
@@ -24,6 +26,10 @@ export type ProductWithBatchesResult =
   | { kind: 'not_found' }
   | { kind: 'error'; message: string };
 
+export type GetInventoryResult =
+  | { kind: 'success'; products: ProductWithBatches[] }
+  | { kind: 'error'; message: string };
+
 export type AddStockResult =
   | { kind: 'success'; batchId: string }
   | { kind: 'error'; message: string };
@@ -31,6 +37,56 @@ export type AddStockResult =
 export type CreateProductResult =
   | { kind: 'success'; productId: string; batchId: string }
   | { kind: 'error'; message: string };
+
+/**
+ * Computes product-level stock status badges according to product rules:
+ * 1. "Has expired stock" if any batch with units left is expired (< today).
+ * 2. "Low stock" if sellable_units is at or below the product's low_stock_level.
+ * 3. "Near expiry" if any batch with units left expires within 7 days from today (today <= exp <= today + 7).
+ * 4. Otherwise "In Stock" (if none of the above badges apply).
+ * A product can have more than one badge.
+ */
+export function computeProductStatuses(
+  product: { low_stock_level: number },
+  batches: Batch[],
+  sellableUnits: number,
+  today: string = getTodayInManila()
+): ProductStockStatus[] {
+  const statuses: ProductStockStatus[] = [];
+  const nearExpiryThreshold = addDaysToDate(today, NEAR_EXPIRY_DAYS);
+
+  // 1. "Has expired stock" if any batch with units left is expired
+  const hasExpired = batches.some(
+    (b) => !b.is_archived && b.quantity_left > 0 && b.expiration_date < today
+  );
+  if (hasExpired) {
+    statuses.push('Has expired stock');
+  }
+
+  // 2. "Low stock" if sellable_units is at or below the product's low_stock_level
+  if (sellableUnits <= product.low_stock_level) {
+    statuses.push('Low stock');
+  }
+
+  // 3. "Near expiry" if any batch with units left expires within 7 days from today (not expired yet)
+  const hasNearExpiry = batches.some(
+    (b) =>
+      !b.is_archived &&
+      b.quantity_left > 0 &&
+      b.expiration_date >= today &&
+      b.expiration_date <= nearExpiryThreshold
+  );
+  if (hasNearExpiry) {
+    statuses.push('Near expiry');
+  }
+
+  // 4. otherwise "In Stock"
+  if (statuses.length === 0) {
+    statuses.push('In Stock');
+  }
+
+  return statuses;
+}
 
 /**
  * Fetch all categories from the categories table, ordered by name.
@@ -207,6 +263,13 @@ export async function getProductWithBatches(
       }
     }
 
+    const statuses = computeProductStatuses(
+      { low_stock_level: prodData.low_stock_level },
+      batches,
+      sellableUnits,
+      today
+    );
+
     const result: ProductWithBatches = {
       id: prodData.id,
       name: prodData.name,
@@ -220,6 +283,7 @@ export async function getProductWithBatches(
       total_units: totalUnits,
       sellable_units: sellableUnits,
       batch_count: batches.length,
+      statuses,
     };
 
     return { kind: 'success', data: result };
@@ -227,6 +291,106 @@ export async function getProductWithBatches(
     return {
       kind: 'error',
       message: err?.message || 'Network error fetching product batches',
+    };
+  }
+}
+
+/**
+ * Fetch all non-archived products with their category and active batches in a single query.
+ * For each product computes total_units, sellable_units, batch_count, and status badges.
+ */
+export async function getInventory(): Promise<GetInventoryResult> {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        barcode,
+        price,
+        low_stock_level,
+        is_archived,
+        category_id,
+        categories (
+          id,
+          name
+        ),
+        batches (
+          id,
+          product_id,
+          quantity_left,
+          purchase_date,
+          expiration_date,
+          is_archived,
+          created_at
+        )
+      `)
+      .eq('is_archived', false)
+      .eq('batches.is_archived', false)
+      .order('name');
+
+    if (error) {
+      return {
+        kind: 'error',
+        message: error.message || 'Database error fetching inventory',
+      };
+    }
+
+    const today = getTodayInManila();
+
+    const products: ProductWithBatches[] = (data || []).map((item: any) => {
+      const batches: Batch[] = (item.batches || [])
+        .filter((b: any) => !b.is_archived)
+        .map((b: any) => ({
+          id: b.id,
+          product_id: b.product_id,
+          quantity_left: Number(b.quantity_left),
+          purchase_date: b.purchase_date,
+          expiration_date: b.expiration_date,
+          is_archived: b.is_archived,
+          created_at: b.created_at,
+        }))
+        .sort((a: Batch, b: Batch) => a.expiration_date.localeCompare(b.expiration_date));
+
+      let totalUnits = 0;
+      let sellableUnits = 0;
+
+      for (const b of batches) {
+        totalUnits += b.quantity_left;
+        if (b.expiration_date >= today) {
+          sellableUnits += b.quantity_left;
+        }
+      }
+
+      const statuses = computeProductStatuses(
+        { low_stock_level: item.low_stock_level ?? 5 },
+        batches,
+        sellableUnits,
+        today
+      );
+
+      return {
+        id: item.id,
+        name: item.name,
+        barcode: item.barcode,
+        price: Number(item.price),
+        low_stock_level: item.low_stock_level,
+        is_archived: item.is_archived,
+        category_id: item.category_id,
+        category: item.categories as any,
+        batches,
+        total_units: totalUnits,
+        sellable_units: sellableUnits,
+        batch_count: batches.length,
+        statuses,
+      };
+    });
+
+    return { kind: 'success', products };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Network error fetching inventory',
     };
   }
 }

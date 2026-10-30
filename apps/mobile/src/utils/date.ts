@@ -1,6 +1,9 @@
 /**
  * Date utilities for ShelfSafe (Asia/Manila timezone)
  */
+import { BatchStockStatus } from '../types/inventory';
+
+export { BatchStockStatus };
 
 /**
  * Returns current date in Asia/Manila timezone as YYYY-MM-DD
@@ -46,3 +49,72 @@ export function isDateInPast(dateString: string): boolean {
   const today = getTodayInManila();
   return dateString < today;
 }
+
+/**
+ * Shared threshold: expiration_date within 7 days from today is considered near expiry.
+ * Matches get_inventory_alerts function in Supabase.
+ */
+export const NEAR_EXPIRY_DAYS = 7;
+
+/**
+ * Adds an integer number of days to a YYYY-MM-DD date string.
+ * Uses Date.UTC so no day is ever shifted by local time zone or DST.
+ */
+export function addDaysToDate(dateString: string, days: number): string {
+  const parts = dateString.split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+
+  const utcDate = new Date(Date.UTC(y, m - 1, d + days));
+  const nextY = utcDate.getUTCFullYear();
+  const nextM = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+  const nextD = String(utcDate.getUTCDate()).padStart(2, '0');
+  return `${nextY}-${nextM}-${nextD}`;
+}
+
+const MONTH_NAMES = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
+
+/**
+ * Formats a YYYY-MM-DD date string directly to "MMM D, YYYY" (e.g. "Sep 28, 2026")
+ * without using new Date(dateString) to prevent any time zone offset shifts.
+ */
+export function formatDisplayDate(dateString: string | null | undefined): string {
+  if (!dateString) return 'N/A';
+  const match = dateString.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return dateString;
+  const year = match[1];
+  const monthIdx = parseInt(match[2], 10) - 1;
+  const day = parseInt(match[3], 10);
+  const month = MONTH_NAMES[monthIdx] || match[2];
+  return `${month} ${day}, ${year}`;
+}
+
+/**
+ * Determines the status of an individual batch:
+ * - "Sold out" if quantity_left <= 0
+ * - "Expired" if expiration_date < today
+ * - "Near Expiry" if expiration_date is from today up to today + NEAR_EXPIRY_DAYS
+ * - "Good" otherwise
+ */
+export function getBatchStatus(
+  expirationDate: string,
+  quantityLeft: number,
+  today: string = getTodayInManila()
+): BatchStockStatus {
+  if (quantityLeft <= 0) {
+    return 'Sold out';
+  }
+  if (expirationDate < today) {
+    return 'Expired';
+  }
+  const nearExpiryThreshold = addDaysToDate(today, NEAR_EXPIRY_DAYS);
+  if (expirationDate <= nearExpiryThreshold) {
+    return 'Near Expiry';
+  }
+  return 'Good';
+}
+
