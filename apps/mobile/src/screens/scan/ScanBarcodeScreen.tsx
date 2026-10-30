@@ -10,7 +10,8 @@ import { CameraView as ExpoCameraView, useCameraPermissions, BarcodeScanningResu
 
 const CameraView = ExpoCameraView as unknown as React.ComponentType<any>;
 import { ScanStackParamList } from '../../navigation/types';
-import { findProductByBarcode } from '../../services/inventory';
+import { findProductByBarcode, getProductWithBatches } from '../../services/inventory';
+import { useSaleCart } from '../../context/SaleCartContext';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'ScanBarcode'>;
 
@@ -18,10 +19,12 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
   const { mode } = route.params;
   const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
+  const { addItem } = useSaleCart();
 
   const [torch, setTorch] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notFoundBarcode, setNotFoundBarcode] = useState<string | null>(null);
 
   // Single-scan lock and duplicate prevention
   const isScanningLocked = useRef(false);
@@ -34,6 +37,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
       lastScannedBarcode.current = null;
       setErrorMessage(null);
       setStatusMessage(null);
+      setNotFoundBarcode(null);
     }, [])
   );
 
@@ -47,19 +51,9 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     isScanningLocked.current = true;
     lastScannedBarcode.current = rawCode;
     setErrorMessage(null);
+    setNotFoundBarcode(null);
     setStatusMessage(`Looking up barcode: ${rawCode}...`);
 
-    if (mode === 'sell') {
-      // Placeholder for sell mode in this task
-      setStatusMessage(`Scanned barcode: ${rawCode} (Sell mode placeholder)`);
-      setTimeout(() => {
-        isScanningLocked.current = false;
-        lastScannedBarcode.current = null;
-      }, 2500);
-      return;
-    }
-
-    // Add mode
     const lookupResult = await findProductByBarcode(rawCode);
 
     if (lookupResult.kind === 'error') {
@@ -79,6 +73,56 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
       return;
     }
 
+    if (mode === 'sell') {
+      if (lookupResult.kind === 'not_found') {
+        setStatusMessage(null);
+        setNotFoundBarcode(rawCode);
+        return;
+      }
+
+      if (lookupResult.kind === 'found') {
+        setStatusMessage('Checking sellable stock...');
+        const batchRes = await getProductWithBatches(lookupResult.product.id);
+
+        if (batchRes.kind === 'error') {
+          setErrorMessage(batchRes.message);
+          setStatusMessage(null);
+          isScanningLocked.current = false;
+          lastScannedBarcode.current = null;
+          return;
+        }
+
+        const sellableUnits = batchRes.kind === 'success' ? batchRes.data.sellable_units : 0;
+
+        if (sellableUnits <= 0) {
+          setErrorMessage('No sellable units for this product');
+          setStatusMessage(null);
+          isScanningLocked.current = false;
+          return;
+        }
+
+        const addRes = addItem({
+          id: lookupResult.product.id,
+          name: lookupResult.product.name,
+          barcode: lookupResult.product.barcode || rawCode,
+          price: lookupResult.product.price,
+          sellable_units: sellableUnits,
+        });
+
+        if (!addRes.success) {
+          setErrorMessage(addRes.message);
+          setStatusMessage(null);
+          isScanningLocked.current = false;
+          return;
+        }
+
+        setStatusMessage(null);
+        navigation.navigate('SaleList');
+        return;
+      }
+    }
+
+    // Add mode
     if (lookupResult.kind === 'found') {
       setStatusMessage(null);
       navigation.navigate('AddStockForm', {
@@ -139,16 +183,55 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
         Mode: {mode === 'add' ? 'Add Stock' : 'Record Sold Items'}
       </Text>
 
-      {/* Messages */}
+      {/* Status Messages */}
       {statusMessage ? (
         <View style={{ marginTop: 8, padding: 8, backgroundColor: '#e8f4fd' }}>
           <Text style={{ color: '#0056b3' }}>{statusMessage}</Text>
         </View>
       ) : null}
 
+      {/* Error Message */}
       {errorMessage ? (
         <View style={{ marginTop: 8, padding: 8, backgroundColor: '#f8d7da' }}>
           <Text style={{ color: '#721c24', fontWeight: 'bold' }}>{errorMessage}</Text>
+        </View>
+      ) : null}
+
+      {/* Not Found in Sell Mode banner */}
+      {notFoundBarcode ? (
+        <View
+          style={{
+            marginTop: 8,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: '#ccc',
+            backgroundColor: '#fff3cd',
+          }}
+        >
+          <Text style={{ fontWeight: 'bold', color: '#856404' }}>
+            This product is not in your inventory
+          </Text>
+          <Text style={{ color: 'gray', marginTop: 4 }}>
+            Barcode: {notFoundBarcode}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+            <Button
+              title="Search by name"
+              onPress={() => {
+                setNotFoundBarcode(null);
+                navigation.navigate('TypeBarcode', { mode: 'sell' });
+              }}
+            />
+            <Button
+              title="Back to scanning"
+              onPress={() => {
+                setNotFoundBarcode(null);
+                isScanningLocked.current = false;
+                lastScannedBarcode.current = null;
+              }}
+              color="gray"
+            />
+          </View>
         </View>
       ) : null}
 

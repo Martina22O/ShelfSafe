@@ -19,7 +19,13 @@ export type ScanStackParamList = {
   AddStockDone: { units?: number; batchCode?: string; expiryDate?: string; productId?: string } | undefined;
   SaleList: undefined;
   ConfirmSale: undefined;
-  SaleDone: { count?: number } | undefined;
+  SaleDone:
+    | {
+        count?: number;
+        scanIds?: string[];
+        items?: Array<{ productId: string; name: string; quantity: number }>;
+      }
+    | undefined;
   History: undefined;
 };
 
