@@ -27,11 +27,24 @@ export interface Batch {
   created_at?: string;
 }
 
+export type ProductStockStatus =
+  | 'Has expired stock'
+  | 'Low stock'
+  | 'Near expiry'
+  | 'In Stock';
+
+export type BatchStockStatus =
+  | 'Sold out'
+  | 'Expired'
+  | 'Near Expiry'
+  | 'Good';
+
 export interface ProductWithBatches extends Product {
   batches: Batch[];
   total_units: number;
   sellable_units: number;
   batch_count: number;
+  statuses: ProductStockStatus[];
 }
 
 export interface AddStockParams {
