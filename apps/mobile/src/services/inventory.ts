@@ -7,6 +7,14 @@ import {
   ProductStockStatus,
   AddStockParams,
   CreateProductWithBatchParams,
+  PreviewSaleBatchDeduction,
+  SaleHistoryRecord,
+  InventoryAlert,
+  SalesMetrics,
+  MostStockedProduct,
+  MostSoldProduct,
+  LeastSoldProduct,
+  HomeSummaryData,
 } from '../types/inventory';
 import { getBarcodeVariants } from '../utils/barcode';
 import { getTodayInManila, NEAR_EXPIRY_DAYS, addDaysToDate } from '../utils/date';
@@ -37,6 +45,24 @@ export type AddStockResult =
 export type CreateProductResult =
   | { kind: 'success'; productId: string; batchId: string }
   | { kind: 'error'; message: string };
+
+export type PreviewSaleResult =
+  | { kind: 'success'; deductions: PreviewSaleBatchDeduction[] }
+  | { kind: 'error'; message: string };
+
+export type RecordSaleResult =
+  | { kind: 'success'; salesScanId: string }
+  | { kind: 'db_error'; message: string }
+  | { kind: 'unknown_error'; message: string };
+
+export type UndoSaleResult =
+  | { kind: 'success' }
+  | { kind: 'error'; message: string; isAlreadyUndone: boolean };
+
+export type GetSaleHistoryResult =
+  | { kind: 'success'; history: SaleHistoryRecord[] }
+  | { kind: 'error'; message: string };
+
 
 /**
  * Computes product-level stock status badges according to product rules:
@@ -463,3 +489,359 @@ export async function createProductWithBatch(
     };
   }
 }
+
+/**
+ * Previews FEFO deduction batches for a given product and quantity.
+ * Does not mutate database.
+ */
+export async function previewSale(
+  productId: string,
+  quantity: number
+): Promise<PreviewSaleResult> {
+  try {
+    const { data, error } = await supabase.rpc('preview_sale', {
+      p_product_id: productId,
+      p_quantity: quantity,
+    });
+
+    if (error) {
+      return {
+        kind: 'error',
+        message: error.message || 'Failed to preview sale deduction',
+      };
+    }
+
+    const deductions: PreviewSaleBatchDeduction[] = (data || []).map((row: any) => ({
+      batch_id: row.batch_id,
+      expiration_date: row.expiration_date,
+      quantity_to_deduct: Number(row.quantity_to_deduct),
+      batch_quantity_left: Number(row.batch_quantity_left),
+      batch_quantity_remaining: Number(row.batch_quantity_remaining),
+    }));
+
+    return { kind: 'success', deductions };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Network error previewing sale',
+    };
+  }
+}
+
+/**
+ * Records a sale atomically via record_sale RPC in FEFO order.
+ * Distinguishes clear database errors from unclear network/timeout errors.
+ */
+export async function recordSale(
+  productId: string,
+  quantity: number
+): Promise<RecordSaleResult> {
+  try {
+    const { data, error } = await supabase.rpc('record_sale', {
+      p_product_id: productId,
+      p_quantity: quantity,
+    });
+
+    if (error) {
+      const msg = error.message || '';
+      const isDbError = Boolean(
+        error.code ||
+          /insufficient|not found|archived|access denied|greater than zero|required|authentication/i.test(
+            msg
+          )
+      );
+
+      if (isDbError) {
+        return { kind: 'db_error', message: msg };
+      }
+
+      return {
+        kind: 'unknown_error',
+        message: msg || 'Network timeout or unexpected failure while recording sale',
+      };
+    }
+
+    return { kind: 'success', salesScanId: data };
+  } catch (err: any) {
+    return {
+      kind: 'unknown_error',
+      message: err?.message || 'Network connection lost while recording sale',
+    };
+  }
+}
+
+/**
+ * Undoes a sale scan and restores units back into their respective batches.
+ */
+export async function undoSale(salesScanId: string): Promise<UndoSaleResult> {
+  try {
+    const { data: _data, error } = await supabase.rpc('undo_sale', {
+      p_sales_scan_id: salesScanId,
+    });
+
+    if (error) {
+      const msg = error.message || 'Failed to undo sale';
+      const isAlreadyUndone = /already been undone/i.test(msg);
+      return { kind: 'error', message: msg, isAlreadyUndone };
+    }
+
+    return { kind: 'success' };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Network error undoing sale',
+      isAlreadyUndone: false,
+    };
+  }
+}
+
+/**
+ * Fetches the user's sale history using get_sale_history RPC.
+ */
+export async function getSaleHistory(
+  limit: number = 50
+): Promise<GetSaleHistoryResult> {
+  try {
+    const { data, error } = await supabase.rpc('get_sale_history', {
+      p_limit: limit,
+    });
+
+    if (error) {
+      return {
+        kind: 'error',
+        message: error.message || 'Database error fetching sale history',
+      };
+    }
+
+    const history: SaleHistoryRecord[] = (data || []).map((row: any) => ({
+      sales_scan_id: row.sales_scan_id,
+      created_at: row.created_at,
+      is_undone: Boolean(row.is_undone),
+      product_id: row.product_id,
+      product_name: row.product_name,
+      product_barcode: row.product_barcode,
+      product_price: Number(row.product_price),
+      total_quantity: Number(row.total_quantity),
+      batch_breakdown: Array.isArray(row.batch_breakdown) ? row.batch_breakdown : [],
+    }));
+
+    return { kind: 'success', history };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Network error fetching sale history',
+    };
+  }
+}
+
+export type GetInventoryAlertsResult =
+  | { kind: 'success'; alerts: InventoryAlert[] }
+  | { kind: 'error'; message: string };
+
+/**
+ * Fetches all inventory alerts (low stock, near expiry, expired) using get_inventory_alerts RPC.
+ * Also retrieves non-archived product prices to attach real prices for estimated value calculations.
+ */
+export async function getInventoryAlerts(
+  daysThreshold: number = NEAR_EXPIRY_DAYS
+): Promise<GetInventoryAlertsResult> {
+  try {
+    const [rpcRes, productsRes] = await Promise.all([
+      supabase.rpc('get_inventory_alerts', {
+        p_days_threshold: daysThreshold,
+      }),
+      supabase
+        .from('products')
+        .select('id, price')
+        .eq('is_archived', false),
+    ]);
+
+    if (rpcRes.error) {
+      return { kind: 'error', message: rpcRes.error.message };
+    }
+
+    if (productsRes.error) {
+      return { kind: 'error', message: productsRes.error.message };
+    }
+
+    const priceMap = new Map<string, number>();
+    if (productsRes.data) {
+      for (const p of productsRes.data) {
+        if (p.price !== null && p.price !== undefined && !isNaN(Number(p.price))) {
+          priceMap.set(p.id, Number(p.price));
+        }
+      }
+    }
+
+    const alerts: InventoryAlert[] = (rpcRes.data || []).map((row: any) => {
+      const hasPrice = priceMap.has(row.product_id);
+      return {
+        alert_type: row.alert_type as any,
+        product_id: row.product_id,
+        product_name: row.product_name,
+        category_name: row.category_name,
+        barcode: row.barcode,
+        low_stock_level: row.low_stock_level !== null ? Number(row.low_stock_level) : null,
+        current_stock: row.current_stock !== null ? Number(row.current_stock) : null,
+        batch_id: row.batch_id || null,
+        expiration_date: row.expiration_date || null,
+        batch_quantity_left: row.batch_quantity_left !== null ? Number(row.batch_quantity_left) : null,
+        days_until_expiration: row.days_until_expiration !== null ? Number(row.days_until_expiration) : null,
+        price: hasPrice ? (priceMap.get(row.product_id) ?? null) : null,
+      };
+    });
+
+    return { kind: 'success', alerts };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Network error fetching inventory alerts',
+    };
+  }
+}
+
+export type GetSalesMetricsResult =
+  | { kind: 'success'; metrics: SalesMetrics }
+  | { kind: 'error'; message: string };
+
+/**
+ * Fetches sales metrics (today, this week, this month in Asia/Manila) via get_sales_metrics RPC.
+ */
+export async function getSalesMetrics(): Promise<GetSalesMetricsResult> {
+  try {
+    const { data, error } = await supabase.rpc('get_sales_metrics');
+    if (error) {
+      return { kind: 'error', message: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      kind: 'success',
+      metrics: {
+        sold_today: Number(row?.sold_today ?? 0),
+        sold_this_week: Number(row?.sold_this_week ?? 0),
+        sold_this_month: Number(row?.sold_this_month ?? 0),
+      },
+    };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Failed to fetch sales metrics',
+    };
+  }
+}
+
+export type GetRankedProductsResult<T> =
+  | { kind: 'success'; products: T[] }
+  | { kind: 'error'; message: string };
+
+/**
+ * Fetches top most-stocked products by non-expired active units via get_most_stocked_products RPC.
+ */
+export async function getMostStockedProducts(
+  limit: number = 5
+): Promise<GetRankedProductsResult<MostStockedProduct>> {
+  try {
+    const { data, error } = await supabase.rpc('get_most_stocked_products', {
+      p_limit: limit,
+    });
+    if (error) {
+      return { kind: 'error', message: error.message };
+    }
+    const products: MostStockedProduct[] = (data || []).map((row: any) => ({
+      product_id: row.product_id,
+      product_name: row.product_name,
+      category_name: row.category_name,
+      barcode: row.barcode,
+      total_stock: Number(row.total_stock ?? 0),
+    }));
+    return { kind: 'success', products };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Failed to fetch most-stocked products',
+    };
+  }
+}
+
+/**
+ * Fetches top most-sold products via get_most_sold_products RPC.
+ */
+export async function getMostSoldProducts(
+  limit: number = 5
+): Promise<GetRankedProductsResult<MostSoldProduct>> {
+  try {
+    const { data, error } = await supabase.rpc('get_most_sold_products', {
+      p_limit: limit,
+    });
+    if (error) {
+      return { kind: 'error', message: error.message };
+    }
+    const products: MostSoldProduct[] = (data || []).map((row: any) => ({
+      product_id: row.product_id,
+      product_name: row.product_name,
+      category_name: row.category_name,
+      barcode: row.barcode,
+      total_sold: Number(row.total_sold ?? 0),
+    }));
+    return { kind: 'success', products };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Failed to fetch most-sold products',
+    };
+  }
+}
+
+/**
+ * Fetches least-sold products via get_least_sold_products RPC.
+ */
+export async function getLeastSoldProducts(
+  limit: number = 5
+): Promise<GetRankedProductsResult<LeastSoldProduct>> {
+  try {
+    const { data, error } = await supabase.rpc('get_least_sold_products', {
+      p_limit: limit,
+    });
+    if (error) {
+      return { kind: 'error', message: error.message };
+    }
+    const products: LeastSoldProduct[] = (data || []).map((row: any) => ({
+      product_id: row.product_id,
+      product_name: row.product_name,
+      category_name: row.category_name,
+      barcode: row.barcode,
+      total_sold: Number(row.total_sold ?? 0),
+      total_stock: Number(row.total_stock ?? 0),
+    }));
+    return { kind: 'success', products };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Failed to fetch least-sold products',
+    };
+  }
+}
+
+export type GetHomeSummaryResult =
+  | { kind: 'success'; summary: HomeSummaryData }
+  | { kind: 'error'; message: string };
+
+/**
+ * Fetches consolidated home summary via get_home_summary RPC.
+ */
+export async function getHomeSummary(): Promise<GetHomeSummaryResult> {
+  try {
+    const { data, error } = await supabase.rpc('get_home_summary');
+    if (error) {
+      return { kind: 'error', message: error.message };
+    }
+    return { kind: 'success', summary: data as HomeSummaryData };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Failed to fetch home summary',
+    };
+  }
+}
+
+

@@ -25,12 +25,14 @@ import SaleListScreen from '../screens/scan/SaleListScreen';
 import ConfirmSaleScreen from '../screens/scan/ConfirmSaleScreen';
 import SaleDoneScreen from '../screens/scan/SaleDoneScreen';
 import HistoryScreen from '../screens/scan/HistoryScreen';
+import { SaleCartProvider } from '../context/SaleCartContext';
 
 const Stack = createNativeStackNavigator<ScanStackParamList>();
 
 export default function ScanNavigator() {
   return (
-    <Stack.Navigator initialRouteName="ScanChooser">
+    <SaleCartProvider>
+      <Stack.Navigator initialRouteName="ScanChooser">
       <Stack.Screen
         name="ScanChooser"
         component={ScanChooserScreen}
@@ -87,5 +89,6 @@ export default function ScanNavigator() {
         options={{ title: 'Sales History' }}
       />
     </Stack.Navigator>
+  </SaleCartProvider>
   );
 }

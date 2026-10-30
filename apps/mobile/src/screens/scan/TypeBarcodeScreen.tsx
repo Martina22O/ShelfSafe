@@ -14,23 +14,31 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScanStackParamList } from '../../navigation/types';
-import { findProductByBarcode, searchProductsByName } from '../../services/inventory';
+import {
+  findProductByBarcode,
+  searchProductsByName,
+  getProductWithBatches,
+} from '../../services/inventory';
 import { Product } from '../../types/inventory';
+import { useSaleCart } from '../../context/SaleCartContext';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'TypeBarcode'>;
 
 export default function TypeBarcodeScreen({ route, navigation }: Props) {
   const mode = route.params?.mode || 'add';
+  const { addItem } = useSaleCart();
+
   const [barcode, setBarcode] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Search by name state
-  const [showNameSearch, setShowNameSearch] = useState(false);
+  // Search by name state (open by default in sell mode to easily sell barcode-less items)
+  const [showNameSearch, setShowNameSearch] = useState(mode === 'sell');
   const [nameQuery, setNameQuery] = useState('');
   const [searchingName, setSearchingName] = useState(false);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectingProductId, setSelectingProductId] = useState<string | null>(null);
 
   const handleFind = async () => {
     const trimmed = barcode.trim();
@@ -42,25 +50,63 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
     setErrorMessage(null);
     setLoading(true);
 
-    if (mode === 'sell') {
-      setLoading(false);
-      navigation.navigate('SaleList');
-      return;
-    }
-
     const result = await findProductByBarcode(trimmed);
-    setLoading(false);
 
     if (result.kind === 'error') {
+      setLoading(false);
       setErrorMessage(result.message);
       return;
     }
 
     if (result.kind === 'archived') {
+      setLoading(false);
       setErrorMessage('This product is archived');
       return;
     }
 
+    if (mode === 'sell') {
+      if (result.kind === 'not_found') {
+        setLoading(false);
+        setErrorMessage('This product is not in your inventory');
+        return;
+      }
+
+      if (result.kind === 'found') {
+        const batchRes = await getProductWithBatches(result.product.id);
+        setLoading(false);
+
+        if (batchRes.kind === 'error') {
+          setErrorMessage(batchRes.message);
+          return;
+        }
+
+        const sellableUnits = batchRes.kind === 'success' ? batchRes.data.sellable_units : 0;
+
+        if (sellableUnits <= 0) {
+          setErrorMessage('No sellable units for this product');
+          return;
+        }
+
+        const addRes = addItem({
+          id: result.product.id,
+          name: result.product.name,
+          barcode: result.product.barcode || trimmed,
+          price: result.product.price,
+          sellable_units: sellableUnits,
+        });
+
+        if (!addRes.success) {
+          setErrorMessage(addRes.message);
+          return;
+        }
+
+        navigation.navigate('SaleList');
+        return;
+      }
+    }
+
+    // Add mode
+    setLoading(false);
     if (result.kind === 'found') {
       navigation.navigate('AddStockForm', {
         productId: result.product.id,
@@ -99,7 +145,43 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
     setSearchResults(res.products);
   };
 
-  const handleSelectProduct = (product: Product) => {
+  const handleSelectProduct = async (product: Product) => {
+    if (mode === 'sell') {
+      setSelectingProductId(product.id);
+      setErrorMessage(null);
+      const batchRes = await getProductWithBatches(product.id);
+      setSelectingProductId(null);
+
+      if (batchRes.kind === 'error') {
+        setErrorMessage(batchRes.message);
+        return;
+      }
+
+      const sellableUnits = batchRes.kind === 'success' ? batchRes.data.sellable_units : 0;
+
+      if (sellableUnits <= 0) {
+        setErrorMessage('No sellable units for this product');
+        return;
+      }
+
+      const addRes = addItem({
+        id: product.id,
+        name: product.name,
+        barcode: product.barcode,
+        price: product.price,
+        sellable_units: sellableUnits,
+      });
+
+      if (!addRes.success) {
+        setErrorMessage(addRes.message);
+        return;
+      }
+
+      navigation.navigate('SaleList');
+      return;
+    }
+
+    // Add mode
     navigation.navigate('AddStockForm', {
       productId: product.id,
       barcode: product.barcode || '',
@@ -111,7 +193,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
     <ScrollView style={{ flex: 1, padding: 16 }}>
       <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Type Barcode</Text>
       <Text style={{ color: 'gray', marginTop: 4 }}>
-        Enter barcode number manually
+        Mode: {mode === 'add' ? 'Add Stock' : 'Record Sold Items'}
       </Text>
 
       {errorMessage ? (
@@ -124,7 +206,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
       <View style={{ marginTop: 16 }}>
         <Text style={{ fontWeight: 'bold' }}>Barcode number</Text>
         <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
+          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4, backgroundColor: '#fff' }}
           placeholder="e.g. 4801981118502"
           value={barcode}
           onChangeText={(text) => {
@@ -153,8 +235,13 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
         />
 
         {showNameSearch ? (
-          <View style={{ borderWidth: 1, borderColor: '#ddd', padding: 12, marginTop: 4 }}>
+          <View style={{ borderWidth: 1, borderColor: '#ddd', padding: 12, marginTop: 4, backgroundColor: '#fff' }}>
             <Text style={{ fontWeight: 'bold' }}>Search by product name</Text>
+            {mode === 'sell' && (
+              <Text style={{ color: 'gray', fontSize: 12, marginTop: 2 }}>
+                Use this to sell barcode-less products or items that cannot be scanned.
+              </Text>
+            )}
             <TextInput
               style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 6 }}
               placeholder="Type product name..."
@@ -176,22 +263,37 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
               </Text>
             ) : null}
 
-            {searchResults.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => handleSelectProduct(item)}
-                style={{
-                  borderBottomWidth: 1,
-                  borderColor: '#eee',
-                  paddingVertical: 10,
-                }}
-              >
-                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{item.name}</Text>
-                <Text style={{ color: 'gray', fontSize: 13 }}>
-                  Barcode: {item.barcode || 'None'} • ₱{item.price.toFixed(2)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {searchResults.map((item) => {
+              const isCurrentSelecting = selectingProductId === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => handleSelectProduct(item)}
+                  disabled={isCurrentSelecting}
+                  style={{
+                    borderBottomWidth: 1,
+                    borderColor: '#eee',
+                    paddingVertical: 10,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{item.name}</Text>
+                      <Text style={{ color: 'gray', fontSize: 13 }}>
+                        Barcode: {item.barcode || 'None'} • ₱{item.price.toFixed(2)}
+                      </Text>
+                    </View>
+                    {isCurrentSelecting ? (
+                      <ActivityIndicator size="small" color="#0056b3" />
+                    ) : (
+                      <Text style={{ color: '#0056b3', fontWeight: 'bold' }}>
+                        {mode === 'sell' ? 'Add to cart →' : 'Select →'}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : null}
 

@@ -118,3 +118,26 @@ export function getBatchStatus(
   return 'Good';
 }
 
+/**
+ * Formats an ISO timestamp string into Asia/Manila date and time (e.g. "Oct 30, 2026, 6:30 PM").
+ */
+export function formatManilaDateTime(isoString: string | null | undefined): string {
+  if (!isoString) return 'N/A';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(d);
+  } catch {
+    return isoString;
+  }
+}
+
+
