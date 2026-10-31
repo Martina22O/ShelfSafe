@@ -2,16 +2,17 @@
  * Screen: ScanBarcodeScreen
  * Real camera scanner using expo-camera CameraView.
  */
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, Button, ScrollView, Linking } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, Button, ScrollView, Linking, Modal, BackHandler } from 'react-native';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraView as ExpoCameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 
 const CameraView = ExpoCameraView as unknown as React.ComponentType<any>;
 import { ScanStackParamList } from '../../navigation/types';
-import { findProductByBarcode, getProductWithBatches } from '../../services/inventory';
+import { findProductByBarcode, getProductWithBatches, restoreProduct } from '../../services/inventory';
 import { useSaleCart } from '../../context/SaleCartContext';
+import { Product } from '../../types/inventory';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'ScanBarcode'>;
 
@@ -26,6 +27,22 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFoundBarcode, setNotFoundBarcode] = useState<string | null>(null);
 
+  // Archived product restore state
+  const [archivedProduct, setArchivedProduct] = useState<Product | null>(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreSuccessMessage, setRestoreSuccessMessage] = useState<string | null>(null);
+
+  // Prevent back navigation while restoring
+  useEffect(() => {
+    const backAction = () => {
+      if (restoring) return true;
+      return false;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [restoring]);
+
   // Single-scan lock and duplicate prevention
   const isScanningLocked = useRef(false);
   const lastScannedBarcode = useRef<string | null>(null);
@@ -38,6 +55,8 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
       setErrorMessage(null);
       setStatusMessage(null);
       setNotFoundBarcode(null);
+      setArchivedProduct(null);
+      setRestoreSuccessMessage(null);
     }, [])
   );
 
@@ -66,8 +85,9 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     }
 
     if (lookupResult.kind === 'archived') {
-      // Archived product: do not navigate
+      // Archived product: keep message and show restore button
       setErrorMessage('This product is archived');
+      setArchivedProduct(lookupResult.product);
       setStatusMessage(null);
       isScanningLocked.current = false;
       return;
@@ -190,10 +210,27 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
         </View>
       ) : null}
 
-      {/* Error Message */}
+      {/* Restore Success Message */}
+      {restoreSuccessMessage ? (
+        <View style={{ marginTop: 8, padding: 10, borderWidth: 1, borderColor: '#2e7d32', backgroundColor: '#edf7ed' }}>
+          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>{restoreSuccessMessage}</Text>
+        </View>
+      ) : null}
+
+      {/* Error Message and Restore Option */}
       {errorMessage ? (
-        <View style={{ marginTop: 8, padding: 8, backgroundColor: '#f8d7da' }}>
-          <Text style={{ color: '#721c24', fontWeight: 'bold' }}>{errorMessage}</Text>
+        <View style={{ marginTop: 8, padding: 10, borderWidth: 1, borderColor: '#d9534f', backgroundColor: '#fdf7f7' }}>
+          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>{errorMessage}</Text>
+          {archivedProduct && (
+            <View style={{ marginTop: 10 }}>
+              <Button
+                title={restoring ? 'Restoring...' : 'Restore Product'}
+                disabled={restoring}
+                onPress={() => setShowRestoreModal(true)}
+                color="#2e7d32"
+              />
+            </View>
+          )}
         </View>
       ) : null}
 
@@ -279,6 +316,77 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
           onPress={() => navigation.navigate('TypeBarcode', { mode })}
         />
       </View>
+
+      {/* Restore Confirmation Modal */}
+      <Modal
+        visible={showRestoreModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!restoring) setShowRestoreModal(false);
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              padding: 20,
+              borderRadius: 6,
+              width: '100%',
+              maxWidth: 360,
+              borderWidth: 1,
+              borderColor: '#ccc',
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Restore Product?</Text>
+            <Text style={{ color: '#333', marginTop: 10, fontSize: 14 }}>
+              Restore "{archivedProduct?.name}" to active inventory?
+            </Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowRestoreModal(false)}
+                disabled={restoring}
+                color="gray"
+              />
+              <Button
+                title={restoring ? 'Restoring...' : 'Yes, Restore'}
+                onPress={async () => {
+                  if (!archivedProduct) return;
+                  setRestoring(true);
+                  const res = await restoreProduct(archivedProduct.id);
+                  setRestoring(false);
+                  setShowRestoreModal(false);
+
+                  if (res.kind === 'db_error') {
+                    setErrorMessage(res.message);
+                    return;
+                  }
+                  if (res.kind === 'network_timeout') {
+                    setErrorMessage(res.message);
+                    return;
+                  }
+
+                  setRestoreSuccessMessage(`"${archivedProduct.name}" restored! You can now scan or add stock.`);
+                  setErrorMessage(null);
+                  setArchivedProduct(null);
+                }}
+                disabled={restoring}
+                color="#2e7d32"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

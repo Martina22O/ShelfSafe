@@ -8,6 +8,7 @@ export type AuthStackParamList = {
 export type InventoryStackParamList = {
   InventoryList: undefined;
   ProductDetail: { productId?: string; productName?: string } | undefined;
+  EditProduct: { productId: string };
 };
 
 export type ScanStackParamList = {

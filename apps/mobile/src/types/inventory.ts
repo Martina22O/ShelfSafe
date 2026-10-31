@@ -166,3 +166,37 @@ export interface HomeSummaryData {
   };
 }
 
+export interface UpdateProductParams {
+  productId: string;
+  name: string;
+  barcode: string | null;
+  categoryId: string;
+  price: number;
+  lowStockLevel: number;
+}
+
+export type MutationResult<T> =
+  | { kind: 'success'; data: T }
+  | { kind: 'db_error'; message: string }
+  | { kind: 'network_timeout'; message: string };
+
+export interface BatchActionResult {
+  id: string;
+  productId: string;
+  status: 'deleted' | 'archived';
+  action: 'deleted' | 'archived';
+  quantityLeft?: number;
+  purchaseDate?: string;
+  expirationDate?: string;
+  isArchived?: boolean;
+}
+
+export interface ProductActionResult {
+  id: string;
+  status: 'deleted' | 'archived' | 'restored';
+  action: 'deleted' | 'archived' | 'restore';
+  isArchived?: boolean;
+  name?: string;
+  barcode?: string | null;
+}
+
