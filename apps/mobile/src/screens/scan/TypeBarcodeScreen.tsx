@@ -2,7 +2,7 @@
  * Screen: TypeBarcodeScreen
  * Manual barcode entry, product search by name, and barcode-less item navigation.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  BackHandler,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScanStackParamList } from '../../navigation/types';
@@ -18,6 +20,7 @@ import {
   findProductByBarcode,
   searchProductsByName,
   getProductWithBatches,
+  restoreProduct,
 } from '../../services/inventory';
 import { Product } from '../../types/inventory';
 import { useSaleCart } from '../../context/SaleCartContext';
@@ -31,6 +34,22 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
   const [barcode, setBarcode] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Archived product restore state
+  const [archivedProduct, setArchivedProduct] = useState<Product | null>(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreSuccessMessage, setRestoreSuccessMessage] = useState<string | null>(null);
+
+  // Prevent back navigation while restoring
+  useEffect(() => {
+    const backAction = () => {
+      if (restoring) return true;
+      return false;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [restoring]);
 
   // Search by name state (open by default in sell mode to easily sell barcode-less items)
   const [showNameSearch, setShowNameSearch] = useState(mode === 'sell');
@@ -61,6 +80,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
     if (result.kind === 'archived') {
       setLoading(false);
       setErrorMessage('This product is archived');
+      setArchivedProduct(result.product);
       return;
     }
 
@@ -196,9 +216,25 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
         Mode: {mode === 'add' ? 'Add Stock' : 'Record Sold Items'}
       </Text>
 
+      {restoreSuccessMessage ? (
+        <View style={{ marginTop: 12, padding: 10, borderWidth: 1, borderColor: '#2e7d32', backgroundColor: '#edf7ed' }}>
+          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>{restoreSuccessMessage}</Text>
+        </View>
+      ) : null}
+
       {errorMessage ? (
-        <View style={{ marginTop: 12, padding: 8, backgroundColor: '#f8d7da' }}>
-          <Text style={{ color: '#721c24', fontWeight: 'bold' }}>{errorMessage}</Text>
+        <View style={{ marginTop: 12, padding: 10, borderWidth: 1, borderColor: '#d9534f', backgroundColor: '#fdf7f7' }}>
+          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>{errorMessage}</Text>
+          {archivedProduct && (
+            <View style={{ marginTop: 10 }}>
+              <Button
+                title={restoring ? 'Restoring...' : 'Restore Product'}
+                disabled={restoring}
+                onPress={() => setShowRestoreModal(true)}
+                color="#2e7d32"
+              />
+            </View>
+          )}
         </View>
       ) : null}
 
@@ -305,6 +341,77 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
           />
         ) : null}
       </View>
+
+      {/* Restore Confirmation Modal */}
+      <Modal
+        visible={showRestoreModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!restoring) setShowRestoreModal(false);
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              padding: 20,
+              borderRadius: 6,
+              width: '100%',
+              maxWidth: 360,
+              borderWidth: 1,
+              borderColor: '#ccc',
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Restore Product?</Text>
+            <Text style={{ color: '#333', marginTop: 10, fontSize: 14 }}>
+              Restore "{archivedProduct?.name}" to active inventory?
+            </Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowRestoreModal(false)}
+                disabled={restoring}
+                color="gray"
+              />
+              <Button
+                title={restoring ? 'Restoring...' : 'Yes, Restore'}
+                onPress={async () => {
+                  if (!archivedProduct) return;
+                  setRestoring(true);
+                  const res = await restoreProduct(archivedProduct.id);
+                  setRestoring(false);
+                  setShowRestoreModal(false);
+
+                  if (res.kind === 'db_error') {
+                    setErrorMessage(res.message);
+                    return;
+                  }
+                  if (res.kind === 'network_timeout') {
+                    setErrorMessage(res.message);
+                    return;
+                  }
+
+                  setRestoreSuccessMessage(`"${archivedProduct.name}" restored! You can now add stock or record sales.`);
+                  setErrorMessage(null);
+                  setArchivedProduct(null);
+                }}
+                disabled={restoring}
+                color="#2e7d32"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

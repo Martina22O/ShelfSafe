@@ -2,8 +2,9 @@
  * Screen: InventoryListScreen
  * Reference: docs/design/02-inventory(1,3,4).png
  * Real data integration with Supabase, client-side filtering, and category grouping.
+ * Includes "Show archived" toggle with archived list and confirmation-based restore.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,12 +14,19 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Modal,
+  BackHandler,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { InventoryStackParamList } from '../../navigation/types';
-import { getInventory, getCategories } from '../../services/inventory';
-import { ProductWithBatches, Category, ProductStockStatus } from '../../types/inventory';
+import {
+  getInventory,
+  getCategories,
+  getArchivedProducts,
+  restoreProduct,
+} from '../../services/inventory';
+import { ProductWithBatches, Category, ProductStockStatus, Product } from '../../types/inventory';
 
 const RefreshControlComponent = RefreshControl as any;
 
@@ -37,6 +45,26 @@ export default function InventoryListScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedStatus, setSelectedStatus] = useState<StatusFilterType>('All Stocks');
+
+  // Archived products state
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedProducts, setArchivedProducts] = useState<Product[]>([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+  const [restoringProduct, setRestoringProduct] = useState<Product | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreModalVisible, setRestoreModalVisible] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
+
+  // Prevent back navigation while restoring
+  useEffect(() => {
+    const backAction = () => {
+      if (restoring) return true;
+      return false;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [restoring]);
 
   const loadData = async (isMounted = true) => {
     setError(null);
@@ -62,6 +90,20 @@ export default function InventoryListScreen({ navigation }: Props) {
 
     setLoading(false);
     setRefreshing(false);
+
+    // If archived products view is active, reload archived list as well
+    if (showArchived) {
+      loadArchived();
+    }
+  };
+
+  const loadArchived = async () => {
+    setLoadingArchived(true);
+    const res = await getArchivedProducts();
+    setLoadingArchived(false);
+    if (res.kind === 'success') {
+      setArchivedProducts(res.products);
+    }
   };
 
   useFocusEffect(
@@ -71,15 +113,25 @@ export default function InventoryListScreen({ navigation }: Props) {
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [showArchived])
   );
 
   const onRefresh = () => {
     setRefreshing(true);
+    setRestoreSuccess(null);
+    setRestoreError(null);
     loadData(true);
   };
 
-  // The header always shows total counts for all non-archived products
+  const toggleShowArchived = () => {
+    const nextState = !showArchived;
+    setShowArchived(nextState);
+    if (nextState) {
+      loadArchived();
+    }
+  };
+
+  // The header always shows total counts for all active non-archived products
   const totalProducts = allProducts.length;
   const totalUnits = allProducts.reduce((sum, p) => sum + p.total_units, 0);
 
@@ -148,6 +200,40 @@ export default function InventoryListScreen({ navigation }: Props) {
     }
   };
 
+  // Restore action handlers
+  const handleOpenRestore = (p: Product) => {
+    setRestoreSuccess(null);
+    setRestoreError(null);
+    setRestoringProduct(p);
+    setRestoreModalVisible(true);
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoringProduct) return;
+    setRestoring(true);
+    setRestoreError(null);
+
+    const res = await restoreProduct(restoringProduct.id);
+    setRestoring(false);
+    setRestoreModalVisible(false);
+
+    if (res.kind === 'db_error') {
+      setRestoreError(res.message);
+      return;
+    }
+
+    if (res.kind === 'network_timeout') {
+      setRestoreError(res.message);
+      loadData(true);
+      return;
+    }
+
+    // Success
+    setRestoreSuccess(`"${restoringProduct.name}" has been restored to inventory.`);
+    loadData(true);
+    loadArchived();
+  };
+
   return (
     <ScrollView
       style={{ flex: 1, padding: 16 }}
@@ -160,6 +246,40 @@ export default function InventoryListScreen({ navigation }: Props) {
       <Text style={{ color: 'gray', marginTop: 4 }}>
         {totalProducts} products • {totalUnits} units
       </Text>
+
+      {/* Restore Success Banner */}
+      {restoreSuccess && (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 10,
+            borderWidth: 1,
+            borderColor: '#2e7d32',
+            backgroundColor: '#edf7ed',
+          }}
+        >
+          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>
+            {restoreSuccess}
+          </Text>
+        </View>
+      )}
+
+      {/* Restore Error Banner */}
+      {restoreError && (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 10,
+            borderWidth: 1,
+            borderColor: '#d9534f',
+            backgroundColor: '#fdf7f7',
+          }}
+        >
+          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
+            {restoreError}
+          </Text>
+        </View>
+      )}
 
       {/* Search Input */}
       <TextInput
@@ -247,6 +367,92 @@ export default function InventoryListScreen({ navigation }: Props) {
         </View>
       </View>
 
+      {/* Show Archived Toggle */}
+      <View style={{ marginTop: 16 }}>
+        <TouchableOpacity
+          onPress={toggleShowArchived}
+          style={{
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderWidth: 1,
+            borderColor: showArchived ? '#333' : '#ccc',
+            backgroundColor: showArchived ? '#f0f0f0' : '#fff',
+            borderRadius: 4,
+            alignSelf: 'flex-start',
+          }}
+        >
+          <Text style={{ fontWeight: '600', color: '#333' }}>
+            {showArchived ? 'Hide Archived Products' : 'Show Archived Products'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Archived Products Section */}
+      {showArchived && (
+        <View
+          style={{
+            marginTop: 16,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: '#999',
+            backgroundColor: '#f9f9f9',
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#444' }}>
+            Archived Products
+          </Text>
+          <Text style={{ color: 'gray', fontSize: 13, marginTop: 2, marginBottom: 12 }}>
+            Archived products do not count in totals, active stock, or alerts.
+          </Text>
+
+          {loadingArchived ? (
+            <ActivityIndicator size="small" color="#2e7d32" style={{ marginVertical: 12 }} />
+          ) : archivedProducts.length === 0 ? (
+            <Text style={{ color: 'gray', fontStyle: 'italic', marginVertical: 8 }}>
+              No archived products.
+            </Text>
+          ) : (
+            archivedProducts.map((p) => (
+              <View
+                key={p.id}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#ccc',
+                  padding: 12,
+                  backgroundColor: '#fff',
+                  marginBottom: 10,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{p.name}</Text>
+                    <Text style={{ color: 'gray', marginTop: 2 }}>
+                      Barcode: {p.barcode || 'N/A'}
+                    </Text>
+                    <Text style={{ color: 'gray', marginTop: 2 }}>
+                      Category: {p.category?.name || 'Uncategorized'} • Price: ₱
+                      {p.price.toFixed(2)}
+                    </Text>
+                  </View>
+                  <Button
+                    title={restoring && restoringProduct?.id === p.id ? 'Restoring...' : 'Restore'}
+                    disabled={restoring}
+                    onPress={() => handleOpenRestore(p)}
+                    color="#2e7d32"
+                  />
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+
       {/* Loading state indicator */}
       {loading && !refreshing && (
         <View style={{ marginTop: 40, alignItems: 'center' }}>
@@ -282,14 +488,14 @@ export default function InventoryListScreen({ navigation }: Props) {
         </View>
       )}
 
-      {/* Product list or Empty states */}
+      {/* Active Product list or Empty states */}
       {!loading && !error && (
         <View style={{ marginTop: 24, marginBottom: 40 }}>
           {/* Case 1: No products in DB at all */}
           {allProducts.length === 0 ? (
             <View style={{ marginTop: 24, padding: 24, alignItems: 'center' }}>
               <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#555' }}>
-                No products in inventory
+                No active products in inventory
               </Text>
               <Text style={{ color: 'gray', marginTop: 4, textAlign: 'center' }}>
                 You have not added any stock yet. Use the Scan tab to add products.
@@ -306,7 +512,7 @@ export default function InventoryListScreen({ navigation }: Props) {
               </Text>
             </View>
           ) : (
-            /* Case 3: Display grouped product cards */
+            /* Case 3: Display grouped active product cards */
             groupedCategoryNames.map((catName) => (
               <View key={catName} style={{ marginBottom: 20 }}>
                 <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>
@@ -407,6 +613,58 @@ export default function InventoryListScreen({ navigation }: Props) {
           )}
         </View>
       )}
+
+      {/* Restore Confirmation Modal */}
+      <Modal
+        visible={restoreModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!restoring) setRestoreModalVisible(false);
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              padding: 20,
+              borderRadius: 6,
+              width: '100%',
+              maxWidth: 360,
+              borderWidth: 1,
+              borderColor: '#ccc',
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Restore Product?</Text>
+            <Text style={{ color: '#333', marginTop: 10, fontSize: 14 }}>
+              Restore "{restoringProduct?.name}" to active inventory?
+            </Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <Button
+                title="Cancel"
+                onPress={() => setRestoreModalVisible(false)}
+                disabled={restoring}
+                color="gray"
+              />
+              <Button
+                title={restoring ? 'Restoring...' : 'Yes, Restore'}
+                onPress={handleConfirmRestore}
+                disabled={restoring}
+                color="#2e7d32"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

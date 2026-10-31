@@ -15,9 +15,28 @@ import {
   MostSoldProduct,
   LeastSoldProduct,
   HomeSummaryData,
+  UpdateProductParams,
+  MutationResult,
+  BatchActionResult,
+  ProductActionResult,
 } from '../types/inventory';
 import { getBarcodeVariants } from '../utils/barcode';
 import { getTodayInManila, NEAR_EXPIRY_DAYS, addDaysToDate } from '../utils/date';
+
+/**
+ * Classifies whether an error is a clear database error or an unclear failure (network / timeout).
+ * Matches patterns from PostgreSQL / Supabase constraints and custom RAISE EXCEPTION messages.
+ */
+export function isDatabaseError(error: any): boolean {
+  if (!error) return false;
+  const msg = typeof error === 'string' ? error : error.message || '';
+  return Boolean(
+    error.code ||
+      /insufficient|not found|archived|access denied|greater than|equal to|required|authentication|already exists|cannot be|unique/i.test(
+        msg
+      )
+  );
+}
 
 export type FindProductResult =
   | { kind: 'found'; product: Product }
@@ -544,14 +563,7 @@ export async function recordSale(
 
     if (error) {
       const msg = error.message || '';
-      const isDbError = Boolean(
-        error.code ||
-          /insufficient|not found|archived|access denied|greater than zero|required|authentication/i.test(
-            msg
-          )
-      );
-
-      if (isDbError) {
+      if (isDatabaseError(error)) {
         return { kind: 'db_error', message: msg };
       }
 
@@ -840,6 +852,359 @@ export async function getHomeSummary(): Promise<GetHomeSummaryResult> {
     return {
       kind: 'error',
       message: err?.message || 'Failed to fetch home summary',
+    };
+  }
+}
+
+/**
+ * Fetches a single batch by ID to ensure freshest data when opening dialogs.
+ */
+export async function getBatch(
+  batchId: string
+): Promise<
+  | { kind: 'success'; batch: Batch }
+  | { kind: 'not_found' }
+  | { kind: 'error'; message: string }
+> {
+  try {
+    const { data, error } = await supabase
+      .from('batches')
+      .select('id, product_id, quantity_left, purchase_date, expiration_date, is_archived, created_at')
+      .eq('id', batchId)
+      .maybeSingle();
+
+    if (error) {
+      return { kind: 'error', message: error.message };
+    }
+
+    if (!data) {
+      return { kind: 'not_found' };
+    }
+
+    return {
+      kind: 'success',
+      batch: {
+        id: data.id,
+        product_id: data.product_id,
+        quantity_left: Number(data.quantity_left),
+        purchase_date: data.purchase_date,
+        expiration_date: data.expiration_date,
+        is_archived: Boolean(data.is_archived),
+        created_at: data.created_at,
+      },
+    };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Failed to fetch batch',
+    };
+  }
+}
+
+/**
+ * Corrects batch quantity via correct_batch_quantity RPC.
+ */
+export async function correctBatchQuantity(
+  batchId: string,
+  newQuantity: number
+): Promise<MutationResult<Batch>> {
+  try {
+    const { data, error } = await supabase.rpc('correct_batch_quantity', {
+      p_batch_id: batchId,
+      p_new_quantity: newQuantity,
+    });
+
+    if (error) {
+      if (isDatabaseError(error)) {
+        return { kind: 'db_error', message: error.message };
+      }
+      return {
+        kind: 'network_timeout',
+        message: 'Not sure if this was saved. Pull down to refresh and check',
+      };
+    }
+
+    return {
+      kind: 'success',
+      data: {
+        id: data.id,
+        product_id: data.product_id,
+        quantity_left: Number(data.quantity_left),
+        purchase_date: data.purchase_date,
+        expiration_date: data.expiration_date,
+        is_archived: Boolean(data.is_archived),
+      },
+    };
+  } catch (err: any) {
+    if (isDatabaseError(err)) {
+      return { kind: 'db_error', message: err?.message || 'Database error' };
+    }
+    return {
+      kind: 'network_timeout',
+      message: 'Not sure if this was saved. Pull down to refresh and check',
+    };
+  }
+}
+
+/**
+ * Updates batch dates via update_batch_dates RPC.
+ */
+export async function updateBatchDates(
+  batchId: string,
+  purchaseDate: string,
+  expirationDate: string
+): Promise<MutationResult<Batch>> {
+  try {
+    const { data, error } = await supabase.rpc('update_batch_dates', {
+      p_batch_id: batchId,
+      p_purchase_date: purchaseDate,
+      p_expiration_date: expirationDate,
+    });
+
+    if (error) {
+      if (isDatabaseError(error)) {
+        return { kind: 'db_error', message: error.message };
+      }
+      return {
+        kind: 'network_timeout',
+        message: 'Not sure if this was saved. Pull down to refresh and check',
+      };
+    }
+
+    return {
+      kind: 'success',
+      data: {
+        id: data.id,
+        product_id: data.product_id,
+        quantity_left: Number(data.quantity_left),
+        purchase_date: data.purchase_date,
+        expiration_date: data.expiration_date,
+        is_archived: Boolean(data.is_archived),
+      },
+    };
+  } catch (err: any) {
+    if (isDatabaseError(err)) {
+      return { kind: 'db_error', message: err?.message || 'Database error' };
+    }
+    return {
+      kind: 'network_timeout',
+      message: 'Not sure if this was saved. Pull down to refresh and check',
+    };
+  }
+}
+
+/**
+ * Updates product details via update_product RPC.
+ */
+export async function updateProduct(
+  params: UpdateProductParams
+): Promise<MutationResult<Product>> {
+  try {
+    const { data, error } = await supabase.rpc('update_product', {
+      p_product_id: params.productId,
+      p_name: params.name,
+      p_barcode: params.barcode ? params.barcode.trim() : null,
+      p_category_id: params.categoryId,
+      p_price: params.price,
+      p_low_stock_level: params.lowStockLevel,
+    });
+
+    if (error) {
+      if (isDatabaseError(error)) {
+        return { kind: 'db_error', message: error.message };
+      }
+      return {
+        kind: 'network_timeout',
+        message: 'Not sure if this was saved. Pull down to refresh and check',
+      };
+    }
+
+    return {
+      kind: 'success',
+      data: {
+        id: data.id,
+        name: data.name,
+        barcode: data.barcode,
+        category_id: data.category_id,
+        price: Number(data.price),
+        low_stock_level: Number(data.low_stock_level),
+        is_archived: Boolean(data.is_archived),
+      },
+    };
+  } catch (err: any) {
+    if (isDatabaseError(err)) {
+      return { kind: 'db_error', message: err?.message || 'Database error' };
+    }
+    return {
+      kind: 'network_timeout',
+      message: 'Not sure if this was saved. Pull down to refresh and check',
+    };
+  }
+}
+
+/**
+ * Removes a batch via remove_batch RPC (deletes if unused, archives if used).
+ */
+export async function removeBatch(
+  batchId: string
+): Promise<MutationResult<BatchActionResult>> {
+  try {
+    const { data, error } = await supabase.rpc('remove_batch', {
+      p_batch_id: batchId,
+    });
+
+    if (error) {
+      if (isDatabaseError(error)) {
+        return { kind: 'db_error', message: error.message };
+      }
+      return {
+        kind: 'network_timeout',
+        message: 'Not sure if this was saved. Pull down to refresh and check',
+      };
+    }
+
+    return {
+      kind: 'success',
+      data: {
+        id: data.id,
+        productId: data.product_id,
+        status: data.status,
+        action: data.action,
+        quantityLeft: data.quantity_left !== undefined ? Number(data.quantity_left) : undefined,
+        purchaseDate: data.purchase_date,
+        expirationDate: data.expiration_date,
+        isArchived: data.is_archived,
+      },
+    };
+  } catch (err: any) {
+    if (isDatabaseError(err)) {
+      return { kind: 'db_error', message: err?.message || 'Database error' };
+    }
+    return {
+      kind: 'network_timeout',
+      message: 'Not sure if this was saved. Pull down to refresh and check',
+    };
+  }
+}
+
+/**
+ * Removes a product via remove_product RPC (deletes if unused, archives if used).
+ */
+export async function removeProduct(
+  productId: string
+): Promise<MutationResult<ProductActionResult>> {
+  try {
+    const { data, error } = await supabase.rpc('remove_product', {
+      p_product_id: productId,
+    });
+
+    if (error) {
+      if (isDatabaseError(error)) {
+        return { kind: 'db_error', message: error.message };
+      }
+      return {
+        kind: 'network_timeout',
+        message: 'Not sure if this was saved. Pull down to refresh and check',
+      };
+    }
+
+    return {
+      kind: 'success',
+      data: {
+        id: data.id,
+        status: data.status,
+        action: data.action,
+        isArchived: data.is_archived,
+      },
+    };
+  } catch (err: any) {
+    if (isDatabaseError(err)) {
+      return { kind: 'db_error', message: err?.message || 'Database error' };
+    }
+    return {
+      kind: 'network_timeout',
+      message: 'Not sure if this was saved. Pull down to refresh and check',
+    };
+  }
+}
+
+/**
+ * Restores an archived product via restore_product RPC.
+ */
+export async function restoreProduct(
+  productId: string
+): Promise<MutationResult<ProductActionResult>> {
+  try {
+    const { data, error } = await supabase.rpc('restore_product', {
+      p_product_id: productId,
+    });
+
+    if (error) {
+      if (isDatabaseError(error)) {
+        return { kind: 'db_error', message: error.message };
+      }
+      return {
+        kind: 'network_timeout',
+        message: 'Not sure if this was saved. Pull down to refresh and check',
+      };
+    }
+
+    return {
+      kind: 'success',
+      data: {
+        id: data.id,
+        name: data.name,
+        barcode: data.barcode,
+        status: data.status,
+        action: data.action,
+        isArchived: false,
+      },
+    };
+  } catch (err: any) {
+    if (isDatabaseError(err)) {
+      return { kind: 'db_error', message: err?.message || 'Database error' };
+    }
+    return {
+      kind: 'network_timeout',
+      message: 'Not sure if this was saved. Pull down to refresh and check',
+    };
+  }
+}
+
+/**
+ * Fetches all archived products for the authenticated user.
+ */
+export async function getArchivedProducts(): Promise<
+  | { kind: 'success'; products: Product[] }
+  | { kind: 'error'; message: string }
+> {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, categories(id, name)')
+      .eq('is_archived', true)
+      .order('name');
+
+    if (error) {
+      return { kind: 'error', message: error.message };
+    }
+
+    const products: Product[] = (data || []).map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      barcode: item.barcode,
+      price: Number(item.price),
+      low_stock_level: item.low_stock_level,
+      is_archived: true,
+      category_id: item.category_id,
+      category: item.categories as any,
+    }));
+
+    return { kind: 'success', products };
+  } catch (err: any) {
+    return {
+      kind: 'error',
+      message: err?.message || 'Network error fetching archived products',
     };
   }
 }
