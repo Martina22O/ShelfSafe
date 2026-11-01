@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '../lib/supabase/server';
 import { hasSupabaseEnv } from '../lib/env';
 
+export const instant = false;
+
 export default async function HomePage() {
   if (!hasSupabaseEnv()) {
     return null;
