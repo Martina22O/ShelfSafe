@@ -21,7 +21,7 @@ import {
   ProductActionResult,
 } from '../types/inventory';
 import { getBarcodeVariants } from '../utils/barcode';
-import { getTodayInManila, NEAR_EXPIRY_DAYS, addDaysToDate } from '../utils/date';
+import { getTodayInManila, addDaysToDate } from '../utils/date';
 
 /**
  * Classifies whether an error is a clear database error or an unclear failure (network / timeout).
@@ -95,10 +95,11 @@ export function computeProductStatuses(
   product: { low_stock_level: number },
   batches: Batch[],
   sellableUnits: number,
-  today: string = getTodayInManila()
+  today: string,
+  nearExpiryDays: number
 ): ProductStockStatus[] {
   const statuses: ProductStockStatus[] = [];
-  const nearExpiryThreshold = addDaysToDate(today, NEAR_EXPIRY_DAYS);
+  const nearExpiryThreshold = addDaysToDate(today, nearExpiryDays);
 
   // 1. "Has expired stock" if any batch with units left is expired
   const hasExpired = batches.some(
@@ -267,7 +268,8 @@ export async function searchProductsByName(
  * - batch_count: number of non-archived batches
  */
 export async function getProductWithBatches(
-  productId: string
+  productId: string,
+  nearExpiryDays: number
 ): Promise<ProductWithBatchesResult> {
   try {
     const { data: prodData, error: prodError } = await supabase
@@ -312,7 +314,8 @@ export async function getProductWithBatches(
       { low_stock_level: prodData.low_stock_level },
       batches,
       sellableUnits,
-      today
+      today,
+      nearExpiryDays
     );
 
     const result: ProductWithBatches = {
@@ -344,7 +347,9 @@ export async function getProductWithBatches(
  * Fetch all non-archived products with their category and active batches in a single query.
  * For each product computes total_units, sellable_units, batch_count, and status badges.
  */
-export async function getInventory(): Promise<GetInventoryResult> {
+export async function getInventory(
+  nearExpiryDays: number
+): Promise<GetInventoryResult> {
   try {
     const { data, error } = await supabase
       .from('products')
@@ -411,7 +416,8 @@ export async function getInventory(): Promise<GetInventoryResult> {
         { low_stock_level: item.low_stock_level ?? 5 },
         batches,
         sellableUnits,
-        today
+        today,
+        nearExpiryDays
       );
 
       return {
@@ -655,7 +661,7 @@ export type GetInventoryAlertsResult =
  * Also retrieves non-archived product prices to attach real prices for estimated value calculations.
  */
 export async function getInventoryAlerts(
-  daysThreshold: number = NEAR_EXPIRY_DAYS
+  daysThreshold: number
 ): Promise<GetInventoryAlertsResult> {
   try {
     const [rpcRes, productsRes] = await Promise.all([

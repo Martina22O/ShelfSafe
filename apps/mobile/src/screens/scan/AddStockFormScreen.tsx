@@ -18,6 +18,7 @@ import {
   findProductByBarcode,
   addStock,
 } from '../../services/inventory';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { ProductWithBatches } from '../../types/inventory';
 import {
   getTodayInManila,
@@ -28,6 +29,7 @@ import {
 type Props = NativeStackScreenProps<ScanStackParamList, 'AddStockForm'>;
 
 export default function AddStockFormScreen({ route, navigation }: Props) {
+  const { near_expiry_days } = useStoreSettings();
   const paramProductId = route.params?.productId;
   const paramBarcode = route.params?.barcode;
   const paramProductName = route.params?.productName;
@@ -80,7 +82,7 @@ export default function AddStockFormScreen({ route, navigation }: Props) {
         return;
       }
 
-      const res = await getProductWithBatches(targetId);
+      const res = await getProductWithBatches(targetId, near_expiry_days);
       if (!isMounted) return;
 
       if (res.kind === 'success') {

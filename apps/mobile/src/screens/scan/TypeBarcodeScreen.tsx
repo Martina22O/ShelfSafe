@@ -22,12 +22,14 @@ import {
   getProductWithBatches,
   restoreProduct,
 } from '../../services/inventory';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { Product } from '../../types/inventory';
 import { useSaleCart } from '../../context/SaleCartContext';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'TypeBarcode'>;
 
 export default function TypeBarcodeScreen({ route, navigation }: Props) {
+  const { near_expiry_days } = useStoreSettings();
   const mode = route.params?.mode || 'add';
   const { addItem } = useSaleCart();
 
@@ -92,7 +94,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
       }
 
       if (result.kind === 'found') {
-        const batchRes = await getProductWithBatches(result.product.id);
+        const batchRes = await getProductWithBatches(result.product.id, near_expiry_days);
         setLoading(false);
 
         if (batchRes.kind === 'error') {
@@ -169,7 +171,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
     if (mode === 'sell') {
       setSelectingProductId(product.id);
       setErrorMessage(null);
-      const batchRes = await getProductWithBatches(product.id);
+      const batchRes = await getProductWithBatches(product.id, near_expiry_days);
       setSelectingProductId(null);
 
       if (batchRes.kind === 'error') {

@@ -1,12 +1,7 @@
 /**
  * Screen: ForgotPasswordScreen
- * Elements:
- * - Screen Name: Reset password
- * - Subtitle ("Enter your email to receive password reset instructions")
- * - Email field (placeholder: "you@example.com")
- * - "Send reset link" button
- * - "Back to Sign in" button
- * - Status message
+ * Placeholder screen for password reset.
+ * Does not call resetPasswordForEmail as email dispatch is not configured.
  */
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button } from 'react-native';
@@ -20,18 +15,20 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const handleReset = () => {
-    setStatusMessage('Password reset placeholder link dispatched.');
+    setStatusMessage('Password reset by email is not available yet.');
   };
 
   return (
     <View style={{ flex: 1, padding: 24, justifyContent: 'center' }}>
       <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Reset password</Text>
       <Text style={{ fontSize: 16, marginTop: 4, color: 'gray' }}>
-        Enter your email to receive password reset instructions
+        Password reset by email is not available yet.
       </Text>
 
       {statusMessage ? (
-        <Text style={{ color: 'green', marginTop: 12 }}>{statusMessage}</Text>
+        <Text style={{ color: '#d9534f', marginTop: 12, fontWeight: 'bold' }}>
+          {statusMessage}
+        </Text>
       ) : null}
 
       <Text style={{ marginTop: 16 }}>Email</Text>

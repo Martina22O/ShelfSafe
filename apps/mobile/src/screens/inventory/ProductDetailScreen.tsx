@@ -28,9 +28,11 @@ import {
   removeBatch,
   removeProduct,
 } from '../../services/inventory';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { ProductWithBatches, ProductStockStatus, Batch } from '../../types/inventory';
 import {
   formatDisplayDate,
+  getTodayInManila,
   getBatchStatus,
   BatchStockStatus,
   isValidCalendarDate,
@@ -42,6 +44,12 @@ const RefreshControlComponent = RefreshControl as any;
 type Props = NativeStackScreenProps<InventoryStackParamList, 'ProductDetail'>;
 
 export default function ProductDetailScreen({ route, navigation }: Props) {
+  const {
+    near_expiry_days,
+    loading: settingsLoading,
+    error: settingsError,
+    reload: reloadSettings,
+  } = useStoreSettings();
   const productId = route.params?.productId;
 
   const [product, setProduct] = useState<ProductWithBatches | null>(null);
@@ -95,6 +103,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   }, [navigation, saving]);
 
   const loadProduct = async (isMounted = true) => {
+    if (settingsLoading || settingsError) return;
     if (!productId) {
       setProductNotFound(true);
       setLoading(false);
@@ -103,7 +112,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
     }
 
     setError(null);
-    const res = await getProductWithBatches(productId);
+    const res = await getProductWithBatches(productId, near_expiry_days);
 
     if (!isMounted) return;
 
@@ -129,12 +138,20 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      loadProduct(isMounted);
+      if (!settingsLoading && !settingsError) {
+        loadProduct(isMounted);
+      }
       return () => {
         isMounted = false;
       };
-    }, [productId])
+    }, [productId, settingsLoading, settingsError, near_expiry_days])
   );
+
+  useEffect(() => {
+    if (!settingsLoading && !settingsError) {
+      loadProduct(true);
+    }
+  }, [near_expiry_days, settingsLoading, settingsError]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -387,6 +404,31 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
     return a.expiration_date.localeCompare(b.expiration_date);
   });
 
+  if (settingsLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <ActivityIndicator size="large" color="#2e7d32" />
+        <Text style={{ marginTop: 12, color: 'gray' }}>Loading store settings...</Text>
+      </View>
+    );
+  }
+
+  if (settingsError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#d9534f', textAlign: 'center' }}>
+          Failed to load store settings
+        </Text>
+        <Text style={{ color: 'gray', marginTop: 8, textAlign: 'center' }}>
+          {settingsError}
+        </Text>
+        <View style={{ marginTop: 16 }}>
+          <Button title="Retry" onPress={reloadSettings} color="#2e7d32" />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={{ flex: 1, padding: 16 }}
@@ -604,9 +646,12 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
                   .replace(/-/g, '')
                   .slice(0, 8)
                   .toUpperCase()}`;
+                const today = getTodayInManila();
                 const batchStatus = getBatchStatus(
                   batch.expiration_date,
-                  batch.quantity_left
+                  batch.quantity_left,
+                  today,
+                  near_expiry_days
                 );
                 const badge = getBatchBadgeStyle(batchStatus);
 
