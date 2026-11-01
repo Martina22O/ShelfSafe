@@ -2,6 +2,7 @@
  * Date utilities for ShelfSafe (Asia/Manila timezone).
  * Never uses new Date(dateString) on date-only strings to avoid timezone shifts.
  */
+import { BatchStockStatus } from '../types/inventory';
 
 export const NEAR_EXPIRY_DAYS = 7;
 
@@ -16,6 +17,53 @@ export function getTodayInManila(): string {
     day: '2-digit',
   });
   return formatter.format(new Date());
+}
+
+/**
+ * Validates that a string is a valid calendar date in YYYY-MM-DD format.
+ */
+export function isValidCalendarDate(dateString: string): boolean {
+  if (!dateString || typeof dateString !== 'string') return false;
+  const match = dateString.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+
+  const dateObj = new Date(year, month - 1, day);
+  return (
+    dateObj.getFullYear() === year &&
+    dateObj.getMonth() + 1 === month &&
+    dateObj.getDate() === day
+  );
+}
+
+/**
+ * Checks if a date string is earlier than today in Asia/Manila.
+ */
+export function isDateInPast(dateString: string): boolean {
+  if (!isValidCalendarDate(dateString)) return false;
+  const today = getTodayInManila();
+  return dateString < today;
+}
+
+/**
+ * Adds an integer number of days to a YYYY-MM-DD date string using Date.UTC.
+ */
+export function addDaysToDate(dateString: string, days: number): string {
+  const parts = dateString.split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+
+  const utcDate = new Date(Date.UTC(y, m - 1, d + days));
+  const nextY = utcDate.getUTCFullYear();
+  const nextM = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+  const nextD = String(utcDate.getUTCDate()).padStart(2, '0');
+  return `${nextY}-${nextM}-${nextD}`;
 }
 
 const MONTH_NAMES = [
@@ -39,6 +87,29 @@ export function formatDisplayDate(dateString: string | null | undefined): string
 }
 
 /**
+ * Determines the status of an individual batch.
+ * nearExpiryDays is a REQUIRED parameter (no default value).
+ */
+export function getBatchStatus(
+  expirationDate: string,
+  quantityLeft: number,
+  today: string,
+  nearExpiryDays: number
+): BatchStockStatus {
+  if (quantityLeft <= 0) {
+    return 'Sold out';
+  }
+  if (expirationDate < today) {
+    return 'Expired';
+  }
+  const nearExpiryThreshold = addDaysToDate(today, nearExpiryDays);
+  if (expirationDate <= nearExpiryThreshold) {
+    return 'Near Expiry';
+  }
+  return 'Good';
+}
+
+/**
  * Formats an ISO timestamp string into Asia/Manila date and time.
  */
 export function formatManilaDateTime(isoString: string | null | undefined): string {
@@ -59,4 +130,3 @@ export function formatManilaDateTime(isoString: string | null | undefined): stri
     return isoString;
   }
 }
-
