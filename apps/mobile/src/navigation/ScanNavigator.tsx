@@ -25,14 +25,12 @@ import SaleListScreen from '../screens/scan/SaleListScreen';
 import ConfirmSaleScreen from '../screens/scan/ConfirmSaleScreen';
 import SaleDoneScreen from '../screens/scan/SaleDoneScreen';
 import HistoryScreen from '../screens/scan/HistoryScreen';
-import { SaleCartProvider } from '../context/SaleCartContext';
 
 const Stack = createNativeStackNavigator<ScanStackParamList>();
 
 export default function ScanNavigator() {
   return (
-    <SaleCartProvider>
-      <Stack.Navigator initialRouteName="ScanChooser">
+    <Stack.Navigator initialRouteName="ScanChooser">
       <Stack.Screen
         name="ScanChooser"
         component={ScanChooserScreen}
@@ -51,7 +49,12 @@ export default function ScanNavigator() {
       <Stack.Screen
         name="TypeBarcode"
         component={TypeBarcodeScreen}
-        options={{ title: 'Type Barcode' }}
+        options={({ route }) => ({
+          title:
+            route.params?.mode === 'add'
+              ? 'Type Barcode (Add Stock)'
+              : 'Type Barcode (Sell)',
+        })}
       />
       <Stack.Screen
         name="AddStockForm"
@@ -71,12 +74,12 @@ export default function ScanNavigator() {
       <Stack.Screen
         name="SaleList"
         component={SaleListScreen}
-        options={{ title: 'Items for Sale' }}
+        options={{ title: 'Sale List' }}
       />
       <Stack.Screen
         name="ConfirmSale"
         component={ConfirmSaleScreen}
-        options={{ title: 'Confirm Sale' }}
+        options={{ title: 'Review Sale', headerBackVisible: false }}
       />
       <Stack.Screen
         name="SaleDone"
@@ -89,6 +92,5 @@ export default function ScanNavigator() {
         options={{ title: 'Sales History' }}
       />
     </Stack.Navigator>
-  </SaleCartProvider>
   );
 }

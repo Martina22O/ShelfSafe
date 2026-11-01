@@ -51,8 +51,7 @@ export function isDateInPast(dateString: string): boolean {
 }
 
 /**
- * Shared threshold: expiration_date within 7 days from today is considered near expiry.
- * Matches get_inventory_alerts function in Supabase.
+ * Default near expiry days threshold used only when no store settings row exists.
  */
 export const NEAR_EXPIRY_DAYS = 7;
 
@@ -97,13 +96,15 @@ export function formatDisplayDate(dateString: string | null | undefined): string
  * Determines the status of an individual batch:
  * - "Sold out" if quantity_left <= 0
  * - "Expired" if expiration_date < today
- * - "Near Expiry" if expiration_date is from today up to today + NEAR_EXPIRY_DAYS
+ * - "Near Expiry" if expiration_date is from today up to today + nearExpiryDays
  * - "Good" otherwise
+ * nearExpiryDays is REQUIRED (no default value) so no screen silently falls back to 7.
  */
 export function getBatchStatus(
   expirationDate: string,
   quantityLeft: number,
-  today: string = getTodayInManila()
+  today: string,
+  nearExpiryDays: number
 ): BatchStockStatus {
   if (quantityLeft <= 0) {
     return 'Sold out';
@@ -111,7 +112,7 @@ export function getBatchStatus(
   if (expirationDate < today) {
     return 'Expired';
   }
-  const nearExpiryThreshold = addDaysToDate(today, NEAR_EXPIRY_DAYS);
+  const nearExpiryThreshold = addDaysToDate(today, nearExpiryDays);
   if (expirationDate <= nearExpiryThreshold) {
     return 'Near Expiry';
   }
@@ -135,9 +136,7 @@ export function formatManilaDateTime(isoString: string | null | undefined): stri
       minute: '2-digit',
       hour12: true,
     }).format(d);
-  } catch {
+  } catch (_e) {
     return isoString;
   }
 }
-
-

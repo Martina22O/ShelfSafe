@@ -21,11 +21,13 @@ import {
   getCategories,
   updateProduct,
 } from '../../services/inventory';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { Category, ProductWithBatches } from '../../types/inventory';
 
 type Props = NativeStackScreenProps<InventoryStackParamList, 'EditProduct'>;
 
 export default function EditProductScreen({ route, navigation }: Props) {
+  const { near_expiry_days } = useStoreSettings();
   const productId = route.params?.productId;
 
   const [loading, setLoading] = useState(true);
@@ -78,7 +80,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
     setLoadError(null);
 
     const [prodRes, catRes] = await Promise.all([
-      getProductWithBatches(productId),
+      getProductWithBatches(productId, near_expiry_days),
       getCategories(),
     ]);
 

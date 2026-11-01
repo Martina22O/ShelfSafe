@@ -11,12 +11,14 @@ import { CameraView as ExpoCameraView, useCameraPermissions, BarcodeScanningResu
 const CameraView = ExpoCameraView as unknown as React.ComponentType<any>;
 import { ScanStackParamList } from '../../navigation/types';
 import { findProductByBarcode, getProductWithBatches, restoreProduct } from '../../services/inventory';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { useSaleCart } from '../../context/SaleCartContext';
 import { Product } from '../../types/inventory';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'ScanBarcode'>;
 
 export default function ScanBarcodeScreen({ route, navigation }: Props) {
+  const { near_expiry_days } = useStoreSettings();
   const { mode } = route.params;
   const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
@@ -102,7 +104,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
 
       if (lookupResult.kind === 'found') {
         setStatusMessage('Checking sellable stock...');
-        const batchRes = await getProductWithBatches(lookupResult.product.id);
+        const batchRes = await getProductWithBatches(lookupResult.product.id, near_expiry_days);
 
         if (batchRes.kind === 'error') {
           setErrorMessage(batchRes.message);

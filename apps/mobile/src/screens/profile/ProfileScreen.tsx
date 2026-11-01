@@ -1,44 +1,53 @@
 /**
  * Screen: ProfileScreen
- * Reference: docs/design/05-profile.png
- * Elements:
- * - Screen Name: Profile
- * - Subtitle ("Manage your account and store")
- * - Account identity card (dynamic user name & email, "Edit Profile" button)
- * - Store details card (placeholder store name, "Edit store details" button)
- * - Account & Settings list:
- *   - Change password ("Update your password")
- *   - Notification preferences ("Low-stock and expiry alerts")
- *   - Sync Status ("Connected")
- * - "Sign out" button (calls supabase.auth.signOut)
+ * Displays user identity from auth metadata, store details from StoreSettingsContext,
+ * and navigation links to profile/store actions.
+ * Provides confirmed sign-out clearing cart and store settings.
  */
-import React, { useState, useEffect } from 'react';
-import { View, Text, Button, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, Button, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
+import { useSaleCart } from '../../context/SaleCartContext';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Profile'>;
 
 export default function ProfileScreen({ navigation }: Props) {
-  const [userName, setUserName] = useState('Your name');
-  const [userEmail, setUserEmail] = useState('you@example.com');
+  const { store_name, contact_number, clearStoreSettings } = useStoreSettings();
+  const { clearCart } = useSaleCart();
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        if (user.user_metadata?.name) {
-          setUserName(user.user_metadata.name);
-        }
-        if (user.email) {
-          setUserEmail(user.email);
-        }
-      }
-    });
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const loadUserData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setUserName(user.user_metadata?.name || '');
+      setUserEmail(user.email || '');
+    }
   }, []);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, [loadUserData])
+  );
+
+  const handleConfirmSignOut = async () => {
+    setSigningOut(true);
+    try {
+      clearCart();
+      clearStoreSettings();
+      await supabase.auth.signOut();
+    } finally {
+      setShowSignOutConfirm(false);
+      setSigningOut(false);
+    }
   };
 
   return (
@@ -52,13 +61,16 @@ export default function ProfileScreen({ navigation }: Props) {
       <View style={{ borderWidth: 1, borderColor: '#ccc', padding: 16, marginTop: 16 }}>
         <Text style={{ fontWeight: 'bold', color: 'gray' }}>Account identity</Text>
         <View style={{ marginTop: 8 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{userName}</Text>
-          <Text style={{ color: 'gray' }}>{userEmail}</Text>
+          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
+            {userName || 'No name set'}
+          </Text>
+          <Text style={{ color: 'gray', marginTop: 2 }}>{userEmail}</Text>
         </View>
         <View style={{ marginTop: 12 }}>
           <Button
             title="Edit Profile"
             onPress={() => navigation.navigate('EditProfile')}
+            disabled={signingOut}
           />
         </View>
       </View>
@@ -67,13 +79,18 @@ export default function ProfileScreen({ navigation }: Props) {
       <View style={{ borderWidth: 1, borderColor: '#ccc', padding: 16, marginTop: 16 }}>
         <Text style={{ fontWeight: 'bold', color: 'gray' }}>Store details</Text>
         <View style={{ marginTop: 8 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Your store</Text>
-          <Text style={{ color: 'gray' }}>Store name</Text>
+          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
+            {store_name || 'Not set yet'}
+          </Text>
+          <Text style={{ color: 'gray', marginTop: 2 }}>
+            Contact: {contact_number || 'Not set yet'}
+          </Text>
         </View>
         <View style={{ marginTop: 12 }}>
           <Button
-            title="Edit store details"
+            title="Edit Store"
             onPress={() => navigation.navigate('EditStore')}
+            disabled={signingOut}
           />
         </View>
       </View>
@@ -84,30 +101,95 @@ export default function ProfileScreen({ navigation }: Props) {
 
         <View style={{ marginTop: 12 }}>
           <Button
-            title="Change password (Update your password)"
+            title="Change Password"
             onPress={() => navigation.navigate('ChangePassword')}
+            disabled={signingOut}
           />
         </View>
 
         <View style={{ marginTop: 12 }}>
           <Button
-            title="Notification preferences (Low-stock & expiry alerts)"
+            title="Notification Preferences"
             onPress={() => navigation.navigate('NotificationPreferences')}
+            disabled={signingOut}
           />
         </View>
 
         <View style={{ marginTop: 12 }}>
           <Button
-            title="Sync Status (Connected)"
+            title="Sync Status"
             onPress={() => navigation.navigate('SyncStatus')}
+            disabled={signingOut}
           />
         </View>
       </View>
 
       {/* Sign Out Action */}
       <View style={{ marginTop: 24, marginBottom: 40 }}>
-        <Button title="Sign out" onPress={handleSignOut} color="red" />
+        <Button
+          title={signingOut ? 'Signing out...' : 'Sign out'}
+          onPress={() => setShowSignOutConfirm(true)}
+          color="red"
+          disabled={signingOut}
+        />
       </View>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        visible={showSignOutConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!signingOut) setShowSignOutConfirm(false);
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              padding: 24,
+              borderRadius: 8,
+              width: '100%',
+              maxWidth: 340,
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Sign out?</Text>
+            <Text style={{ color: 'gray', marginTop: 8 }}>
+              Are you sure you want to sign out? Your current cart and local session will be cleared.
+            </Text>
+
+            {signingOut ? (
+              <View style={{ marginTop: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#d9534f" />
+                <Text style={{ marginTop: 8, color: 'gray' }}>Signing out...</Text>
+              </View>
+            ) : (
+              <View style={{ marginTop: 20, flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+                <Button
+                  title="Cancel"
+                  onPress={() => setShowSignOutConfirm(false)}
+                  color="gray"
+                  disabled={signingOut}
+                />
+                <Button
+                  title="Sign out"
+                  onPress={handleConfirmSignOut}
+                  color="#d9534f"
+                  disabled={signingOut}
+                />
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

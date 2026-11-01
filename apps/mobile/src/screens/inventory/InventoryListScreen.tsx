@@ -26,6 +26,7 @@ import {
   getArchivedProducts,
   restoreProduct,
 } from '../../services/inventory';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { ProductWithBatches, Category, ProductStockStatus, Product } from '../../types/inventory';
 
 const RefreshControlComponent = RefreshControl as any;
@@ -36,6 +37,13 @@ const STATUS_FILTERS = ['All Stocks', 'Low Stock', 'Near Expiry', 'Expired'] as 
 type StatusFilterType = (typeof STATUS_FILTERS)[number];
 
 export default function InventoryListScreen({ navigation }: Props) {
+  const {
+    near_expiry_days,
+    loading: settingsLoading,
+    error: settingsError,
+    reload: reloadSettings,
+  } = useStoreSettings();
+
   const [allProducts, setAllProducts] = useState<ProductWithBatches[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,9 +75,10 @@ export default function InventoryListScreen({ navigation }: Props) {
   }, [restoring]);
 
   const loadData = async (isMounted = true) => {
+    if (settingsLoading || settingsError) return;
     setError(null);
     const [invRes, catRes] = await Promise.all([
-      getInventory(),
+      getInventory(near_expiry_days),
       getCategories(),
     ]);
 
@@ -109,12 +118,20 @@ export default function InventoryListScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      loadData(isMounted);
+      if (!settingsLoading && !settingsError) {
+        loadData(isMounted);
+      }
       return () => {
         isMounted = false;
       };
-    }, [showArchived])
+    }, [showArchived, settingsLoading, settingsError, near_expiry_days])
   );
+
+  useEffect(() => {
+    if (!settingsLoading && !settingsError) {
+      loadData(true);
+    }
+  }, [near_expiry_days, settingsLoading, settingsError]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -233,6 +250,47 @@ export default function InventoryListScreen({ navigation }: Props) {
     loadData(true);
     loadArchived();
   };
+
+  if (settingsLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <ActivityIndicator size="large" color="#2e7d32" />
+        <Text style={{ marginTop: 12, color: 'gray' }}>Loading store settings...</Text>
+      </View>
+    );
+  }
+
+  if (settingsError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#d9534f', textAlign: 'center' }}>
+          Failed to load store settings
+        </Text>
+        <Text style={{ color: 'gray', marginTop: 8, textAlign: 'center' }}>
+          {settingsError}
+        </Text>
+        <View style={{ marginTop: 16 }}>
+          <Button title="Retry" onPress={reloadSettings} color="#2e7d32" />
+        </View>
+      </View>
+    );
+  }
+
+  if (error && !loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#d9534f', textAlign: 'center' }}>
+          Error Loading Inventory
+        </Text>
+        <Text style={{ color: 'gray', marginTop: 8, textAlign: 'center' }}>
+          {error}
+        </Text>
+        <View style={{ marginTop: 16 }}>
+          <Button title="Retry" onPress={() => loadData(true)} color="#2e7d32" />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <ScrollView

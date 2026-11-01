@@ -22,7 +22,7 @@
  * - Empty state: "No alerts. Your shelves look good."
  * - useFocusEffect, pull-to-refresh, loading state, error view with Retry
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -36,7 +36,8 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getInventoryAlerts } from '../../services/inventory';
 import { InventoryAlert } from '../../types/inventory';
-import { NEAR_EXPIRY_DAYS, formatDisplayDate } from '../../utils/date';
+import { formatDisplayDate } from '../../utils/date';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import {
   getSuggestedAction,
   formatExpirationDaysText,
@@ -48,6 +49,12 @@ type FilterKey = 'All' | 'Low Stock' | 'Near Expiry' | 'Expired';
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
+  const {
+    near_expiry_days,
+    loading: settingsLoading,
+    error: settingsError,
+    reload: reloadSettings,
+  } = useStoreSettings();
 
   const [alerts, setAlerts] = useState<InventoryAlert[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<FilterKey>('All');
@@ -56,9 +63,10 @@ export default function NotificationsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const loadData = async (isMounted = true) => {
+    if (settingsLoading || settingsError) return;
     setError(null);
     try {
-      const res = await getInventoryAlerts(NEAR_EXPIRY_DAYS);
+      const res = await getInventoryAlerts(near_expiry_days);
       if (!isMounted) return;
 
       if (res.kind === 'error') {
@@ -83,12 +91,20 @@ export default function NotificationsScreen() {
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      loadData(isMounted);
+      if (!settingsLoading && !settingsError) {
+        loadData(isMounted);
+      }
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [settingsLoading, settingsError, near_expiry_days])
   );
+
+  useEffect(() => {
+    if (!settingsLoading && !settingsError) {
+      loadData(true);
+    }
+  }, [near_expiry_days, settingsLoading, settingsError]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -152,6 +168,27 @@ export default function NotificationsScreen() {
   }
 
   const totalMissingPrice = expiredMissingPrice + nearExpiryMissingPrice;
+
+  if (settingsLoading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#2e7d32" />
+        <Text style={{ marginTop: 12, color: 'gray' }}>Loading store settings...</Text>
+      </View>
+    );
+  }
+
+  if (settingsError) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorTitle}>Failed to load store settings</Text>
+        <Text style={styles.errorMessage}>{settingsError}</Text>
+        <View style={{ marginTop: 16 }}>
+          <Button title="Retry" onPress={reloadSettings} color="#2e7d32" />
+        </View>
+      </View>
+    );
+  }
 
   if (loading && !refreshing) {
     return (

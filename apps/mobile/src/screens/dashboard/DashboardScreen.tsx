@@ -45,14 +45,20 @@ import {
   MostSoldProduct,
   LeastSoldProduct,
 } from '../../types/inventory';
-import { NEAR_EXPIRY_DAYS } from '../../utils/date';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { formatExpirationDaysText } from '../../utils/suggestedActions';
 
 const RefreshControlComponent = RefreshControl as any;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
-  const [displayName, setDisplayName] = useState('User');
+  const {
+    near_expiry_days,
+    loading: settingsLoading,
+    error: settingsError,
+    reload: reloadSettings,
+  } = useStoreSettings();
+  const [displayName, setDisplayName] = useState('');
   const [period, setPeriod] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
 
   const [products, setProducts] = useState<ProductWithBatches[]>([]);
@@ -66,7 +72,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refreshUser = useCallback(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         const name =
@@ -77,7 +83,12 @@ export default function DashboardScreen() {
     });
   }, []);
 
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
+
   const loadData = async (isMounted = true) => {
+    if (settingsLoading || settingsError) return;
     setError(null);
     try {
       const [
@@ -88,8 +99,8 @@ export default function DashboardScreen() {
         mostSoldRes,
         leastSoldRes,
       ] = await Promise.all([
-        getInventory(),
-        getInventoryAlerts(NEAR_EXPIRY_DAYS),
+        getInventory(near_expiry_days),
+        getInventoryAlerts(near_expiry_days),
         getSalesMetrics(),
         getMostStockedProducts(5),
         getMostSoldProducts(5),
@@ -155,12 +166,21 @@ export default function DashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      loadData(isMounted);
+      refreshUser();
+      if (!settingsLoading && !settingsError) {
+        loadData(isMounted);
+      }
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [refreshUser, settingsLoading, settingsError, near_expiry_days])
   );
+
+  useEffect(() => {
+    if (!settingsLoading && !settingsError) {
+      loadData(true);
+    }
+  }, [near_expiry_days, settingsLoading, settingsError]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -220,6 +240,27 @@ export default function DashboardScreen() {
     }
     return soldThisMonth === 0 ? 'No sold items this month' : `${soldThisMonth} sold item(s) this month`;
   };
+
+  if (settingsLoading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#2e7d32" />
+        <Text style={{ marginTop: 12, color: 'gray' }}>Loading store settings...</Text>
+      </View>
+    );
+  }
+
+  if (settingsError) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorTitle}>Failed to load store settings</Text>
+        <Text style={styles.errorMessage}>{settingsError}</Text>
+        <View style={{ marginTop: 16 }}>
+          <Button title="Retry" onPress={reloadSettings} color="#2e7d32" />
+        </View>
+      </View>
+    );
+  }
 
   if (loading && !refreshing) {
     return (
