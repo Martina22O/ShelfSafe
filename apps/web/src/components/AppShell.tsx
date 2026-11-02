@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '../lib/supabase/client';
@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { name: 'Notifications', href: '/notifications' },
   { name: 'History', href: '/history' },
   { name: 'Profile', href: '/profile' },
+  { name: 'Help', href: '/help' },
 ];
 
 export function AppShell({ children }: AppShellProps) {
@@ -28,13 +29,36 @@ export function AppShell({ children }: AppShellProps) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
+  const currentUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
+        currentUserIdRef.current = user.id;
         setUserName(user.user_metadata?.name || user.email || '');
       }
     });
+
+    // Listen to auth events to update userName if metadata changes,
+    // without clearing settings, reloading the page, or showing a flash.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        currentUserIdRef.current = null;
+        setUserName('');
+        return;
+      }
+      if (session?.user) {
+        currentUserIdRef.current = session.user.id;
+        setUserName(session.user.user_metadata?.name || session.user.email || '');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Keyboard accessibility: Escape closes the sign-out confirmation modal
@@ -95,7 +119,8 @@ export function AppShell({ children }: AppShellProps) {
           <button
             type="button"
             onClick={() => setShowSignOutConfirm(true)}
-            className="text-sm border border-gray-300 px-3 py-1.5 rounded text-gray-700 hover:bg-gray-100"
+            disabled={signingOut}
+            className="text-sm border border-gray-300 px-3 py-1.5 rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50"
           >
             Sign out
           </button>
@@ -177,14 +202,14 @@ export function AppShell({ children }: AppShellProps) {
           <div className="bg-white rounded p-6 max-w-sm w-full border border-gray-300 shadow-lg">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Sign out?</h2>
             <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to sign out of your account?
+              Are you sure you want to sign out? Your session will be ended.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowSignOutConfirm(false)}
                 disabled={signingOut}
-                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -203,4 +228,3 @@ export function AppShell({ children }: AppShellProps) {
     </div>
   );
 }
-
