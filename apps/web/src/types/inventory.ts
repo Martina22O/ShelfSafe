@@ -205,3 +205,29 @@ export type GetRankedProductsResult<T> =
 
 
 
+export interface SaleBatchBreakdownItem {
+  batch_id: string;
+  quantity: number;
+  purchase_date: string;
+  expiration_date: string;
+}
+
+export interface SaleHistoryRecord {
+  sales_scan_id: string;
+  created_at: string;
+  is_undone: boolean;
+  product_id: string;
+  product_name: string;
+  product_barcode: string | null;
+  product_price: number;
+  total_quantity: number;
+  batch_breakdown: SaleBatchBreakdownItem[];
+}
+
+export type UndoSaleResult =
+  | { kind: 'success'; hadArchivedItems: boolean }
+  | { kind: 'error'; message: string; isAlreadyUndone: boolean; isDatabaseError: boolean };
+
+export type GetSaleHistoryResult =
+  | { kind: 'success'; history: SaleHistoryRecord[] }
+  | { kind: 'error'; message: string };
