@@ -27,6 +27,10 @@ import {
   GetInventoryAlertsResult,
   GetSalesMetricsResult,
   GetRankedProductsResult,
+  SaleBatchBreakdownItem,
+  SaleHistoryRecord,
+  UndoSaleResult,
+  GetSaleHistoryResult,
 } from '../types/inventory';
 import { getBarcodeVariants } from './barcode';
 import { getTodayInManila, addDaysToDate } from './date';
@@ -1151,6 +1155,153 @@ export async function getLeastSoldProducts(
     return {
       kind: 'error',
       message: formatErrorMessage(err),
+    };
+  }
+}
+
+
+/**
+ * Fetches the user's sale history using get_sale_history RPC with named arguments.
+ */
+export async function getSaleHistory(
+  limit: number = 50
+): Promise<GetSaleHistoryResult> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('get_sale_history', {
+      p_limit: limit,
+    });
+
+    if (error) {
+      return {
+        kind: 'error',
+        message: formatErrorMessage(error),
+      };
+    }
+
+    interface RawSaleHistoryRow {
+      sales_scan_id: string;
+      created_at: string;
+      is_undone: boolean;
+      product_id: string;
+      product_name: string | null;
+      product_barcode: string | null;
+      product_price: number | null;
+      total_quantity: number | null;
+      batch_breakdown: Array<{
+        batch_id: string;
+        quantity: number;
+        purchase_date: string;
+        expiration_date: string;
+      }> | null;
+    }
+
+    const history: SaleHistoryRecord[] = (data || []).map((row: RawSaleHistoryRow) => ({
+      sales_scan_id: String(row.sales_scan_id),
+      created_at: String(row.created_at),
+      is_undone: Boolean(row.is_undone),
+      product_id: String(row.product_id),
+      product_name: String(row.product_name ?? 'Unknown Product'),
+      product_barcode: row.product_barcode ? String(row.product_barcode) : null,
+      product_price: Number(row.product_price) || 0,
+      total_quantity: Number(row.total_quantity) || 0,
+      batch_breakdown: Array.isArray(row.batch_breakdown)
+        ? row.batch_breakdown.map((b) => ({
+            batch_id: String(b.batch_id),
+            quantity: Number(b.quantity) || 0,
+            purchase_date: String(b.purchase_date ?? ''),
+            expiration_date: String(b.expiration_date ?? ''),
+          }))
+        : [],
+    }));
+
+    return { kind: 'success', history };
+  } catch (err: unknown) {
+    return {
+      kind: 'error',
+      message: formatErrorMessage(err),
+    };
+  }
+}
+
+/**
+ * Undoes a sales scan, restoring units back to original batches.
+ * Before undo_sale, checks in ONE query whether the product or any of the sale's
+ * batches are archived.
+ */
+export async function undoSale(
+  salesScanId: string,
+  productId?: string,
+  batchBreakdown?: SaleBatchBreakdownItem[]
+): Promise<UndoSaleResult> {
+  const supabase = createClient();
+
+  // 1. Check in ONE query whether the product or any of the sale's batches are archived
+  let hadArchivedItems = false;
+  if (productId) {
+    try {
+      const batchIds = (batchBreakdown || []).map((b) => b.batch_id).filter(Boolean);
+      const { data: prodData, error: checkError } = await supabase
+        .from('products')
+        .select('id, is_archived, batches(id, is_archived)')
+        .eq('id', productId)
+        .maybeSingle();
+
+      if (!checkError && prodData) {
+        if (prodData.is_archived) {
+          hadArchivedItems = true;
+        } else if (Array.isArray(prodData.batches) && batchIds.length > 0) {
+          const batchSet = new Set(batchIds);
+          hadArchivedItems = prodData.batches.some(
+            (b: { id: string; is_archived: boolean }) => batchSet.has(b.id) && b.is_archived
+          );
+        }
+      }
+    } catch {
+      // If the check itself fails, still run the undo and show the plain "Sale undone" message
+      hadArchivedItems = false;
+    }
+  }
+
+  // 2. Call undo_sale RPC with named argument
+  try {
+    const { error: undoErr } = await supabase.rpc('undo_sale', {
+      p_sales_scan_id: salesScanId,
+    });
+
+    if (undoErr) {
+      const msg = undoErr.message || '';
+      // Detect "already undone" by the exact message text from migration: 'Sale scan % has already been undone'
+      const isAlreadyUndone = /has already been undone/i.test(msg);
+      const isDbErr = isDatabaseError(undoErr);
+      const message = isAlreadyUndone
+        ? 'This sale has already been undone.'
+        : isDbErr
+        ? formatErrorMessage(undoErr)
+        : 'Not sure if this was saved. Reload the page and check';
+
+      return {
+        kind: 'error',
+        message,
+        isAlreadyUndone,
+        isDatabaseError: isDbErr,
+      };
+    }
+
+    return { kind: 'success', hadArchivedItems };
+  } catch (err: unknown) {
+    const isDbErr = isDatabaseError(err);
+    const msg = err instanceof Error ? err.message : '';
+    const isAlreadyUndone = /has already been undone/i.test(msg);
+    return {
+      kind: 'error',
+      message: isAlreadyUndone
+        ? 'This sale has already been undone.'
+        : isDbErr
+        ? formatErrorMessage(err)
+        : 'Not sure if this was saved. Reload the page and check',
+      isAlreadyUndone,
+      isDatabaseError: isDbErr,
     };
   }
 }
