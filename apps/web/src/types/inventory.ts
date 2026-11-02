@@ -100,3 +100,108 @@ export type CreateProductResult =
   | { kind: 'db_error'; message: string }
   | { kind: 'network_error'; message: string };
 
+export interface UpdateProductParams {
+  productId: string;
+  name: string;
+  barcode: string | null;
+  categoryId: string;
+  price: number;
+  lowStockLevel: number;
+}
+
+export interface BatchActionResult {
+  id: string;
+  productId?: string;
+  status: 'deleted' | 'archived';
+  action: string;
+  quantityLeft?: number;
+  purchaseDate?: string;
+  expirationDate?: string;
+  isArchived?: boolean;
+}
+
+export interface ProductActionResult {
+  id: string;
+  name?: string;
+  barcode?: string | null;
+  status: 'deleted' | 'archived' | 'restored';
+  action: string;
+  isArchived?: boolean;
+}
+
+export type MutationResult<T> =
+  | { kind: 'success'; data: T }
+  | { kind: 'db_error'; message: string }
+  | { kind: 'network_error'; message: string };
+
+export type GetBatchResult =
+  | { kind: 'success'; batch: Batch }
+  | { kind: 'not_found' }
+  | { kind: 'error'; message: string };
+
+export type GetArchivedProductsResult =
+  | { kind: 'success'; products: Product[] }
+  | { kind: 'error'; message: string };
+
+export type InventoryAlertType = 'low_stock' | 'near_expiry' | 'expired';
+
+export interface InventoryAlert {
+  alert_type: InventoryAlertType;
+  product_id: string;
+  product_name: string;
+  category_name: string | null;
+  barcode: string | null;
+  low_stock_level: number | null;
+  current_stock: number | null;
+  batch_id: string | null;
+  expiration_date: string | null;
+  batch_quantity_left: number | null;
+  days_until_expiration: number | null;
+  price?: number | null;
+}
+
+export interface SalesMetrics {
+  sold_today: number;
+  sold_this_week: number;
+  sold_this_month: number;
+}
+
+export interface MostStockedProduct {
+  product_id: string;
+  product_name: string;
+  category_name: string | null;
+  barcode: string | null;
+  total_stock: number;
+}
+
+export interface MostSoldProduct {
+  product_id: string;
+  product_name: string;
+  category_name: string | null;
+  barcode: string | null;
+  total_sold: number;
+}
+
+export interface LeastSoldProduct {
+  product_id: string;
+  product_name: string;
+  category_name: string | null;
+  barcode: string | null;
+  total_sold: number;
+  total_stock: number;
+}
+
+export type GetInventoryAlertsResult =
+  | { kind: 'success'; alerts: InventoryAlert[] }
+  | { kind: 'error'; message: string };
+
+export type GetSalesMetricsResult =
+  | { kind: 'success'; metrics: SalesMetrics }
+  | { kind: 'error'; message: string };
+
+export type GetRankedProductsResult<T> =
+  | { kind: 'success'; products: T[] }
+  | { kind: 'error'; message: string };
+
+
+
