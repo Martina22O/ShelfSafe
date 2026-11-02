@@ -6,6 +6,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
 import { createClient } from '../lib/supabase/client';
@@ -42,6 +43,8 @@ export function StoreSettingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const currentUserIdRef = useRef<string | null>(null);
+
   const performFetch = useCallback(async () => {
     try {
       const supabase = createClient();
@@ -65,6 +68,7 @@ export function StoreSettingsProvider({ children }: { children: ReactNode }) {
       setStoreName(row.out_store_name ?? row.store_name ?? null);
       setContactNumber(row.out_contact_number ?? row.contact_number ?? null);
       setNearExpiryDays(Number(row.out_near_expiry_days ?? row.near_expiry_days ?? 7));
+      currentUserIdRef.current = row.out_owner_id ?? row.owner_id ?? currentUserIdRef.current;
       setError(null);
       setLoading(false);
     } catch (err: unknown) {
@@ -74,50 +78,61 @@ export function StoreSettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const clearStoreSettings = useCallback(() => {
+    setStoreName(null);
+    setContactNumber(null);
+    setNearExpiryDays(null);
+    setLoading(false);
+    setError(null);
+    currentUserIdRef.current = null;
+  }, []);
+
   useEffect(() => {
     let ignore = false;
+    const supabase = createClient();
 
     async function loadInitial() {
-      try {
-        const supabase = createClient();
-        const { data, error: rpcError } = await supabase.rpc('get_store_settings', {});
-
-        if (ignore) return;
-
-        if (rpcError) {
-          setError(formatErrorMessage(rpcError));
-          setNearExpiryDays(null);
-          setLoading(false);
-          return;
-        }
-
-        const row = Array.isArray(data) ? data[0] : data;
-        if (!row) {
-          setError('Failed to load store settings. Reload the page and check');
-          setNearExpiryDays(null);
-          setLoading(false);
-          return;
-        }
-
-        setStoreName(row.out_store_name ?? row.store_name ?? null);
-        setContactNumber(row.out_contact_number ?? row.contact_number ?? null);
-        setNearExpiryDays(Number(row.out_near_expiry_days ?? row.near_expiry_days ?? 7));
-        setError(null);
-        setLoading(false);
-      } catch (err: unknown) {
-        if (ignore) return;
-        setError(formatErrorMessage(err));
-        setNearExpiryDays(null);
-        setLoading(false);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        currentUserIdRef.current = user.id;
+      }
+      if (!ignore) {
+        await performFetch();
       }
     }
 
     void loadInitial();
 
+    // Listen to auth events. For the SAME user (e.g. password verification or profile updates),
+    // ignore SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED so settings are not cleared,
+    // page is not reloaded, and no loading flash occurs.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const newUserId = session?.user?.id ?? null;
+
+      if (event === 'SIGNED_OUT') {
+        clearStoreSettings();
+        return;
+      }
+
+      if (newUserId && newUserId === currentUserIdRef.current) {
+        // Same user: ignore SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED
+        return;
+      }
+
+      if (newUserId && newUserId !== currentUserIdRef.current) {
+        // Different user signed in: fetch settings for new user
+        currentUserIdRef.current = newUserId;
+        await performFetch();
+      }
+    });
+
     return () => {
       ignore = true;
+      subscription.unsubscribe();
     };
-  }, []);
+  }, [performFetch, clearStoreSettings]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -128,14 +143,6 @@ export function StoreSettingsProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     await performFetch();
   }, [performFetch]);
-
-  const clearStoreSettings = useCallback(() => {
-    setStoreName(null);
-    setContactNumber(null);
-    setNearExpiryDays(null);
-    setLoading(false);
-    setError(null);
-  }, []);
 
   return (
     <StoreSettingsContext.Provider
