@@ -6,6 +6,7 @@ import {
   findProductByBarcode,
   searchProductsByName,
   addStock,
+  restoreProduct,
 } from '../../../../lib/inventory';
 import { Product } from '../../../../types/inventory';
 import { getTodayInManila, isValidCalendarDate, isDateInPast } from '../../../../lib/date';
@@ -26,6 +27,10 @@ export default function AddStockPage() {
   // Selected product
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isArchivedError, setIsArchivedError] = useState(false);
+  const [archivedProduct, setArchivedProduct] = useState<Product | null>(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   // Step 2: Form state
@@ -66,6 +71,8 @@ export default function AddStockPage() {
     setFindingBarcode(true);
     setBarcodeNotFound(null);
     setIsArchivedError(false);
+    setArchivedProduct(null);
+    setRestoreError(null);
     setSearchError(null);
 
     const res = await findProductByBarcode(raw);
@@ -74,16 +81,48 @@ export default function AddStockPage() {
     if (res.kind === 'found') {
       setSelectedProduct(res.product);
       setBarcodeNotFound(null);
+      setArchivedProduct(null);
     } else if (res.kind === 'archived') {
       setIsArchivedError(true);
+      setArchivedProduct(res.product);
       setSelectedProduct(null);
     } else if (res.kind === 'not_found') {
       setBarcodeNotFound(raw);
       setSelectedProduct(null);
+      setArchivedProduct(null);
     } else {
       setSearchError(res.message);
       setSelectedProduct(null);
+      setArchivedProduct(null);
     }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!archivedProduct) return;
+    setShowRestoreModal(false);
+    setRestoring(true);
+    setRestoreError(null);
+
+    const res = await restoreProduct(archivedProduct.id);
+    setRestoring(false);
+
+    if (res.kind === 'db_error') {
+      setRestoreError(res.message);
+      return;
+    }
+
+    if (res.kind === 'network_error') {
+      setRestoreError(res.message);
+      return;
+    }
+
+    // Success: select the restored product so the user can immediately add stock
+    setIsArchivedError(false);
+    setSelectedProduct({
+      ...archivedProduct,
+      is_archived: false,
+    });
+    setArchivedProduct(null);
   };
 
   const handleSelectProduct = (prod: Product) => {
@@ -92,6 +131,8 @@ export default function AddStockPage() {
     setNameQuery('');
     setBarcodeNotFound(null);
     setIsArchivedError(false);
+    setArchivedProduct(null);
+    setRestoreError(null);
     setSearchError(null);
     setFormError(null);
     setShowNetworkWarning(false);
@@ -105,6 +146,8 @@ export default function AddStockPage() {
     setNameResults([]);
     setBarcodeNotFound(null);
     setIsArchivedError(false);
+    setArchivedProduct(null);
+    setRestoreError(null);
     setSearchError(null);
     setFormError(null);
     setShowNetworkWarning(false);
@@ -231,8 +274,23 @@ export default function AddStockPage() {
           <h2 className="text-base font-bold text-gray-900">Step 1: Select a product</h2>
 
           {isArchivedError && (
-            <div className="p-3 border border-red-300 bg-red-50 text-red-800 text-sm rounded">
-              This product is archived.
+            <div className="p-3 border border-red-300 bg-red-50 text-red-800 text-sm rounded space-y-2">
+              <div className="flex items-center justify-between">
+                <span>This product is archived.</span>
+                {archivedProduct && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRestoreModal(true)}
+                    disabled={restoring}
+                    className="border border-red-400 bg-white text-red-900 px-3 py-1 rounded text-xs font-semibold hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {restoring ? 'Restoring...' : 'Restore product'}
+                  </button>
+                )}
+              </div>
+              {restoreError && (
+                <p className="text-xs text-red-700 font-semibold">{restoreError}</p>
+              )}
             </div>
           )}
 
@@ -453,6 +511,18 @@ export default function AddStockPage() {
         isSaving={saving}
         onConfirm={handleConfirmSave}
         onCancel={() => setShowConfirmModal(false)}
+      />
+
+      {/* Restore Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showRestoreModal}
+        title="Restore Product"
+        message={`Are you sure you want to restore "${archivedProduct?.name}" to active inventory?`}
+        confirmText="Yes, restore"
+        cancelText="Cancel"
+        isSaving={restoring}
+        onConfirm={handleConfirmRestore}
+        onCancel={() => setShowRestoreModal(false)}
       />
     </div>
   );
