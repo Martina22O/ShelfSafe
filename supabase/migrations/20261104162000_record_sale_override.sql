@@ -1,0 +1,1 @@
+Select-String -Path supabase\tests\override_sale.test.sql -Pattern "DELETE" -Context 0,2
