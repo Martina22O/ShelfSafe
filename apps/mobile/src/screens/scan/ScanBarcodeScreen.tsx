@@ -14,6 +14,18 @@ import { findProductByBarcode, getProductWithBatches, restoreProduct } from '../
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { useSaleCart } from '../../context/SaleCartContext';
 import { Product } from '../../types/inventory';
+import { isValidRetailBarcode } from '../../utils/barcode';
+
+/**
+ * Accepted retail barcode symbologies for camera scanning.
+ * 'code128' and 'upc_e' are excluded because they can decode letters or produce false positives on blurry reads.
+ * To add them back, append 'code128' and/or 'upc_e' to this array.
+ */
+export const SCAN_BARCODE_TYPES = ['ean13', 'ean8', 'upc_a'] as const;
+
+const SCAN_CONFIRMATION_READS = 2;
+const SCAN_CONFIRMATION_WINDOW_MS = 1200;
+const SCAN_HINT_AFTER_MS = 4000;
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'ScanBarcode'>;
 
@@ -28,6 +40,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFoundBarcode, setNotFoundBarcode] = useState<string | null>(null);
+  const [showScanHint, setShowScanHint] = useState(false);
 
   // Archived product restore state
   const [archivedProduct, setArchivedProduct] = useState<Product | null>(null);
@@ -45,28 +58,68 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     return () => backHandler.remove();
   }, [restoring]);
 
-  // Single-scan lock and duplicate prevention
+  // Single-scan lock, duplicate prevention, and multi-read stability tracking
   const isScanningLocked = useRef(false);
   const lastScannedBarcode = useRef<string | null>(null);
+  const lastCandidateRef = useRef<{ code: string; count: number; lastSeenAt: number } | null>(null);
+  const firstIgnoredAtRef = useRef<number | null>(null);
+
+  const resetScanStability = useCallback(() => {
+    lastCandidateRef.current = null;
+    firstIgnoredAtRef.current = null;
+    setShowScanHint(false);
+  }, []);
 
   // Reset scanner lock when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       isScanningLocked.current = false;
       lastScannedBarcode.current = null;
+      resetScanStability();
       setErrorMessage(null);
       setStatusMessage(null);
       setNotFoundBarcode(null);
       setArchivedProduct(null);
       setRestoreSuccessMessage(null);
-    }, [])
+    }, [resetScanStability])
   );
 
   const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
     const rawCode = (result.data || '').trim();
-    if (!rawCode) return;
     if (isScanningLocked.current) return;
+
+    const now = Date.now();
+    const recordIgnoredRead = () => {
+      if (firstIgnoredAtRef.current === null) {
+        firstIgnoredAtRef.current = now;
+      } else if (now - firstIgnoredAtRef.current >= SCAN_HINT_AFTER_MS) {
+        setShowScanHint(true);
+      }
+    };
+
+    if (!rawCode || !isValidRetailBarcode(rawCode)) {
+      lastCandidateRef.current = null;
+      recordIgnoredRead();
+      return;
+    }
+
     if (lastScannedBarcode.current === rawCode) return;
+
+    const prev = lastCandidateRef.current;
+    const nextCount =
+      prev && prev.code === rawCode && now - prev.lastSeenAt <= SCAN_CONFIRMATION_WINDOW_MS
+        ? prev.count + 1
+        : 1;
+
+    lastCandidateRef.current = { code: rawCode, count: nextCount, lastSeenAt: now };
+
+    if (nextCount < SCAN_CONFIRMATION_READS) {
+      recordIgnoredRead();
+      return;
+    }
+
+    // Accepted scan: clear stability state and hide hint
+    resetScanStability();
 
     // Lock scan handler
     isScanningLocked.current = true;
@@ -157,7 +210,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
 
     if (lookupResult.kind === 'not_found') {
       setStatusMessage(null);
-      navigation.navigate('NewProduct', { barcode: rawCode });
+      navigation.navigate('NewProduct', { barcode: rawCode, fromScan: true });
       return;
     }
   };
@@ -267,6 +320,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
                 setNotFoundBarcode(null);
                 isScanningLocked.current = false;
                 lastScannedBarcode.current = null;
+                resetScanStability();
               }}
               color="gray"
             />
@@ -292,7 +346,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
             facing="back"
             enableTorch={torch}
             barcodeScannerSettings={{
-              barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128'],
+              barcodeTypes: SCAN_BARCODE_TYPES,
             }}
             onBarcodeScanned={isScanningLocked.current ? undefined : handleBarcodeScanned}
           />
@@ -304,6 +358,12 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
       <Text style={{ textAlign: 'center', color: 'gray', marginTop: 8 }}>
         Align barcode within camera view to scan
       </Text>
+
+      {showScanHint ? (
+        <Text style={{ textAlign: 'center', color: '#856404', marginTop: 6 }}>
+          Hold steady and fill the frame with the barcode. Use the flashlight if it is dark.
+        </Text>
+      ) : null}
 
       {/* Controls */}
       <View style={{ marginTop: 16, gap: 10 }}>

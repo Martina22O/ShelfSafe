@@ -25,6 +25,7 @@ import {
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { Product } from '../../types/inventory';
 import { useSaleCart } from '../../context/SaleCartContext';
+import { isValidRetailBarcode } from '../../utils/barcode';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'TypeBarcode'>;
 
@@ -254,6 +255,12 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
           keyboardType="numeric"
           editable={!loading}
         />
+
+        {barcode.trim().length > 0 && !isValidRetailBarcode(barcode.trim()) ? (
+          <Text style={{ color: '#856404', fontSize: 12, marginTop: 4 }}>
+            This is not a standard barcode. You can still use it.
+          </Text>
+        ) : null}
 
         <View style={{ marginTop: 12 }}>
           {loading ? (

@@ -25,6 +25,7 @@ type Props = NativeStackScreenProps<ScanStackParamList, 'NewProduct'>;
 
 export default function NewProductScreen({ route, navigation }: Props) {
   const initialBarcode = route.params?.barcode || '';
+  const fromScan = Boolean(route.params?.fromScan && initialBarcode);
   const today = getTodayInManila();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -194,6 +195,11 @@ export default function NewProductScreen({ route, navigation }: Props) {
           keyboardType="numeric"
           editable={!saving}
         />
+        {fromScan ? (
+          <Text style={{ color: 'gray', fontSize: 12, marginTop: 4 }}>
+            Check that this matches the barcode on the package.
+          </Text>
+        ) : null}
 
         <Text style={{ fontWeight: 'bold', marginTop: 12 }}>Category</Text>
         {loadingCategories ? (
