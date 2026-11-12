@@ -16,7 +16,7 @@ export type ScanStackParamList = {
   ScanBarcode: { mode: 'add' | 'sell' };
   TypeBarcode: { mode: 'add' | 'sell' } | undefined;
   AddStockForm: { productId?: string; barcode?: string; productName?: string } | undefined;
-  NewProduct: { barcode?: string } | undefined;
+  NewProduct: { barcode?: string; fromScan?: boolean } | undefined;
   AddStockDone: { units?: number; batchCode?: string; expiryDate?: string; productId?: string } | undefined;
   SaleList: undefined;
   ConfirmSale: undefined;
