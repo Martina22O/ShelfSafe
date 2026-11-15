@@ -2,6 +2,22 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import {
+  Boxes,
+  Layers,
+  Clock,
+  AlertOctagon,
+  AlertTriangle,
+  TrendingUp,
+  RefreshCw,
+  Plus,
+  ArrowRight,
+  ShieldCheck,
+  Package,
+  Calendar,
+  AlertCircle,
+  ExternalLink,
+} from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { createClient } from '../../../lib/supabase/client';
 import {
@@ -227,151 +243,266 @@ export default function DashboardPage() {
 
   if (settingsLoading) {
     return (
-      <div className="py-8 text-center text-gray-500 text-sm">
-        Loading store settings...
+      <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium">Loading store settings...</p>
       </div>
     );
   }
 
   if (settingsError) {
     return (
-      <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800 max-w-md my-4">
-        <h2 className="font-bold text-base mb-1">Failed to load store settings</h2>
-        <p className="text-sm mb-4">{settingsError}</p>
-        <button
-          type="button"
-          onClick={() => reloadSettings()}
-          className="bg-red-700 text-white px-3 py-1.5 rounded text-sm hover:bg-red-800"
-        >
-          Retry
-        </button>
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 shadow-xs">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-bold text-base mb-1">Failed to load store settings</h2>
+            <p className="text-xs text-red-700 mb-4 leading-relaxed">{settingsError}</p>
+            <button
+              type="button"
+              onClick={() => reloadSettings()}
+              className="inline-flex items-center gap-1.5 bg-[#d32f2f] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-red-700 transition-colors shadow-2xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Retry
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error && !loading) {
     return (
-      <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800 max-w-lg my-4 space-y-4">
-        <div>
-          <h2 className="font-bold text-base">Error Loading Dashboard</h2>
-          <p className="text-sm mt-1">{error}</p>
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 space-y-4 shadow-xs">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-bold text-base">Error Loading Dashboard</h2>
+            <p className="text-xs text-red-700 mt-1 leading-relaxed">{error}</p>
+          </div>
         </div>
-        <div>
-          <button
-            type="button"
-            onClick={() => loadData()}
-            className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
-          >
-            Retry
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => loadData()}
+          className="inline-flex items-center gap-1.5 bg-[#207429] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Greeting and Header CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-7">
+      {/* Page Header with Greeting & Action Bar */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-[#ece3d2]/80">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Hello, {displayName}!</h1>
-          <p className="text-sm text-gray-600 mt-0.5">
-            Overview of your store inventory, alerts, and sales performance.
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-[#181413] tracking-tight">
+              Hello, {displayName}!
+            </h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f4ffe1] text-[#207429] border border-[#207429]/20">
+              <ShieldCheck className="w-3 h-3" />
+              Store Active
+            </span>
+          </div>
+          <p className="text-xs text-[#7a7469] mt-1">
+            Real-time inventory status, urgent expiry alerts, and daily sales overview.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
             onClick={() => loadData()}
-            className="border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-100 font-medium"
+            aria-label="Refresh dashboard metrics"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#ece3d2] bg-white text-xs font-semibold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs"
           >
+            <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </button>
           <Link
             href="/inventory"
-            className="bg-black text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#ece3d2] bg-white text-xs font-semibold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs"
           >
-            View Inventory
+            <Package className="w-3.5 h-3.5" />
+            Inventory List
+          </Link>
+          <Link
+            href="/inventory/add-stock"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#207429] text-white text-xs font-bold hover:bg-[#185e21] transition-colors shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Stock In
           </Link>
         </div>
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-gray-500 text-sm">
-          Loading dashboard...
+        /* Shimmer Loading Skeletons */
+        <div className="space-y-6 animate-pulse">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-24 bg-white border border-[#ece3d2] rounded-xl p-4 flex flex-col justify-between">
+                <div className="h-3 w-20 bg-[#ece3d2] rounded" />
+                <div className="h-6 w-12 bg-[#ece3d2] rounded" />
+              </div>
+            ))}
+          </div>
+          <div className="h-36 bg-white border border-[#ece3d2] rounded-xl p-6" />
+          <div className="h-44 bg-white border border-[#ece3d2] rounded-xl p-6" />
         </div>
       ) : (
         <>
-          {/* Section: Stock Overview */}
+          {/* Section: Stock Overview KPI Cards (Desktop 5-card grid matching mockup) */}
           <div className="space-y-3">
-            <h2 className="text-base font-bold text-gray-900">Stock Overview</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              <div className="bg-white border border-gray-200 rounded p-4">
-                <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Total Products
-                </span>
-                <span className="block text-2xl font-bold text-gray-900 mt-1">
-                  {totalProducts}
-                </span>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#7a7469]">
+                Store Inventory Overview
+              </h2>
+              <span className="text-[11px] text-[#999182]">Live data</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+              {/* Card 1: Total Products */}
+              <div className="bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs hover:border-[#207429]/40 transition-colors flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#f4ffe1] text-[#207429] border border-[#207429]/20 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Boxes className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] font-bold text-[#7a7469] uppercase tracking-wide block truncate">
+                    Total Products
+                  </span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-2xl font-black text-[#181413] tracking-tight">
+                      {totalProducts}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#7a7469]">SKUs</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-white border border-gray-200 rounded p-4">
-                <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Total Units
-                </span>
-                <span className="block text-2xl font-bold text-gray-900 mt-1">
-                  {totalUnits}
-                </span>
+              {/* Card 2: Total Units */}
+              <div className="bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs hover:border-[#207429]/40 transition-colors flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#f8faf8] border border-[#ece3d2] text-[#4a443a] flex items-center justify-center shrink-0 shadow-2xs">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] font-bold text-[#7a7469] uppercase tracking-wide block truncate">
+                    Total Stock
+                  </span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-2xl font-black text-[#181413] tracking-tight">
+                      {totalUnits}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#7a7469]">units</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-white border border-orange-200 bg-orange-50/50 rounded p-4">
-                <span className="block text-xs font-semibold text-orange-800 uppercase tracking-wider">
-                  Low stock (products)
-                </span>
-                <span className="block text-2xl font-bold text-orange-950 mt-1">
-                  {lowStockCount}
-                </span>
+              {/* Card 3: Expiring Soon (Amber/Yellow Warm Tint) */}
+              <div className="bg-[#fffdf7] border border-[#fde68a] rounded-xl p-4 shadow-2xs hover:border-[#fabe44] transition-colors flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#fef3c7] text-[#b45309] border border-[#fde68a] flex items-center justify-center shrink-0 shadow-2xs">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[11px] font-bold text-[#b45309] uppercase tracking-wide truncate">
+                      Near Expiry
+                    </span>
+                    {nearExpiryCount > 0 && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fef3c7] text-[#b45309] border border-[#fde68a] uppercase">
+                        Urgent
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-2xl font-black text-[#b45309] tracking-tight">
+                      {nearExpiryCount}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#b45309]/80">batches</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-white border border-amber-200 bg-amber-50/50 rounded p-4">
-                <span className="block text-xs font-semibold text-amber-800 uppercase tracking-wider">
-                  Near expiry (batches)
-                </span>
-                <span className="block text-2xl font-bold text-amber-950 mt-1">
-                  {nearExpiryCount}
-                </span>
+              {/* Card 4: Expired (Soft Danger Red) */}
+              <div className="bg-[#fffafa] border border-[#fecaca] rounded-xl p-4 shadow-2xs hover:border-[#d32f2f] transition-colors flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#fee2e2] text-[#d32f2f] border border-[#fca5a5] flex items-center justify-center shrink-0 shadow-2xs">
+                  <AlertOctagon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[11px] font-bold text-[#d32f2f] uppercase tracking-wide truncate">
+                      Expired
+                    </span>
+                    {expiredCount > 0 && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fee2e2] text-[#d32f2f] border border-[#fca5a5] uppercase">
+                        Dispose
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-2xl font-black text-[#d32f2f] tracking-tight">
+                      {expiredCount}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#d32f2f]/80">batches</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-white border border-red-200 bg-red-50/50 rounded p-4 col-span-2 sm:col-span-1">
-                <span className="block text-xs font-semibold text-red-800 uppercase tracking-wider">
-                  Expired (batches)
-                </span>
-                <span className="block text-2xl font-bold text-red-950 mt-1">
-                  {expiredCount}
-                </span>
+              {/* Card 5: Low Stock */}
+              <div className="bg-[#fffaf5] border border-[#fed7aa] rounded-xl p-4 shadow-2xs hover:border-[#faab06] transition-colors flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] flex items-center justify-center shrink-0 shadow-2xs">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[11px] font-bold text-[#c2410c] uppercase tracking-wide truncate">
+                      Low Stock
+                    </span>
+                    {lowStockCount > 0 && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] uppercase">
+                        Reorder
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-2xl font-black text-[#c2410c] tracking-tight">
+                      {lowStockCount}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#c2410c]/80">products</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Section: Units Sold with Toggle */}
-          <div className="bg-white border border-gray-200 rounded p-6 space-y-4">
+          {/* Section: Units Sold (Card with Period Switcher) */}
+          <div className="bg-white border border-[#ece3d2] rounded-2xl p-5 md:p-6 shadow-2xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-gray-900">Units Sold</h2>
-                <p className="text-xs text-gray-500">{soldSubtitle}</p>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#f4ffe1] text-[#207429] flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-[#181413]">Units Sold</h2>
+                  <p className="text-xs text-[#7a7469]">{soldSubtitle}</p>
+                </div>
               </div>
 
-              {/* Toggle: Daily / Weekly / Monthly (never refetches) */}
-              <div className="inline-flex rounded border border-gray-200 p-0.5 bg-gray-50 self-start sm:self-auto">
+              {/* Segmented Period Toggle (Daily / Weekly / Monthly - preserves zero-refetch requirement) */}
+              <div className="inline-flex rounded-lg border border-[#ece3d2] p-1 bg-[#fef9f0] self-start sm:self-auto">
                 {(['Daily', 'Weekly', 'Monthly'] as const).map((p) => (
                   <button
                     key={p}
                     type="button"
                     onClick={() => setPeriod(p)}
-                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
                       period === p
-                        ? 'bg-black text-white shadow-sm'
-                        : 'text-gray-600 hover:text-black'
+                        ? 'bg-[#207429] text-white shadow-xs'
+                        : 'text-[#7a7469] hover:text-[#181413]'
                     }`}
                   >
                     {p}
@@ -380,38 +511,57 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div>
-              <span className="text-3xl font-extrabold text-gray-900">{soldNumber}</span>
-              <span className="text-xs text-gray-500 ml-2">units deducted from sales</span>
+            <div className="pt-2 flex items-baseline gap-2 border-t border-[#f4f1ea]">
+              <span className="text-3xl md:text-4xl font-black text-[#181413] tracking-tight">
+                {soldNumber}
+              </span>
+              <span className="text-xs font-medium text-[#7a7469]">
+                units deducted via sales
+              </span>
             </div>
           </div>
 
-          {/* Section: Important Alerts Preview */}
+          {/* Section: Urgent Expiry & Stock Alerts Preview */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-900">Important Alerts</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[#7a7469]">
+                  Urgent Shelf Alerts
+                </h2>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#f4ffe1] text-[#207429]">
+                  Expiry Priority
+                </span>
+              </div>
               <Link
                 href="/notifications"
-                className="text-xs font-semibold text-blue-600 hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-bold text-[#207429] hover:underline"
               >
-                See all →
+                <span>View all alerts</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {importantAlerts.length === 0 ? (
-              <div className="border border-dashed border-gray-300 rounded p-6 text-center text-gray-500 text-sm bg-white">
-                No urgent alerts right now. Your shelves look good.
+              <div className="border border-dashed border-[#ece3d2] rounded-2xl p-8 text-center bg-white shadow-2xs">
+                <div className="w-10 h-10 rounded-full bg-[#f4ffe1] text-[#207429] mx-auto flex items-center justify-center mb-2">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-sm text-[#181413]">Shelves are fully protected</h3>
+                <p className="text-xs text-[#7a7469] mt-0.5">
+                  No near-expiry, expired, or critically low inventory right now.
+                </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {importantAlerts.map((alert, index) => {
                   const isExp = alert.alert_type === 'expired';
                   const isNear = alert.alert_type === 'near_expiry';
-                  const badgeColor = isExp
-                    ? 'bg-red-100 text-red-800 border-red-200'
+
+                  const badgeClass = isExp
+                    ? 'bg-[#fee2e2] text-[#d32f2f] border-[#fca5a5]'
                     : isNear
-                    ? 'bg-amber-100 text-amber-800 border-amber-200'
-                    : 'bg-orange-100 text-orange-800 border-orange-200';
+                    ? 'bg-[#fef3c7] text-[#b45309] border-[#fde68a]'
+                    : 'bg-[#ffedd5] text-[#c2410c] border-[#fed7aa]';
 
                   const badgeLabel = isExp
                     ? 'Expired'
@@ -428,31 +578,40 @@ export default function DashboardPage() {
                     <Link
                       key={`${alert.alert_type}-${alert.product_id}-${alert.batch_id || index}`}
                       href={`/inventory/${alert.product_id}`}
-                      className="block bg-white border border-gray-200 rounded p-4 hover:border-gray-400 transition-colors"
+                      className="group block bg-white border border-[#ece3d2] rounded-xl p-4 hover:border-[#207429] hover:shadow-xs transition-all"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${badgeColor}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${badgeClass}`}>
                           {badgeLabel}
                         </span>
                         {alert.batch_id && (
-                          <span className="font-mono text-xs text-gray-400 font-semibold">
+                          <span className="font-mono text-[11px] text-[#999182] font-semibold bg-[#fef9f0] px-1.5 py-0.5 rounded border border-[#ece3d2]">
                             B-{alert.batch_id.replace(/-/g, '').slice(0, 8).toUpperCase()}
                           </span>
                         )}
                       </div>
 
-                      <h3 className="font-bold text-gray-900 text-sm mt-2">{alert.product_name}</h3>
+                      <div className="mt-2.5 flex items-baseline justify-between">
+                        <h3 className="font-bold text-[#181413] text-sm group-hover:text-[#207429] transition-colors truncate max-w-[200px]">
+                          {alert.product_name}
+                        </h3>
+                        <ExternalLink className="w-3.5 h-3.5 text-[#9ca3af] group-hover:text-[#207429] shrink-0" />
+                      </div>
 
-                      <p className="text-xs text-gray-600 mt-1">
+                      <p className="text-xs text-[#7a7469] mt-1">
                         {isExp || isNear ? (
                           <>
-                            <span className="font-semibold text-gray-900">{alert.batch_quantity_left ?? 0}</span> units
-                            left • <span className="capitalize">{daysText}</span>
+                            <span className="font-bold text-[#181413]">
+                              {alert.batch_quantity_left ?? 0}
+                            </span>{' '}
+                            units left • <span className="capitalize font-semibold text-[#b45309]">{daysText}</span>
                           </>
                         ) : (
                           <>
-                            <span className="font-semibold text-gray-900">{alert.current_stock ?? 0}</span> units left
-                            (alert at {alert.low_stock_level ?? 5})
+                            <span className="font-bold text-[#181413]">
+                              {alert.current_stock ?? 0}
+                            </span>{' '}
+                            units left (alert threshold: {alert.low_stock_level ?? 5})
                           </>
                         )}
                       </p>
@@ -463,54 +622,70 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Section: Category Deep Dives (Low Stock, Near Expiry, Expired) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Low Stock Top Items */}
-            <div className="bg-white border border-gray-200 rounded p-5 space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <h3 className="font-bold text-sm text-gray-900">Low Stock ({lowStockCount})</h3>
-                <Link href="/notifications" className="text-xs text-blue-600 hover:underline">
+          {/* Section: Category Deep Dives (Low Stock, Near Expiry, Expired Breakdown) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Low Stock Breakdown */}
+            <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-[#f4f1ea] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-[#c2410c]" />
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-[#181413]">
+                    Low Stock ({lowStockCount})
+                  </h3>
+                </div>
+                <Link href="/notifications" className="text-xs font-semibold text-[#207429] hover:underline">
                   See all
                 </Link>
               </div>
               {lowStockAlerts.length === 0 ? (
-                <p className="text-xs text-gray-400 py-2">No low stock products.</p>
+                <p className="text-xs text-[#999182] py-3">No low stock items detected.</p>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#f4f1ea]">
                   {lowStockAlerts.slice(0, 5).map((a) => (
                     <Link
                       key={a.product_id}
                       href={`/inventory/${a.product_id}`}
-                      className="py-2 flex items-center justify-between text-xs hover:bg-gray-50 px-1 rounded"
+                      className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <span className="font-medium text-gray-900 truncate max-w-[150px]">{a.product_name}</span>
-                      <span className="font-semibold text-orange-700">{a.current_stock ?? 0} left</span>
+                      <span className="font-medium text-[#181413] truncate max-w-[150px]">
+                        {a.product_name}
+                      </span>
+                      <span className="font-bold text-[#c2410c] bg-[#ffedd5] px-2 py-0.5 rounded text-[11px]">
+                        {a.current_stock ?? 0} left
+                      </span>
                     </Link>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Near Expiry Top Items */}
-            <div className="bg-white border border-gray-200 rounded p-5 space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <h3 className="font-bold text-sm text-gray-900">Near Expiry ({nearExpiryCount})</h3>
-                <Link href="/notifications" className="text-xs text-blue-600 hover:underline">
+            {/* Near Expiry Breakdown */}
+            <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-[#f4f1ea] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#b45309]" />
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-[#181413]">
+                    Near Expiry ({nearExpiryCount})
+                  </h3>
+                </div>
+                <Link href="/notifications" className="text-xs font-semibold text-[#207429] hover:underline">
                   See all
                 </Link>
               </div>
               {nearExpiryAlerts.length === 0 ? (
-                <p className="text-xs text-gray-400 py-2">No batches near expiry.</p>
+                <p className="text-xs text-[#999182] py-3">No batches near expiration.</p>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#f4f1ea]">
                   {nearExpiryAlerts.slice(0, 5).map((a) => (
                     <Link
                       key={a.batch_id || a.product_id}
                       href={`/inventory/${a.product_id}`}
-                      className="py-2 flex items-center justify-between text-xs hover:bg-gray-50 px-1 rounded"
+                      className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <span className="font-medium text-gray-900 truncate max-w-[130px]">{a.product_name}</span>
-                      <span className="font-semibold text-amber-700">
+                      <span className="font-medium text-[#181413] truncate max-w-[130px]">
+                        {a.product_name}
+                      </span>
+                      <span className="font-bold text-[#b45309] bg-[#fef3c7] px-2 py-0.5 rounded text-[11px]">
                         {formatExpirationDaysText(a.days_until_expiration, false)}
                       </span>
                     </Link>
@@ -519,26 +694,33 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Expired Top Items */}
-            <div className="bg-white border border-gray-200 rounded p-5 space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <h3 className="font-bold text-sm text-gray-900">Expired ({expiredCount})</h3>
-                <Link href="/notifications" className="text-xs text-blue-600 hover:underline">
+            {/* Expired Breakdown */}
+            <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-[#f4f1ea] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <AlertOctagon className="w-4 h-4 text-[#d32f2f]" />
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-[#181413]">
+                    Expired ({expiredCount})
+                  </h3>
+                </div>
+                <Link href="/notifications" className="text-xs font-semibold text-[#207429] hover:underline">
                   See all
                 </Link>
               </div>
               {expiredAlerts.length === 0 ? (
-                <p className="text-xs text-gray-400 py-2">No expired batches.</p>
+                <p className="text-xs text-[#999182] py-3">No expired items present.</p>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#f4f1ea]">
                   {expiredAlerts.slice(0, 5).map((a) => (
                     <Link
                       key={a.batch_id || a.product_id}
                       href={`/inventory/${a.product_id}`}
-                      className="py-2 flex items-center justify-between text-xs hover:bg-gray-50 px-1 rounded"
+                      className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <span className="font-medium text-gray-900 truncate max-w-[130px]">{a.product_name}</span>
-                      <span className="font-semibold text-red-700">
+                      <span className="font-medium text-[#181413] truncate max-w-[130px]">
+                        {a.product_name}
+                      </span>
+                      <span className="font-bold text-[#d32f2f] bg-[#fee2e2] px-2 py-0.5 rounded text-[11px]">
                         {formatExpirationDaysText(a.days_until_expiration, true)}
                       </span>
                     </Link>
@@ -549,27 +731,32 @@ export default function DashboardPage() {
           </div>
 
           {/* Section: Product Ranking Lists (Most-Stocked, Most-Sold, Least-Sold) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Most-Stocked */}
-            <div className="bg-white border border-gray-200 rounded p-5 space-y-3">
-              <h3 className="font-bold text-sm text-gray-900 border-b border-gray-100 pb-2">
-                Most Stocked (Top 5)
-              </h3>
+            <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
+              <div className="flex items-center gap-2 border-b border-[#f4f1ea] pb-2.5">
+                <Boxes className="w-4 h-4 text-[#207429]" />
+                <h3 className="font-bold text-xs uppercase tracking-wider text-[#181413]">
+                  Most Stocked (Top 5)
+                </h3>
+              </div>
               {mostStocked.length === 0 ? (
-                <p className="text-xs text-gray-400 py-2">No products in stock.</p>
+                <p className="text-xs text-[#999182] py-3">No products in stock.</p>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#f4f1ea]">
                   {mostStocked.map((item) => (
                     <Link
                       key={item.product_id}
                       href={`/inventory/${item.product_id}`}
-                      className="py-2.5 flex items-center justify-between text-xs hover:bg-gray-50 px-1 rounded"
+                      className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
                       <div className="truncate max-w-[170px]">
-                        <span className="font-medium text-gray-900 block truncate">{item.product_name}</span>
-                        <span className="text-gray-400 text-[10px] block">{item.category_name || 'Uncategorized'}</span>
+                        <span className="font-medium text-[#181413] block truncate">{item.product_name}</span>
+                        <span className="text-[#999182] text-[10px] block">{item.category_name || 'Uncategorized'}</span>
                       </div>
-                      <span className="font-bold text-gray-900">{item.total_stock} units</span>
+                      <span className="font-bold text-[#181413] bg-[#f8faf8] border border-[#ece3d2] px-2 py-0.5 rounded text-[11px]">
+                        {item.total_stock} units
+                      </span>
                     </Link>
                   ))}
                 </div>
@@ -577,25 +764,30 @@ export default function DashboardPage() {
             </div>
 
             {/* Most-Sold */}
-            <div className="bg-white border border-gray-200 rounded p-5 space-y-3">
-              <h3 className="font-bold text-sm text-gray-900 border-b border-gray-100 pb-2">
-                Most Sold (Top 5)
-              </h3>
+            <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
+              <div className="flex items-center gap-2 border-b border-[#f4f1ea] pb-2.5">
+                <TrendingUp className="w-4 h-4 text-[#207429]" />
+                <h3 className="font-bold text-xs uppercase tracking-wider text-[#181413]">
+                  Most Sold (Top 5)
+                </h3>
+              </div>
               {!hasAnySales ? (
-                <p className="text-xs text-gray-400 py-4 text-center">No sales yet</p>
+                <p className="text-xs text-[#999182] py-5 text-center">No sales recorded yet</p>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#f4f1ea]">
                   {mostSold.map((item) => (
                     <Link
                       key={item.product_id}
                       href={`/inventory/${item.product_id}`}
-                      className="py-2.5 flex items-center justify-between text-xs hover:bg-gray-50 px-1 rounded"
+                      className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
                       <div className="truncate max-w-[170px]">
-                        <span className="font-medium text-gray-900 block truncate">{item.product_name}</span>
-                        <span className="text-gray-400 text-[10px] block">{item.category_name || 'Uncategorized'}</span>
+                        <span className="font-medium text-[#181413] block truncate">{item.product_name}</span>
+                        <span className="text-[#999182] text-[10px] block">{item.category_name || 'Uncategorized'}</span>
                       </div>
-                      <span className="font-bold text-gray-900">{item.total_sold} sold</span>
+                      <span className="font-bold text-[#207429] bg-[#f4ffe1] px-2 py-0.5 rounded text-[11px] border border-[#207429]/20">
+                        {item.total_sold} sold
+                      </span>
                     </Link>
                   ))}
                 </div>
@@ -603,25 +795,30 @@ export default function DashboardPage() {
             </div>
 
             {/* Least-Sold */}
-            <div className="bg-white border border-gray-200 rounded p-5 space-y-3">
-              <h3 className="font-bold text-sm text-gray-900 border-b border-gray-100 pb-2">
-                Least Sold (Top 5)
-              </h3>
+            <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
+              <div className="flex items-center gap-2 border-b border-[#f4f1ea] pb-2.5">
+                <Calendar className="w-4 h-4 text-[#7a7469]" />
+                <h3 className="font-bold text-xs uppercase tracking-wider text-[#181413]">
+                  Least Sold (Top 5)
+                </h3>
+              </div>
               {!hasAnySales ? (
-                <p className="text-xs text-gray-400 py-4 text-center">No sales yet</p>
+                <p className="text-xs text-[#999182] py-5 text-center">No sales recorded yet</p>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#f4f1ea]">
                   {leastSold.map((item) => (
                     <Link
                       key={item.product_id}
                       href={`/inventory/${item.product_id}`}
-                      className="py-2.5 flex items-center justify-between text-xs hover:bg-gray-50 px-1 rounded"
+                      className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
                       <div className="truncate max-w-[170px]">
-                        <span className="font-medium text-gray-900 block truncate">{item.product_name}</span>
-                        <span className="text-gray-400 text-[10px] block">{item.category_name || 'Uncategorized'}</span>
+                        <span className="font-medium text-[#181413] block truncate">{item.product_name}</span>
+                        <span className="text-[#999182] text-[10px] block">{item.category_name || 'Uncategorized'}</span>
                       </div>
-                      <span className="font-bold text-gray-900">{item.total_sold} sold</span>
+                      <span className="font-bold text-[#7a7469] bg-[#f8faf8] border border-[#ece3d2] px-2 py-0.5 rounded text-[11px]">
+                        {item.total_sold} sold
+                      </span>
                     </Link>
                   ))}
                 </div>

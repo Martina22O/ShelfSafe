@@ -7,13 +7,18 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Modal,
   BackHandler,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { ArrowRight, Plus } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScanStackParamList } from '../../navigation/types';
 import {
@@ -26,10 +31,13 @@ import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { Product } from '../../types/inventory';
 import { useSaleCart } from '../../context/SaleCartContext';
 import { isValidRetailBarcode } from '../../utils/barcode';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'TypeBarcode'>;
 
 export default function TypeBarcodeScreen({ route, navigation }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const { near_expiry_days } = useStoreSettings();
   const mode = route.params?.mode || 'add';
   const { addItem } = useSaleCart();
@@ -82,7 +90,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
 
     if (result.kind === 'archived') {
       setLoading(false);
-      setErrorMessage('This product is archived');
+      setErrorMessage('This product is archived in your store.');
       setArchivedProduct(result.product);
       return;
     }
@@ -106,7 +114,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
         const sellableUnits = batchRes.kind === 'success' ? batchRes.data.sellable_units : 0;
 
         if (sellableUnits <= 0) {
-          setErrorMessage('No sellable units for this product');
+          setErrorMessage('No sellable units for this product (expired or out of stock)');
           return;
         }
 
@@ -183,7 +191,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
       const sellableUnits = batchRes.kind === 'success' ? batchRes.data.sellable_units : 0;
 
       if (sellableUnits <= 0) {
-        setErrorMessage('No sellable units for this product');
+        setErrorMessage('No sellable units for this product (expired or out of stock)');
         return;
       }
 
@@ -212,144 +220,186 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
     });
   };
 
+  const isScanAction = mode === 'add' || mode === 'sell';
+
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Type Barcode</Text>
-      <Text style={{ color: 'gray', marginTop: 4 }}>
-        Mode: {mode === 'add' ? 'Add Stock' : 'Record Sold Items'}
-      </Text>
-
-      {restoreSuccessMessage ? (
-        <View style={{ marginTop: 12, padding: 10, borderWidth: 1, borderColor: '#2e7d32', backgroundColor: '#edf7ed' }}>
-          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>{restoreSuccessMessage}</Text>
-        </View>
-      ) : null}
-
-      {errorMessage ? (
-        <View style={{ marginTop: 12, padding: 10, borderWidth: 1, borderColor: '#d9534f', backgroundColor: '#fdf7f7' }}>
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>{errorMessage}</Text>
-          {archivedProduct && (
-            <View style={{ marginTop: 10 }}>
-              <Button
-                title={restoring ? 'Restoring...' : 'Restore Product'}
-                disabled={restoring}
-                onPress={() => setShowRestoreModal(true)}
-                color="#2e7d32"
-              />
-            </View>
-          )}
-        </View>
-      ) : null}
-
-      {/* Barcode Input Section */}
-      <View style={{ marginTop: 16 }}>
-        <Text style={{ fontWeight: 'bold' }}>Barcode number</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4, backgroundColor: '#fff' }}
-          placeholder="e.g. 4801981118502"
-          value={barcode}
-          onChangeText={(text) => {
-            setBarcode(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!loading}
+    <SafeAreaView
+      style={[styles.container, isScanAction && { backgroundColor: COLORS.scanActionBg }]}
+      edges={['left', 'right']}
+    >
+      <StatusBar style="dark" />
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Decorative Wave Background */}
+        <Image
+          source={require('../../../assets/designs/screen-background.png')}
+          style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+          resizeMode="stretch"
         />
 
-        {barcode.trim().length > 0 && !isValidRetailBarcode(barcode.trim()) ? (
-          <Text style={{ color: '#856404', fontSize: 12, marginTop: 4 }}>
-            This is not a standard barcode. You can still use it.
-          </Text>
+        {/* Mode Badge Indicator (Native navigation bar provides single Back button) */}
+        <View style={styles.header}>
+          <View style={styles.modeBadge}>
+            <Text style={styles.modeBadgeText}>
+              {mode === 'add' ? 'Stock In Mode' : 'Record Sale Mode'}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.title}>Manual Barcode Entry</Text>
+        <Text style={styles.subtitle}>
+          Enter retail numbers directly or search by item name
+        </Text>
+
+        {/* Notifications */}
+        {restoreSuccessMessage ? (
+          <View style={styles.successToast}>
+            <Text style={styles.successToastText}>{restoreSuccessMessage}</Text>
+          </View>
         ) : null}
 
-        <View style={{ marginTop: 12 }}>
-          {loading ? (
-            <ActivityIndicator size="small" color="#0056b3" />
-          ) : (
-            <Button title="Find" onPress={handleFind} />
-          )}
-        </View>
-      </View>
+        {errorMessage ? (
+          <View style={styles.errorToast}>
+            <Text style={styles.errorToastText}>{errorMessage}</Text>
+            {archivedProduct && (
+              <TouchableOpacity
+                style={styles.restorePromptBtn}
+                onPress={() => setShowRestoreModal(true)}
+              >
+                <Text style={styles.restorePromptText}>Restore "{archivedProduct.name}"</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
 
-      {/* Action Options */}
-      <View style={{ marginTop: 24, gap: 12 }}>
-        <Button
-          title={showNameSearch ? 'Hide search by name' : 'Search product by name'}
-          onPress={() => setShowNameSearch(!showNameSearch)}
-          color="gray"
-        />
+        {/* Barcode Input Card */}
+        <View style={styles.card}>
+          <Text style={styles.label}>Barcode number</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 4801981118502"
+            placeholderTextColor={COLORS.textMuted}
+            value={barcode}
+            onChangeText={(text) => {
+              setBarcode(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            keyboardType="numeric"
+            editable={!loading}
+          />
 
-        {showNameSearch ? (
-          <View style={{ borderWidth: 1, borderColor: '#ddd', padding: 12, marginTop: 4, backgroundColor: '#fff' }}>
-            <Text style={{ fontWeight: 'bold' }}>Search by product name</Text>
-            {mode === 'sell' && (
-              <Text style={{ color: 'gray', fontSize: 12, marginTop: 2 }}>
-                Use this to sell barcode-less products or items that cannot be scanned.
+          {barcode.trim().length > 0 && !isValidRetailBarcode(barcode.trim()) ? (
+            <Text style={styles.warningNote}>
+              Note: This barcode is non-standard, but will still be accepted.
+            </Text>
+          ) : null}
+
+          <TouchableOpacity
+            style={[styles.primaryBtn, loading && styles.btnDisabled]}
+            onPress={handleFind}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.primaryBtnText}>
+                {mode === 'add' ? 'Find Product to Stock' : 'Find Product to Sell'}
               </Text>
             )}
-            <TextInput
-              style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 6 }}
-              placeholder="Type product name..."
-              value={nameQuery}
-              onChangeText={setNameQuery}
-            />
-            <View style={{ marginTop: 8 }}>
-              {searchingName ? (
-                <ActivityIndicator size="small" color="#0056b3" />
-              ) : (
-                <Button title="Search" onPress={handleSearchByName} />
-              )}
-            </View>
+          </TouchableOpacity>
+        </View>
 
-            {/* Search results list */}
-            {hasSearched && searchResults.length === 0 && !searchingName ? (
-              <Text style={{ color: 'gray', marginTop: 8, fontStyle: 'italic' }}>
-                No active products found matching "{nameQuery}"
+        {/* Search by Name Toggle Card */}
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.toggleRow}
+            onPress={() => setShowNameSearch(!showNameSearch)}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardSectionTitle}>Search by Product Name</Text>
+              <Text style={styles.cardSectionSub}>
+                Ideal for items without barcodes or worn-out labels
               </Text>
-            ) : null}
+            </View>
+            <Text style={styles.toggleArrow}>{showNameSearch ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
 
-            {searchResults.map((item) => {
-              const isCurrentSelecting = selectingProductId === item.id;
-              return (
+          {showNameSearch && (
+            <View style={styles.searchSection}>
+              <View style={styles.searchRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  placeholder="Type product name..."
+                  placeholderTextColor={COLORS.textMuted}
+                  value={nameQuery}
+                  onChangeText={setNameQuery}
+                  onSubmitEditing={handleSearchByName}
+                />
                 <TouchableOpacity
-                  key={item.id}
-                  onPress={() => handleSelectProduct(item)}
-                  disabled={isCurrentSelecting}
-                  style={{
-                    borderBottomWidth: 1,
-                    borderColor: '#eee',
-                    paddingVertical: 10,
-                  }}
+                  style={[styles.searchBtn, searchingName && styles.btnDisabled]}
+                  onPress={handleSearchByName}
+                  disabled={searchingName}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {searchingName ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.searchBtnText}>Search</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Search Results */}
+              {hasSearched && searchResults.length === 0 && !searchingName && (
+                <Text style={styles.emptySearchText}>
+                  No active products found matching "{nameQuery}"
+                </Text>
+              )}
+
+              {searchResults.map((item) => {
+                const isCurrentSelecting = selectingProductId === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => handleSelectProduct(item)}
+                    disabled={isCurrentSelecting}
+                    style={styles.resultItem}
+                  >
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{item.name}</Text>
-                      <Text style={{ color: 'gray', fontSize: 13 }}>
+                      <Text style={styles.resultName}>{item.name}</Text>
+                      <Text style={styles.resultMeta}>
                         Barcode: {item.barcode || 'None'} • ₱{item.price.toFixed(2)}
                       </Text>
                     </View>
                     {isCurrentSelecting ? (
-                      <ActivityIndicator size="small" color="#0056b3" />
+                      <ActivityIndicator size="small" color={COLORS.primary} />
                     ) : (
-                      <Text style={{ color: '#0056b3', fontWeight: 'bold' }}>
-                        {mode === 'sell' ? 'Add to cart →' : 'Select →'}
-                      </Text>
+                      <View style={styles.selectActionRow}>
+                        <Text style={styles.selectActionText}>
+                          {mode === 'sell' ? 'Add to cart' : 'Select'}
+                        </Text>
+                        <ArrowRight size={14} color={COLORS.primary} strokeWidth={2} />
+                      </View>
                     )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
 
-        {mode === 'add' ? (
-          <Button
-            title="Add a product with no barcode"
+        {/* Add Product without Barcode CTA (Stock-In Mode) */}
+        {mode === 'add' && (
+          <TouchableOpacity
+            style={styles.secondaryBtn}
             onPress={() => navigation.navigate('NewProduct', { barcode: '' })}
-            color="gray"
-          />
-        ) : null}
-      </View>
+            accessibilityRole="button"
+          >
+            <View style={styles.addNoBarcodeRow}>
+              <Plus size={16} color={COLORS.primary} strokeWidth={2} />
+              <Text style={styles.secondaryBtnText}>Add a product with no barcode</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
 
       {/* Restore Confirmation Modal */}
       <Modal
@@ -360,40 +410,23 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
           if (!restoring) setShowRestoreModal(false);
         }}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              padding: 20,
-              borderRadius: 6,
-              width: '100%',
-              maxWidth: 360,
-              borderWidth: 1,
-              borderColor: '#ccc',
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Restore Product?</Text>
-            <Text style={{ color: '#333', marginTop: 10, fontSize: 14 }}>
-              Restore "{archivedProduct?.name}" to active inventory?
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Restore Product?</Text>
+            <Text style={styles.modalSub}>
+              Restore "{archivedProduct?.name}" back to your active store inventory?
             </Text>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <Button
-                title="Cancel"
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
                 onPress={() => setShowRestoreModal(false)}
                 disabled={restoring}
-                color="gray"
-              />
-              <Button
-                title={restoring ? 'Restoring...' : 'Yes, Restore'}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
                 onPress={async () => {
                   if (!archivedProduct) return;
                   setRestoring(true);
@@ -401,26 +434,348 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
                   setRestoring(false);
                   setShowRestoreModal(false);
 
-                  if (res.kind === 'db_error') {
-                    setErrorMessage(res.message);
-                    return;
-                  }
-                  if (res.kind === 'network_timeout') {
+                  if (res.kind !== 'success') {
                     setErrorMessage(res.message);
                     return;
                   }
 
-                  setRestoreSuccessMessage(`"${archivedProduct.name}" restored! You can now add stock or record sales.`);
+                  setRestoreSuccessMessage(
+                    `"${archivedProduct.name}" restored! You can now add stock or record sales.`
+                  );
                   setErrorMessage(null);
                   setArchivedProduct(null);
                 }}
                 disabled={restoring}
-                color="#2e7d32"
-              />
+              >
+                {restoring ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Yes, Restore</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  scrollContent: {
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  modeBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  modeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.primaryDark,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  successToast: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  successToastText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primaryDark,
+  },
+  errorToast: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorToastText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.danger,
+  },
+  restorePromptBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  restorePromptText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  warningNote: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.orangeDark,
+    marginBottom: 12,
+  },
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  primaryBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  cardSectionSub: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  toggleArrow: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    marginLeft: 8,
+  },
+  searchSection: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: 14,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  searchBtn: {
+    backgroundColor: COLORS.deepGreen,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  emptySearchText: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    marginTop: 10,
+  },
+  resultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  resultName: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  resultMeta: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  selectActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  selectActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  secondaryBtn: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  addNoBarcodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  secondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+  },
+  modalSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 20,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  modalConfirmBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+  },
+  modalConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+});

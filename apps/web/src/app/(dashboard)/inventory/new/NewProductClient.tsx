@@ -2,6 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ScanBarcode,
+} from 'lucide-react';
 import { getCategories, createProductWithBatch } from '../../../../lib/inventory';
 import { Category } from '../../../../types/inventory';
 import {
@@ -189,64 +194,82 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 w-full">
       {/* Notice Banner */}
-      <div className="border border-blue-200 bg-blue-50 p-4 rounded text-blue-900 text-sm">
-        Camera barcode scanning is available in the mobile app.
+      <div className="border border-[#ece3d2] bg-[#fef9f0] p-4 rounded-xl text-[#524c40] text-xs flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2">
+          <ScanBarcode className="w-4 h-4 text-[#207429]" />
+          <span>Camera barcode scanning is available in the mobile app. On desktop, enter code manually or leave blank for barcode-less goods.</span>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">New Product</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Create a new product with its first delivery batch
-          </p>
+      <div className="flex items-center justify-between pb-2 border-b border-[#ece3d2]">
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/inventory"
+            className="p-1.5 rounded-lg border border-[#ece3d2] bg-white text-[#7a7469] hover:text-[#181413] hover:bg-[#fef9f0] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-black text-[#181413] tracking-tight">New Product</h1>
+            <p className="text-xs text-[#7a7469] mt-0.5">
+              Register a new product and receive its first delivery batch.
+            </p>
+          </div>
         </div>
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900">
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] transition-colors">
           Cancel
         </Link>
       </div>
 
       {/* SUCCESS VIEW */}
       {createdProduct ? (
-        <div className="border border-green-300 bg-green-50 p-6 rounded space-y-4">
-          <h2 className="text-lg font-bold text-green-900">
-            Created &quot;{createdProduct.name}&quot; successfully
-          </h2>
-          <p className="text-sm text-green-800">
-            Initial batch recorded with {createdProduct.quantity} units expiring on {createdProduct.expirationDate}.
-          </p>
+        <div className="border border-[#207429]/30 bg-[#f4ffe1] p-6 rounded-2xl space-y-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white border border-[#207429]/30 flex items-center justify-center text-[#207429]">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-[#181413]">
+                Created &quot;{createdProduct.name}&quot; successfully
+              </h2>
+              <p className="text-xs text-[#7a7469] mt-0.5">
+                Initial batch recorded with {createdProduct.quantity} units expiring on {createdProduct.expirationDate}.
+              </p>
+            </div>
+          </div>
           <div className="flex items-center gap-3 pt-2">
             <button
               type="button"
               onClick={handleResetForm}
-              className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+              className="bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
             >
-              Add another product
+              Add Another Product
             </button>
             <Link
               href={`/inventory/${createdProduct.productId}`}
-              className="border border-gray-300 bg-white px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50"
+              className="border border-[#ece3d2] bg-white px-4 py-2 rounded-xl text-xs font-bold text-[#181413] hover:bg-[#fef9f0] transition-colors shadow-2xs"
             >
-              View product
+              View Product Details
             </Link>
             <Link
               href="/inventory"
-              className="text-sm text-gray-600 hover:text-gray-900 ml-auto"
+              className="text-xs font-bold text-[#7a7469] hover:text-[#181413] ml-auto"
             >
-              Back to inventory
+              Back to Inventory
             </Link>
           </div>
         </div>
       ) : (
         /* PRODUCT FORM */
-        <div className="bg-white border border-gray-200 rounded p-6 space-y-6">
+        <div className="bg-white border border-[#ece3d2] rounded-2xl p-6 space-y-6 shadow-2xs">
           {formError && (
-            <div className="p-3 border border-red-300 bg-red-50 text-red-800 text-sm rounded space-y-2">
+            <div className="p-3 border border-red-200 bg-red-50 text-red-900 text-xs rounded-xl space-y-2">
               <p>{formError}</p>
               {showNetworkWarning && (
                 <div className="pt-1">
-                  <Link href="/inventory" className="text-sm font-semibold underline text-red-900">
+                  <Link href="/inventory" className="text-xs font-bold underline text-red-900">
                     Go to Inventory to check if product was saved →
                   </Link>
                 </div>
@@ -257,186 +280,193 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
           <form onSubmit={handleOpenConfirm} className="space-y-6">
             {/* Section 1: Product Information */}
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-gray-900 border-b border-gray-200 pb-2">
-                Product Details
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#181413] border-b border-[#ece3d2] pb-2">
+                1. Product Information
               </h2>
 
-              <div>
-                <label htmlFor="product-name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Product name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="product-name"
-                  type="text"
-                  maxLength={100}
-                  required
-                  placeholder="e.g. Milk 1L"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (formError) setFormError(null);
-                  }}
-                  disabled={saving || showNetworkWarning}
-                  className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="product-barcode" className="block text-sm font-medium text-gray-700 mb-1">
-                  Barcode
-                </label>
-                <input
-                  id="product-barcode"
-                  type="text"
-                  placeholder="Optional if barcode-less"
-                  value={barcode}
-                  onChange={(e) => {
-                    setBarcode(e.target.value);
-                    if (formError) setFormError(null);
-                  }}
-                  disabled={saving || showNetworkWarning}
-                  className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="product-category" className="block text-sm font-medium text-gray-700 mb-1">
-                  Category <span className="text-red-500">*</span>
-                </label>
-                {loadingCategories ? (
-                  <p className="text-xs text-gray-500 py-2">Loading categories...</p>
-                ) : (
-                  <select
-                    id="product-category"
-                    required
-                    value={selectedCategoryId}
-                    onChange={(e) => {
-                      setSelectedCategoryId(e.target.value);
-                      if (formError) setFormError(null);
-                    }}
-                    disabled={saving || showNetworkWarning}
-                    className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black bg-white"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="product-price" className="block text-sm font-medium text-gray-700 mb-1">
-                    Price (₱) <span className="text-red-500">*</span>
+                  <label htmlFor="product-name" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                    Product Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="product-price"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    id="product-name"
+                    type="text"
+                    maxLength={100}
                     required
-                    placeholder="0.00"
-                    value={price}
+                    placeholder="e.g. Evaporated Milk 370ml"
+                    value={name}
                     onChange={(e) => {
-                      setPrice(e.target.value);
+                      setName(e.target.value);
                       if (formError) setFormError(null);
                     }}
                     disabled={saving || showNetworkWarning}
-                    className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
+                    className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white transition-all"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="product-low-stock" className="block text-sm font-medium text-gray-700 mb-1">
-                    Low-stock alert level <span className="text-red-500">*</span>
+                  <label htmlFor="product-barcode" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                    Barcode (Optional)
                   </label>
-                  <input
-                    id="product-low-stock"
-                    type="number"
-                    step="1"
-                    min="0"
-                    required
-                    placeholder="5"
-                    value={lowStockLevel}
-                    onChange={(e) => {
-                      setLowStockLevel(e.target.value);
-                      if (formError) setFormError(null);
-                    }}
-                    disabled={saving || showNetworkWarning}
-                    className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-                  />
+                  <div className="relative">
+                    <ScanBarcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af] pointer-events-none" />
+                    <input
+                      id="product-barcode"
+                      type="text"
+                      placeholder="Enter or scan barcode..."
+                      value={barcode}
+                      onChange={(e) => {
+                        setBarcode(e.target.value);
+                        if (formError) setFormError(null);
+                      }}
+                      disabled={saving || showNetworkWarning}
+                      className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#f8faf8] border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="product-category" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  {loadingCategories ? (
+                    <p className="text-xs text-[#7a7469] py-2">Loading categories...</p>
+                  ) : (
+                    <select
+                      id="product-category"
+                      required
+                      value={selectedCategoryId}
+                      onChange={(e) => {
+                        setSelectedCategoryId(e.target.value);
+                        if (formError) setFormError(null);
+                      }}
+                      disabled={saving || showNetworkWarning}
+                      className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="product-price" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                      Selling Price (₱) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="product-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      placeholder="0.00"
+                      value={price}
+                      onChange={(e) => {
+                        setPrice(e.target.value);
+                        if (formError) setFormError(null);
+                      }}
+                      disabled={saving || showNetworkWarning}
+                      className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="product-low-stock" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                      Low-Stock Alert Level <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="product-low-stock"
+                      type="number"
+                      step="1"
+                      min="0"
+                      required
+                      placeholder="5"
+                      value={lowStockLevel}
+                      onChange={(e) => {
+                        setLowStockLevel(e.target.value);
+                        if (formError) setFormError(null);
+                      }}
+                      disabled={saving || showNetworkWarning}
+                      className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Section 2: First Batch Details */}
             <div className="space-y-4 pt-2">
-              <h2 className="text-base font-bold text-gray-900 border-b border-gray-200 pb-2">
-                First Batch Details
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#181413] border-b border-[#ece3d2] pb-2">
+                2. Initial Batch Delivery
               </h2>
 
-              <div>
-                <label htmlFor="batch-quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                  Quantity (1 to 100,000) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="batch-quantity"
-                  type="number"
-                  min="1"
-                  max="100000"
-                  step="1"
-                  required
-                  placeholder="10"
-                  value={quantity}
-                  onChange={(e) => {
-                    setQuantity(e.target.value);
-                    if (formError) setFormError(null);
-                  }}
-                  disabled={saving || showNetworkWarning}
-                  className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-                />
-              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="batch-quantity" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                    Initial Units Received <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="batch-quantity"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    step="1"
+                    required
+                    placeholder="10"
+                    value={quantity}
+                    onChange={(e) => {
+                      setQuantity(e.target.value);
+                      if (formError) setFormError(null);
+                    }}
+                    disabled={saving || showNetworkWarning}
+                    className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="batch-purchase-date" className="block text-sm font-medium text-gray-700 mb-1">
-                  Purchase date
-                </label>
-                <input
-                  id="batch-purchase-date"
-                  type="date"
-                  value={purchaseDate}
-                  onChange={(e) => {
-                    setPurchaseDate(e.target.value);
-                    if (formError) setFormError(null);
-                  }}
-                  disabled={saving || showNetworkWarning}
-                  className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-                />
-              </div>
+                <div>
+                  <label htmlFor="batch-purchase-date" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                    Purchase Date
+                  </label>
+                  <input
+                    id="batch-purchase-date"
+                    type="date"
+                    value={purchaseDate}
+                    onChange={(e) => {
+                      setPurchaseDate(e.target.value);
+                      if (formError) setFormError(null);
+                    }}
+                    disabled={saving || showNetworkWarning}
+                    className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="batch-expiration-date" className="block text-sm font-medium text-gray-700 mb-1">
-                  Expiration date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="batch-expiration-date"
-                  type="date"
-                  required
-                  value={expirationDate}
-                  onChange={(e) => {
-                    setExpirationDate(e.target.value);
-                    if (formError) setFormError(null);
-                  }}
-                  disabled={saving || showNetworkWarning}
-                  className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-                />
-                {isPastExpiry && (
-                  <p className="text-xs text-amber-700 font-medium mt-1">
-                    Warning: The expiration date is already in the past.
-                  </p>
-                )}
+                <div className="lg:col-span-2">
+                  <label htmlFor="batch-expiration-date" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                    Expiration Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="batch-expiration-date"
+                    type="date"
+                    required
+                    value={expirationDate}
+                    onChange={(e) => {
+                      setExpirationDate(e.target.value);
+                      if (formError) setFormError(null);
+                    }}
+                    disabled={saving || showNetworkWarning}
+                    className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                  />
+                  {isPastExpiry && (
+                    <p className="text-xs text-[#b45309] font-medium mt-1">
+                      Warning: The expiration date is already in the past.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -444,13 +474,13 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
               <button
                 type="submit"
                 disabled={saving || showNetworkWarning}
-                className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="bg-[#207429] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
               >
-                {saving ? 'Saving...' : 'Save product'}
+                {saving ? 'Creating...' : 'Save Product & Batch'}
               </button>
               <Link
                 href="/inventory"
-                className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50"
+                className="border border-[#ece3d2] px-4 py-2.5 rounded-xl text-xs font-semibold text-[#524c40] hover:bg-[#fef9f0]"
               >
                 Cancel
               </Link>

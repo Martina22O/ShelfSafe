@@ -7,12 +7,19 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { AlertCircle } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScanStackParamList } from '../../navigation/types';
+import DateField from '../../components/DateField';
 import {
   getProductWithBatches,
   findProductByBarcode,
@@ -25,10 +32,13 @@ import {
   isValidCalendarDate,
   isDateInPast,
 } from '../../utils/date';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'AddStockForm'>;
 
 export default function AddStockFormScreen({ route, navigation }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const { near_expiry_days } = useStoreSettings();
   const paramProductId = route.params?.productId;
   const paramBarcode = route.params?.barcode;
@@ -171,104 +181,305 @@ export default function AddStockFormScreen({ route, navigation }: Props) {
 
   if (loadingProduct) {
     return (
-      <View style={{ flex: 1, padding: 16, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#0056b3" />
-        <Text style={{ marginTop: 12 }}>Loading product details...</Text>
-      </View>
+      <SafeAreaView style={[styles.centerContainer, { backgroundColor: COLORS.scanActionBg }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading product details...</Text>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Add Stock</Text>
-
-      {/* Product Summary Card */}
-      {productData ? (
-        <View style={{ borderWidth: 1, borderColor: '#ccc', padding: 12, marginTop: 12 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{productData.name}</Text>
-          <Text style={{ color: 'gray' }}>Barcode: {productData.barcode || 'No barcode'}</Text>
-          <Text style={{ color: 'gray' }}>
-            Category: {productData.category?.name || 'Uncategorized'} • Price: ₱{productData.price.toFixed(2)}
-          </Text>
-          <Text style={{ marginTop: 6, fontWeight: 'bold' }}>
-            Total units: {productData.total_units} • Sellable: {productData.sellable_units} • Batches: {productData.batch_count}
-          </Text>
-        </View>
-      ) : (
-        <View style={{ borderWidth: 1, borderColor: '#ccc', padding: 12, marginTop: 12 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{paramProductName || 'Product'}</Text>
-          <Text style={{ color: 'gray' }}>Barcode: {paramBarcode || 'No barcode'}</Text>
-        </View>
-      )}
-
-      {/* Error Message Display */}
-      {errorMessage ? (
-        <View style={{ marginTop: 12, padding: 8, backgroundColor: '#f8d7da' }}>
-          <Text style={{ color: '#721c24', fontWeight: 'bold' }}>{errorMessage}</Text>
-        </View>
-      ) : null}
-
-      {/* Form Fields */}
-      <View style={{ marginTop: 16 }}>
-        <Text style={{ fontWeight: 'bold' }}>Quantity</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="Enter quantity (at least 1)"
-          value={quantity}
-          onChangeText={(text) => {
-            setQuantity(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!saving}
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.scanActionBg }]} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Background Decorative Wave */}
+        <Image
+          source={require('../../../assets/designs/screen-background.png')}
+          style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+          resizeMode="stretch"
         />
 
-        <Text style={{ fontWeight: 'bold', marginTop: 12 }}>Purchase date</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="YYYY-MM-DD"
-          value={purchaseDate}
-          onChangeText={(text) => {
-            setPurchaseDate(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          editable={!saving}
-        />
+        {/* Product Summary Card */}
+        {productData ? (
+          <View style={styles.productCard}>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>
+                {productData.category?.name || 'General Product'}
+              </Text>
+            </View>
+            <Text style={styles.productName}>{productData.name}</Text>
+            <View style={styles.prodMetaRow}>
+              <Text style={styles.metaLabel}>Barcode: {productData.barcode || 'None'}</Text>
+              <Text style={styles.metaDot}>•</Text>
+              <Text style={styles.metaLabel}>Current Units: {productData.total_units}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.productCard}>
+            <Text style={styles.productName}>{paramProductName || 'Product'}</Text>
+            <Text style={styles.metaLabel}>Barcode: {paramBarcode || 'No barcode'}</Text>
+          </View>
+        )}
 
-        <Text style={{ fontWeight: 'bold', marginTop: 12 }}>Expiration date</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="YYYY-MM-DD"
-          value={expirationDate}
-          onChangeText={(text) => {
-            setExpirationDate(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          editable={!saving}
-        />
-
-        {isPastExpiry ? (
-          <Text style={{ color: '#d9534f', marginTop: 4, fontWeight: 'bold' }}>
-            Warning: The expiration date is already past!
-          </Text>
+        {/* Error Alert Banner */}
+        {errorMessage ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
         ) : null}
 
-        <Text style={{ color: 'gray', fontStyle: 'italic', marginTop: 16 }}>
-          Note: This creates a new batch
-        </Text>
+        {/* Batch Form Card */}
+        <View style={styles.formCard}>
+          {/* Quantity */}
+          <Text style={styles.label}>Quantity Received</Text>
+          <TextInput
+            style={[styles.input, { marginBottom: 16 }]}
+            placeholder="Enter quantity (at least 1)"
+            placeholderTextColor={COLORS.textMuted}
+            value={quantity}
+            onChangeText={(text) => {
+              setQuantity(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            keyboardType="numeric"
+            editable={!saving}
+          />
 
-        <View style={{ marginTop: 24, marginBottom: 40 }}>
-          {saving ? (
-            <ActivityIndicator size="small" color="#0056b3" />
-          ) : (
-            <Button
-              title="Save batch"
-              onPress={handleSaveBatch}
-              disabled={saving || !productData}
-            />
-          )}
+          {/* Purchase Date */}
+          <DateField
+            label="Purchase / Delivery Date"
+            value={purchaseDate}
+            onChange={(val) => {
+              setPurchaseDate(val);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            editable={!saving}
+          />
+
+          {/* Expiration Date */}
+          <DateField
+            label="Expiration Date"
+            value={expirationDate}
+            onChange={(val) => {
+              setExpirationDate(val);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            editable={!saving}
+          />
+
+          {isPastExpiry ? (
+            <View style={styles.pastExpiryBox}>
+              <AlertCircle size={16} color={COLORS.amberDark} strokeWidth={2} />
+              <Text style={styles.pastExpiryText}>
+                Warning: This expiration date is already in the past!
+              </Text>
+            </View>
+          ) : null}
+
+          <Text style={styles.formNote}>
+            Note: This creates a separate dated batch. When sales are recorded, units will automatically be deducted from the batch that expires first.
+          </Text>
+
+          {/* Save Button */}
+          <TouchableOpacity
+            style={[styles.saveBtn, (saving || !productData) && styles.btnDisabled]}
+            onPress={handleSaveBatch}
+            disabled={saving || !productData}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.saveBtnText}>Save Batch Stock</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.canvas,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  scrollContent: {
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  topNav: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  screenSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  productCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 8,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  productName: {
+    fontSize: 17,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+  },
+  prodMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  metaLabel: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+  },
+  metaDot: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginHorizontal: 8,
+  },
+  errorBanner: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.danger,
+  },
+  formCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  input: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  pastExpiryBox: {
+    marginTop: 8,
+    backgroundColor: COLORS.dangerLight,
+    padding: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pastExpiryText: {
+    fontSize: 12,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.dangerDark,
+  },
+  formNote: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    marginTop: 16,
+    lineHeight: 16,
+  },
+  saveBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  saveBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+});

@@ -7,13 +7,18 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   ScrollView,
   ActivityIndicator,
   Modal,
   BackHandler,
-  TouchableOpacity,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { ArrowLeft, AlertCircle } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { InventoryStackParamList } from '../../navigation/types';
 import {
@@ -23,10 +28,13 @@ import {
 } from '../../services/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { Category, ProductWithBatches } from '../../types/inventory';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<InventoryStackParamList, 'EditProduct'>;
 
 export default function EditProductScreen({ route, navigation }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const { near_expiry_days } = useStoreSettings();
   const productId = route.params?.productId;
 
@@ -200,255 +208,509 @@ export default function EditProductScreen({ route, navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, padding: 16, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={{ marginTop: 8, color: 'gray' }}>Loading product details...</Text>
-      </View>
+      <SafeAreaView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading product details...</Text>
+      </SafeAreaView>
     );
   }
 
   if (loadError) {
     return (
-      <View style={{ flex: 1, padding: 16, justifyContent: 'center' }}>
-        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#d9534f' }}>
-          {loadError}
-        </Text>
-        <View style={{ marginTop: 16 }}>
-          <Button title="← Back to Inventory" onPress={() => navigation.goBack()} />
-        </View>
-      </View>
+      <SafeAreaView style={styles.centerContainer}>
+        <Text style={styles.errorTitle}>{loadError}</Text>
+        <TouchableOpacity
+          style={styles.backBtnAction}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+        >
+          <ArrowLeft size={16} color={COLORS.primary} strokeWidth={2} />
+          <Text style={styles.backBtnActionText}>Back to Inventory</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }}>
-      <Button
-        title="← Back to Product"
-        onPress={() => navigation.goBack()}
-        disabled={saving}
-      />
-
-      <Text style={{ fontSize: 24, fontWeight: 'bold', marginTop: 12 }}>
-        Edit Product
-      </Text>
-      <Text style={{ color: 'gray', marginTop: 2 }}>
-        Update details for {initialProduct?.name}
-      </Text>
-
-      {/* Success Banner */}
-      {successMessage ? (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#2e7d32',
-            backgroundColor: '#edf7ed',
-          }}
-        >
-          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>
-            {successMessage}
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Error Banner */}
-      {errorMessage ? (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#d9534f',
-            backgroundColor: '#fdf7f7',
-          }}
-        >
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
-            {errorMessage}
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Form Fields */}
-      <View style={{ marginTop: 16 }}>
-        <Text style={{ fontWeight: 'bold' }}>Product name</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4, backgroundColor: '#fff' }}
-          placeholder="e.g. Milk 1L"
-          value={name}
-          onChangeText={(text) => {
-            setName(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          editable={!saving}
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Background Decorative Wave */}
+        <Image
+          source={require('../../../assets/designs/screen-background.png')}
+          style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+          resizeMode="stretch"
         />
 
-        <Text style={{ fontWeight: 'bold', marginTop: 14 }}>Barcode</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4, backgroundColor: '#fff' }}
-          placeholder="Optional if barcode-less"
-          value={barcode}
-          onChangeText={(text) => {
-            setBarcode(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="default"
-          editable={!saving}
-        />
-
-        {/* Warning if barcode is modified */}
-        {isBarcodeChanged ? (
-          <View
-            style={{
-              marginTop: 6,
-              padding: 8,
-              borderWidth: 1,
-              borderColor: '#f0ad4e',
-              backgroundColor: '#fffcf5',
-            }}
-          >
-            <Text style={{ color: '#8a6d3b', fontSize: 13 }}>
-              Warning: Changing the barcode will change which barcode scans find this product.
-            </Text>
+        {/* Notifications */}
+        {successMessage ? (
+          <View style={styles.successBox}>
+            <Text style={styles.successText}>{successMessage}</Text>
           </View>
         ) : null}
 
-        <Text style={{ fontWeight: 'bold', marginTop: 14 }}>Category</Text>
-        {loadingCategories ? (
-          <ActivityIndicator size="small" color="#2e7d32" style={{ marginVertical: 8 }} />
-        ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-            {categories.map((cat) => {
-              const isSelected = selectedCategoryId === cat.id;
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => {
-                    if (!saving) setSelectedCategoryId(cat.id);
-                  }}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 4,
-                    borderWidth: 1,
-                    borderColor: isSelected ? '#2e7d32' : '#ccc',
-                    backgroundColor: isSelected ? '#2e7d32' : '#fff',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: isSelected ? '#fff' : '#000',
-                      fontWeight: isSelected ? 'bold' : 'normal',
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Form Card */}
+        <View style={styles.card}>
+          <Text style={styles.label}>Product Name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            editable={!saving}
+          />
+
+          <Text style={styles.label}>Barcode / SKU</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="No barcode"
+            placeholderTextColor={COLORS.textMuted}
+            value={barcode}
+            onChangeText={(text) => {
+              setBarcode(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            keyboardType="numeric"
+            editable={!saving}
+          />
+
+          {isBarcodeChanged ? (
+            <View style={styles.warningBox}>
+              <AlertCircle size={16} color={COLORS.amberDark} strokeWidth={2} />
+              <Text style={styles.warningText}>
+                Warning: Changing the barcode will change which camera scans find this product.
+              </Text>
+            </View>
+          ) : null}
+
+          <Text style={styles.label}>Category</Text>
+          {loadingCategories ? (
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 8 }} />
+          ) : (
+            <View style={styles.categoryChipsRow}>
+              {categories.map((cat) => {
+                const isSelected = selectedCategoryId === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => {
+                      if (!saving) setSelectedCategoryId(cat.id);
                     }}
+                    style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
                   >
-                    {isSelected ? `• ${cat.name}` : cat.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
-        <Text style={{ fontWeight: 'bold', marginTop: 14 }}>Price (₱)</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4, backgroundColor: '#fff' }}
-          placeholder="0.00"
-          value={price}
-          onChangeText={(text) => {
-            setPrice(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!saving}
-        />
-
-        <Text style={{ fontWeight: 'bold', marginTop: 14 }}>Low-stock alert level</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4, backgroundColor: '#fff' }}
-          placeholder="5"
-          value={lowStockLevel}
-          onChangeText={(text) => {
-            setLowStockLevel(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!saving}
-        />
-      </View>
-
-      {/* Action Buttons */}
-      <View style={{ marginTop: 24, marginBottom: 40, gap: 10 }}>
-        <Button
-          title={saving ? 'Saving changes...' : 'Save Product Changes'}
-          onPress={handleOpenConfirm}
-          disabled={saving || isUnchanged}
-          color="#2e7d32"
-        />
-        {isUnchanged && !saving ? (
-          <Text style={{ color: 'gray', fontSize: 13, textAlign: 'center' }}>
-            No changes made yet
-          </Text>
-        ) : null}
-      </View>
-
-      {/* Confirmation Modal */}
-      <Modal
-        visible={showConfirmModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          if (!saving) setShowConfirmModal(false);
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              padding: 20,
-              borderRadius: 6,
-              width: '100%',
-              maxWidth: 360,
-              borderWidth: 1,
-              borderColor: '#ccc',
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Save these changes?</Text>
-            <Text style={{ color: '#444', marginTop: 8 }}>
-              Are you sure you want to update the details for "{trimmedName}"?
-            </Text>
-
-            <View style={{ marginTop: 12, padding: 8, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#eee' }}>
-              <Text style={{ fontSize: 13 }}>• Name: {trimmedName}</Text>
-              <Text style={{ fontSize: 13 }}>• Barcode: {trimmedBarcode || 'None'}</Text>
-              <Text style={{ fontSize: 13 }}>• Price: ₱{priceNum.toFixed(2)}</Text>
-              <Text style={{ fontSize: 13 }}>• Low-stock level: {lowStockNum}</Text>
+          <View style={styles.formRow}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.label}>Price (₱)</Text>
+              <TextInput
+                style={styles.input}
+                value={price}
+                onChangeText={(text) => {
+                  setPrice(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                keyboardType="numeric"
+                editable={!saving}
+              />
             </View>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-              <Button
-                title="Cancel"
-                onPress={() => setShowConfirmModal(false)}
-                disabled={saving}
-                color="gray"
-              />
-              <Button
-                title={saving ? 'Saving...' : 'Yes, Save'}
-                onPress={handleConfirmSave}
-                disabled={saving}
-                color="#2e7d32"
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={styles.label}>Low Stock Level</Text>
+              <TextInput
+                style={styles.input}
+                value={lowStockLevel}
+                onChangeText={(text) => {
+                  setLowStockLevel(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                keyboardType="numeric"
+                editable={!saving}
               />
             </View>
           </View>
         </View>
-      </Modal>
-    </ScrollView>
+
+        {/* Action Button */}
+        <View style={styles.actionSection}>
+          <TouchableOpacity
+            style={[styles.saveBtn, (saving || isUnchanged) && styles.btnDisabled]}
+            onPress={handleOpenConfirm}
+            disabled={saving || isUnchanged}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.saveBtnText}>Save Product Changes</Text>
+            )}
+          </TouchableOpacity>
+
+          {isUnchanged && !saving ? (
+            <Text style={styles.unchangedHint}>No changes made yet</Text>
+          ) : null}
+        </View>
+
+        {/* Confirmation Modal */}
+        <Modal
+          visible={showConfirmModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => {
+            if (!saving) setShowConfirmModal(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Save these changes?</Text>
+              <Text style={styles.modalSub}>
+                Are you sure you want to update the details for "{trimmedName}"?
+              </Text>
+
+              <View style={styles.previewBox}>
+                <Text style={styles.previewRow}>• Name: {trimmedName}</Text>
+                <Text style={styles.previewRow}>• Barcode: {trimmedBarcode || 'None'}</Text>
+                <Text style={styles.previewRow}>• Price: ₱{priceNum.toFixed(2)}</Text>
+                <Text style={styles.previewRow}>• Low-stock level: {lowStockNum} units</Text>
+              </View>
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setShowConfirmModal(false)}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalConfirmBtn}
+                  onPress={handleConfirmSave}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>Yes, Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.canvas,
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.danger,
+    textAlign: 'center',
+  },
+  backBtnAction: {
+    marginTop: 16,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  backBtnActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  scrollContent: {
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  topNav: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  screenSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  successBox: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  successText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primaryDark,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.danger,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  input: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  warningBox: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.amberBorder,
+    backgroundColor: COLORS.amberLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  warningText: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.amberDark,
+  },
+  categoryChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  categoryChip: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  categoryChipActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primaryDark,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  categoryChipTextActive: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+  },
+  formRow: {
+    flexDirection: 'row',
+  },
+  actionSection: {
+    marginTop: 8,
+    marginBottom: 40,
+  },
+  saveBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  unchangedHint: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+  },
+  modalSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  previewBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 4,
+  },
+  previewRow: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  modalConfirmBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+  },
+  modalConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+});

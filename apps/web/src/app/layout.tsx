@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import { hasSupabaseEnv } from "../lib/env";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "ShelfSafe",
   description: "ShelfSafe Inventory & Expiry Management",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "32x32" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({
@@ -28,9 +32,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${nunito.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-white text-gray-900">
+      <body className="min-h-full flex flex-col bg-[#f8faf8] text-[#181413]">
         {!envConfigured ? (
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800 text-center max-w-md">

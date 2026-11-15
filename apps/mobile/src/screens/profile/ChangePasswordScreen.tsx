@@ -8,18 +8,28 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
+  ActivityIndicator,
   Modal,
   BackHandler,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+// Lucide icons
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
 import { isDatabaseError } from '../../services/inventory';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ChangePassword'>;
 
 export default function ChangePasswordScreen({ navigation }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -64,18 +74,18 @@ export default function ChangePasswordScreen({ navigation }: Props) {
       return;
     }
     if (newPassword === currentPassword) {
-      setErrorMessage('New password cannot be the same as your current password');
+      setErrorMessage('New password must be different from your current password');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setErrorMessage('New passwords do not match');
+      setErrorMessage('New password and confirmation do not match');
       return;
     }
 
     setShowConfirmModal(true);
   };
 
-  const handleConfirmUpdate = async () => {
+  const handleConfirmSave = async () => {
     setShowConfirmModal(false);
     setSaving(true);
     setErrorMessage(null);
@@ -87,214 +97,379 @@ export default function ChangePasswordScreen({ navigation }: Props) {
       } = await supabase.auth.getUser();
 
       if (!user || !user.email) {
-        setErrorMessage('User session not found. Please sign in again.');
+        setSaving(false);
+        setErrorMessage('Unable to verify user session. Please sign in again.');
         return;
       }
 
-      // Step 1: Verify current password
+      // Step 1: Re-authenticate with current password
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPassword,
       });
 
       if (signInError) {
+        setSaving(false);
         setErrorMessage('Current password is incorrect');
         return;
       }
 
-      // Step 2: Update password
+      // Step 2: Update to new password
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (updateError) {
+        setSaving(false);
         if (isDatabaseError(updateError)) {
           setErrorMessage(updateError.message);
         } else {
           setErrorMessage(
-            'Not sure if this was saved. Pull down to refresh and check'
+            'Unable to change password right now. Please check your network and try again.'
           );
         }
         return;
       }
 
-      // Step 3: Success: clear fields and show success message
+      setSaving(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setSuccessMessage('Password changed successfully');
-    } catch (err: any) {
-      if (isDatabaseError(err)) {
-        setErrorMessage(err?.message || 'Database error occurred');
-      } else {
-        setErrorMessage(
-          'Not sure if this was saved. Pull down to refresh and check'
-        );
-      }
-    } finally {
+      setSuccessMessage('Password changed successfully!');
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1000);
+    } catch {
       setSaving(false);
+      setErrorMessage(
+        'Unable to change password right now. Please check your network and try again.'
+      );
     }
   };
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Change Password</Text>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      <Image
+        source={require('../../../assets/designs/screen-background.png')}
+        style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+        resizeMode="stretch"
+      />
+      <View style={styles.content}>
+        <Text style={styles.screenSub}>
+          Ensure your account stays protected with a strong password
+        </Text>
 
-      {/* Success banner */}
-      {successMessage && (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#2e7d32',
-            backgroundColor: '#edf7ed',
-          }}
-        >
-          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>
-            {successMessage}
-          </Text>
+        {/* Notifications */}
+        {successMessage ? (
+          <View style={styles.successBox}>
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        ) : null}
+
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Form Card */}
+        <View style={styles.card}>
+          <Text style={styles.label}>Current Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter current password"
+            placeholderTextColor={COLORS.textMuted}
+            secureTextEntry
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            editable={!saving}
+          />
+
+          <Text style={[styles.label, { marginTop: 14 }]}>New Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="At least 8 characters"
+            placeholderTextColor={COLORS.textMuted}
+            secureTextEntry
+            value={newPassword}
+            onChangeText={setNewPassword}
+            editable={!saving}
+          />
+
+          <Text style={[styles.label, { marginTop: 14 }]}>Confirm New Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Re-enter new password"
+            placeholderTextColor={COLORS.textMuted}
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            editable={!saving}
+          />
         </View>
-      )}
 
-      {/* Error banner */}
-      {errorMessage && (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#d9534f',
-            backgroundColor: '#fdf7f7',
-          }}
-        >
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
-            {errorMessage}
-          </Text>
-        </View>
-      )}
-
-      <Text style={{ marginTop: 16 }}>Current password</Text>
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          padding: 8,
-          marginTop: 4,
-          backgroundColor: '#fff',
-        }}
-        placeholder="Enter current password"
-        value={currentPassword}
-        onChangeText={setCurrentPassword}
-        secureTextEntry
-        editable={!saving}
-      />
-
-      <Text style={{ marginTop: 16 }}>New password</Text>
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          padding: 8,
-          marginTop: 4,
-          backgroundColor: '#fff',
-        }}
-        placeholder="Enter new password (min. 8 characters)"
-        value={newPassword}
-        onChangeText={setNewPassword}
-        secureTextEntry
-        editable={!saving}
-      />
-
-      <Text style={{ marginTop: 16 }}>Confirm new password</Text>
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          padding: 8,
-          marginTop: 4,
-          backgroundColor: '#fff',
-        }}
-        placeholder="Confirm new password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        editable={!saving}
-      />
-
-      <View style={{ marginTop: 24, gap: 12 }}>
-        <Button
-          title={saving ? 'Updating password...' : 'Update password'}
-          onPress={handleOpenConfirm}
-          disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-          color="#2e7d32"
-        />
-        <Button
-          title="Back"
-          onPress={() => navigation.goBack()}
-          color="gray"
-          disabled={saving}
-        />
-      </View>
-
-      {/* Confirmation Modal */}
-      <Modal
-        visible={showConfirmModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          if (!saving) setShowConfirmModal(false);
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              padding: 24,
-              borderRadius: 8,
-              width: '100%',
-              maxWidth: 340,
-            }}
+        {/* Action Buttons */}
+        <View style={styles.btnStack}>
+          <TouchableOpacity
+            style={[styles.primaryBtn, saving && styles.btnDisabled]}
+            onPress={handleOpenConfirm}
+            disabled={saving}
           >
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-              Change Password?
-            </Text>
-            <Text style={{ color: 'gray', marginTop: 8 }}>
-              Are you sure you want to update your account password?
-            </Text>
+            {saving ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.primaryBtnText}>Update Password</Text>
+            )}
+          </TouchableOpacity>
 
-            <View
-              style={{
-                marginTop: 20,
-                flexDirection: 'row',
-                justifyContent: 'flex-end',
-                gap: 12,
-              }}
-            >
-              <Button
-                title="Cancel"
-                onPress={() => setShowConfirmModal(false)}
-                color="gray"
-                disabled={saving}
-              />
-              <Button
-                title="Update"
-                onPress={handleConfirmUpdate}
-                color="#2e7d32"
-                disabled={saving}
-              />
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => navigation.goBack()}
+            disabled={saving}
+          >
+            <Text style={styles.secondaryBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Confirmation Modal */}
+        <Modal
+          visible={showConfirmModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => {
+            if (!saving) setShowConfirmModal(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Change Password?</Text>
+              <Text style={styles.modalSub}>
+                Are you sure you want to change your login password?
+              </Text>
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setShowConfirmModal(false)}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalConfirmBtn}
+                  onPress={handleConfirmSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalConfirmText}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  topNav: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  screenSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  successBox: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  successText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primaryDark,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.danger,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  btnStack: {
+    marginTop: 24,
+    gap: 10,
+  },
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  secondaryBtn: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+  },
+  modalSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  modalConfirmBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+  },
+  modalConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+});

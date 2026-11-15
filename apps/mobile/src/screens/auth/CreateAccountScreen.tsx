@@ -1,45 +1,109 @@
 /**
  * Screen: CreateAccountScreen
- * Reference: docs/design/01-welcome-signin-signup(2).png
+ * Background: apps/mobile/assets/designs/signup-background.jpg
+ * Reference: docs/design/references/mobile-signup-reference.png
  * Elements:
- * - Screen Name: Create your account
- * - Subtitle ("Start keeping your shelves in check.")
- * - Your name field (placeholder: "Your name")
- * - Email field (placeholder: "you@example.com")
- * - Password field ("At least 8 characters")
- * - "Create account" button (calls supabase.auth.signUp with name saved in user_metadata)
- * - "Check your email" message if no session is returned upon signup
- * - "Already have an account? Sign in" link
- * - Error message display
- * - Loading indicator during submit
+ * - Full-height background with logo & yellow wave
+ * - Accessible back button to landing
+ * - "Create Your Account" heading & "Start keeping your shelves in check." subtitle
+ * - Full Name, Email, and Password fields with visibility toggle
+ * - Password requirement helper text
+ * - Large green "Create Account" button
+ * - "Already have an account? Sign In" link
+ * - Keyboard-aware scrolling & Supabase registration
  */
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Keyboard,
+  Platform,
+  Image,
+  Dimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
+import { COLORS, FONTS } from '../../theme';
+
+const KeyboardAvoiding = KeyboardAvoidingView as any;
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'CreateAccount'>;
 
 export default function CreateAccountScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
+  const bgScale = screenWidth / 402;
+  const waveClearance = Math.max(175, 210 * bgScale);
+  // Position heading around vertical middle (~44-46% of screen height)
+  // Responsively adjusted so the entire form (name, email, password, button, sign-in link)
+  // fits cleanly on screen with zero scrolling required when the keyboard is closed
+  const formTopPadding = Math.max(
+    waveClearance + 16,
+    Math.min(
+      Math.round(screenHeight * 0.44),
+      screenHeight - 340 - insets.bottom - 16
+    )
+  );
+
+  const scrollRef = useRef<any>(null);
+
+  useEffect(() => {
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    );
+    return () => hideSub.remove();
+  }, []);
+
+  const handleInputFocus = (offset: number) => {
+    scrollRef.current?.scrollTo({ y: offset, animated: true });
+  };
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const handleSignUp = async () => {
+    if (!name.trim()) {
+      setErrorMessage('Please enter your full name.');
+      return;
+    }
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both email and password.');
+      return;
+    }
+    if (password.length < 8) {
+      setErrorMessage('Password must be at least 8 characters.');
+      return;
+    }
+
     setErrorMessage(null);
     setInfoMessage(null);
     setLoading(true);
 
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
-          name: name.trim() || 'Your name',
+          name: name.trim(),
         },
       },
     });
@@ -55,63 +119,343 @@ export default function CreateAccountScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={{ flex: 1, padding: 24, justifyContent: 'center' }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>
-        Create your account
-      </Text>
-      <Text style={{ fontSize: 16, marginTop: 4, color: 'gray' }}>
-        Start keeping your shelves in check.
-      </Text>
+    <View style={styles.container}>
+      <StatusBar style="dark" />
 
-      {errorMessage ? (
-        <Text style={{ color: 'red', marginTop: 12 }}>{errorMessage}</Text>
-      ) : null}
-
-      {infoMessage ? (
-        <Text style={{ color: 'green', marginTop: 12 }}>{infoMessage}</Text>
-      ) : null}
-
-      <Text style={{ marginTop: 16 }}>Your name</Text>
-      <TextInput
-        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-        placeholder="Your name"
-        value={name}
-        onChangeText={setName}
+      {/* Background artwork with ShelfSafe logo & wave */}
+      <Image
+        source={require('../../../assets/designs/signup-background.jpg')}
+        style={[
+          styles.bgImage,
+          {
+            width: screenWidth,
+            height: Math.max(screenHeight, 874 * bgScale),
+          },
+        ]}
+        resizeMode="cover"
+        pointerEvents="none"
       />
 
-      <Text style={{ marginTop: 16 }}>Email</Text>
-      <TextInput
-        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-        placeholder="you@example.com"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
+      {/* Top back button */}
+      <TouchableOpacity
+        style={[styles.backButton, { top: insets.top + 8 }]}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <ArrowLeft size={22} color={COLORS.text} strokeWidth={2.2} />
+      </TouchableOpacity>
 
-      <Text style={{ marginTop: 16 }}>Password</Text>
-      <TextInput
-        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-        placeholder="At least 8 characters"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      <KeyboardAvoiding
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: formTopPadding,
+              paddingBottom: Math.max(insets.bottom, 16) + 14,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Title & Subtitle */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Create Your Account</Text>
+            <Text style={styles.subtitle}>Start keeping your shelves in check.</Text>
+          </View>
 
-      <View style={{ marginTop: 24 }}>
-        {loading ? (
-          <ActivityIndicator />
-        ) : (
-          <Button title="Create account" onPress={handleSignUp} />
-        )}
-      </View>
+          {/* Error Banner */}
+          {errorMessage ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
 
-      <View style={{ marginTop: 16, alignItems: 'center' }}>
-        <Button
-          title="Already have an account? Sign in"
-          onPress={() => navigation.navigate('SignIn')}
-        />
-      </View>
+          {/* Success / Info Banner */}
+          {infoMessage ? (
+            <View style={styles.infoBox}>
+              <CheckCircle2 size={18} color={COLORS.primary} strokeWidth={2} />
+              <Text style={styles.infoText}>{infoMessage}</Text>
+            </View>
+          ) : null}
+
+          {/* Form Fields */}
+          <View style={styles.formContainer}>
+            {/* Full Name Field */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Juan Dela Cruz"
+                placeholderTextColor={COLORS.textSubtle}
+                value={name}
+                onChangeText={(text) => {
+                  setName(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                onFocus={() => handleInputFocus(50)}
+                autoCapitalize="words"
+                editable={!loading}
+              />
+            </View>
+
+            {/* Email Field */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="you@example.com"
+                placeholderTextColor={COLORS.textSubtle}
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                onFocus={() => handleInputFocus(110)}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                editable={!loading}
+              />
+            </View>
+
+            {/* Password Field */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="At least 8 characters"
+                  placeholderTextColor={COLORS.textSubtle}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  onFocus={() => handleInputFocus(170)}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  accessibilityRole="button"
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={COLORS.textMuted} strokeWidth={2} />
+                  ) : (
+                    <Eye size={20} color={COLORS.textMuted} strokeWidth={2} />
+                  )}
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.helperText}>Must be at least 8 characters</Text>
+            </View>
+
+            {/* Create Account Primary Button */}
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && styles.buttonDisabled]}
+              activeOpacity={0.85}
+              onPress={handleSignUp}
+              disabled={loading}
+              accessibilityRole="button"
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} size="small" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Create Account</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Link to Sign In */}
+            <View style={styles.signInRow}>
+              <Text style={styles.signInPrompt}>Already have an account? </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('SignIn')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.signInLink}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoiding>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ece3d2',
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+  },
+  header: {
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: COLORS.dangerDark,
+    fontSize: 13,
+    fontFamily: FONTS.medium,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.bgTint,
+    borderWidth: 1,
+    borderColor: '#d6f0b4',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  infoText: {
+    flex: 1,
+    color: COLORS.primary,
+    fontSize: 13,
+    fontFamily: FONTS.medium,
+  },
+  formContainer: {
+    width: '100%',
+  },
+  inputGroup: {
+    marginBottom: 13,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#ece3d2',
+    borderRadius: 12,
+    height: 48,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#ece3d2',
+    borderRadius: 12,
+    height: 48,
+    paddingHorizontal: 14,
+  },
+  passwordInput: {
+    flex: 1,
+    height: 48,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  eyeButton: {
+    padding: 6,
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helperText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    fontFamily: FONTS.regular,
+  },
+  primaryButton: {
+    backgroundColor: COLORS.primary,
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  primaryButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    letterSpacing: -0.2,
+  },
+  signInRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 14,
+    paddingVertical: 8,
+  },
+  signInPrompt: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+  },
+  signInLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+});

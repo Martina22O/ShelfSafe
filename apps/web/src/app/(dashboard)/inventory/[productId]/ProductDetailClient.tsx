@@ -2,6 +2,18 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import {
+  ArrowLeft,
+  Edit,
+  Trash2,
+  Plus,
+  Boxes,
+  Layers,
+  AlertCircle,
+  CheckCircle2,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
 import { useStoreSettings } from '../../../../context/StoreSettingsContext';
 import {
   getProductWithBatches,
@@ -518,44 +530,56 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
     <div className="space-y-6">
       {/* Back Link */}
       <div className="flex items-center justify-between">
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-          ← Back to Inventory
+        <Link
+          href="/inventory"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7a7469] hover:text-[#181413] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Inventory</span>
         </Link>
       </div>
 
       {/* Global Action Alerts */}
       {actionSuccess && (
-        <div className="p-4 border border-green-300 bg-green-50 text-green-800 text-sm rounded font-medium flex items-center justify-between">
-          <span>{actionSuccess}</span>
+        <div className="p-4 border border-[#207429]/30 bg-[#f4ffe1] text-[#207429] text-xs md:text-sm rounded-xl font-semibold flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+            <span>{actionSuccess}</span>
+          </div>
           <button
             type="button"
             onClick={() => setActionSuccess(null)}
-            className="text-green-700 hover:text-green-900 text-xs font-bold"
+            aria-label="Dismiss success notification"
+            className="text-[#207429] hover:text-[#185e21] p-1 rounded-md"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       {actionError && (
-        <div className="p-4 border border-red-300 bg-red-50 text-red-800 text-sm rounded font-medium flex items-center justify-between">
-          <span>{actionError}</span>
+        <div className="p-4 border border-red-200 bg-red-50 text-red-900 text-xs md:text-sm rounded-xl font-semibold flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600" />
+            <span>{actionError}</span>
+          </div>
           <button
             type="button"
             onClick={() => setActionError(null)}
-            className="text-red-700 hover:text-red-900 text-xs font-bold"
+            aria-label="Dismiss error notification"
+            className="text-red-700 hover:text-red-900 p-1 rounded-md"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       {/* Batch Delete Result Panel (rule 2) */}
       {batchDeleteResult && (
-        <div className="p-4 border border-blue-200 bg-blue-50 text-blue-900 text-sm rounded flex items-center justify-between">
+        <div className="p-4 border border-[#ece3d2] bg-[#fef9f0] text-[#181413] text-sm rounded-2xl flex items-center justify-between shadow-2xs">
           <div>
             <span className="font-bold">Batch {batchDeleteResult.code} {batchDeleteResult.status}.</span>
-            <p className="text-xs text-blue-800 mt-0.5">
+            <p className="text-xs text-[#7a7469] mt-0.5">
               {batchDeleteResult.status === 'Deleted'
                 ? 'The unused batch was permanently removed.'
                 : 'The batch was archived to preserve past audit and deduction history.'}
@@ -564,7 +588,7 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
           <button
             type="button"
             onClick={() => setBatchDeleteResult(null)}
-            className="bg-white border border-blue-300 px-3 py-1.5 rounded text-xs font-medium text-blue-900 hover:bg-blue-100"
+            className="bg-white border border-[#ece3d2] px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#181413] hover:bg-[#f4ffe1] transition-colors"
           >
             Back to product
           </button>
@@ -572,43 +596,48 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
       )}
 
       {/* Product Header */}
-      <div className="bg-white border border-gray-200 rounded p-6">
+      <div className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Barcode: {product.barcode || 'None'} • Category: {product.category?.name || 'Uncategorized'} • Price: ₱
-              {product.price.toFixed(2)}
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black text-[#181413] tracking-tight">{product.name}</h1>
+            </div>
+            <p className="text-xs text-[#7a7469] mt-1">
+              Barcode: <span className="font-mono text-[#181413]">{product.barcode || 'None'}</span> • Category:{' '}
+              <span className="font-semibold text-[#181413]">{product.category?.name || 'Uncategorized'}</span> • Price:{' '}
+              <span className="font-bold text-[#207429]">₱{product.price.toFixed(2)}</span>
             </p>
           </div>
 
-          {/* Action buttons on header (disabled while any action is running) */}
+          {/* Action buttons on header */}
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/inventory/${productId}/edit`}
-              className={`border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 font-medium hover:bg-gray-50 ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#ece3d2] bg-white text-xs font-bold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs ${
                 actionRunning ? 'pointer-events-none opacity-50' : ''
               }`}
             >
-              Edit product
+              <Edit className="w-3.5 h-3.5" />
+              Edit Product
             </Link>
             <button
               type="button"
               onClick={() => setShowDeleteProductModal(true)}
               disabled={actionRunning}
-              className="border border-red-300 text-red-700 px-3 py-1.5 rounded text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-bold text-[#d32f2f] hover:bg-red-100 transition-colors disabled:opacity-50"
             >
-              Delete product
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete Product
             </button>
           </div>
         </div>
 
         {/* Status Badges */}
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        <div className="flex flex-wrap gap-1.5">
           {product.statuses.map((status) => (
             <span
               key={status}
-              className={`text-xs px-2.5 py-1 rounded border font-medium ${getProductBadgeClass(status)}`}
+              className={`text-[10px] uppercase tracking-wide px-2.5 py-0.5 rounded border font-bold ${getProductBadgeClass(status)}`}
             >
               {status}
             </span>
@@ -616,58 +645,89 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
         </div>
 
         {/* Overview Stat Boxes */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-          <div className="border border-gray-200 rounded p-4 bg-gray-50">
-            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Total left
-            </span>
-            <span className="block text-2xl font-bold text-gray-900 mt-1">
-              {product.total_units}
-            </span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+          <div className="border border-[#ece3d2] rounded-xl p-4 bg-[#fef9f0]/60 flex items-center gap-3.5 shadow-2xs">
+            <div className="w-11 h-11 rounded-xl bg-white border border-[#ece3d2] flex items-center justify-center text-[#207429] shrink-0 shadow-2xs">
+              <Boxes className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="block text-[11px] font-bold text-[#7a7469] uppercase tracking-wider">
+                Total Left
+              </span>
+              <span className="block text-2xl font-black text-[#181413] mt-0.5 tracking-tight">
+                {product.total_units} <span className="text-xs font-normal text-[#7a7469]">units</span>
+              </span>
+            </div>
           </div>
 
-          <div className="border border-gray-200 rounded p-4 bg-gray-50">
-            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Sellable
-            </span>
-            <span className="block text-2xl font-bold text-gray-900 mt-1">
-              {product.sellable_units}
-            </span>
+          <div className="border border-[#ece3d2] rounded-xl p-4 bg-[#fef9f0]/60 flex items-center gap-3.5 shadow-2xs">
+            <div className="w-11 h-11 rounded-xl bg-[#f4ffe1] border border-[#207429]/20 flex items-center justify-center text-[#207429] shrink-0 shadow-2xs">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="block text-[11px] font-bold text-[#7a7469] uppercase tracking-wider">
+                Sellable
+              </span>
+              <span className="block text-2xl font-black text-[#207429] mt-0.5 tracking-tight">
+                {product.sellable_units} <span className="text-xs font-normal text-[#7a7469]">units</span>
+              </span>
+            </div>
           </div>
 
-          <div className="border border-gray-200 rounded p-4 bg-gray-50">
-            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Batches
-            </span>
-            <span className="block text-2xl font-bold text-gray-900 mt-1">
-              {product.batch_count}
-            </span>
+          <div className="border border-[#ece3d2] rounded-xl p-4 bg-[#fef9f0]/60 flex items-center gap-3.5 shadow-2xs">
+            <div className="w-11 h-11 rounded-xl bg-white border border-[#ece3d2] flex items-center justify-center text-[#7a7469] shrink-0 shadow-2xs">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="block text-[11px] font-bold text-[#7a7469] uppercase tracking-wider">
+                Active Batches
+              </span>
+              <span className="block text-2xl font-black text-[#181413] mt-0.5 tracking-tight">
+                {product.batch_count} <span className="text-xs font-normal text-[#7a7469]">batches</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Batch List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-gray-900">Batches (Earliest Expiry First)</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
+              Batches (Sorted by Expiration Date)
+            </h2>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#f4ffe1] text-[#207429]">
+              Auto Deduct First
+            </span>
+          </div>
+          <Link
+            href="/inventory/add-stock"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#207429] text-white text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Batch
+          </Link>
+        </div>
 
         {product.batches.length === 0 ? (
-          <div className="border border-dashed border-gray-300 rounded p-6 text-center text-gray-500 text-sm bg-white">
-            No active batches for this product.
+          <div className="border border-dashed border-[#ece3d2] rounded-2xl p-8 text-center text-[#7a7469] text-xs bg-white shadow-2xs">
+            No active batches recorded for this product yet.
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white border border-gray-200 rounded">
+          <div className="overflow-x-auto bg-white border border-[#ece3d2] rounded-2xl shadow-2xs">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-medium text-xs">
+              <thead className="bg-[#fef9f0] border-b border-[#ece3d2] text-[#7a7469] font-bold text-[11px] uppercase tracking-wider">
                 <tr>
-                  <th className="py-2.5 px-4">Batch Code</th>
-                  <th className="py-2.5 px-4">Units left</th>
-                  <th className="py-2.5 px-4">Bought date</th>
-                  <th className="py-2.5 px-4">Expiry date</th>
-                  <th className="py-2.5 px-4">Status</th>
-                  <th className="py-2.5 px-4 text-right">Actions</th>
+                  <th className="py-3 px-5">Batch Code</th>
+                  <th className="py-3 px-4">Units Left</th>
+                  <th className="py-3 px-4">Purchase Date</th>
+                  <th className="py-3 px-4">Expiration Date</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-[#f4f1ea]">
                 {product.batches.map((batch) => {
                   const batchCode = `B-${batch.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
                   const batchStatus = getBatchStatus(
@@ -678,43 +738,51 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
                   );
 
                   return (
-                    <tr key={batch.id} className="hover:bg-gray-50">
-                      <td className="py-3 px-4 font-mono font-medium text-gray-900">{batchCode}</td>
-                      <td className="py-3 px-4 font-semibold text-gray-900">{batch.quantity_left}</td>
-                      <td className="py-3 px-4 text-gray-600">{formatDisplayDate(batch.purchase_date)}</td>
-                      <td className="py-3 px-4 text-gray-600">{formatDisplayDate(batch.expiration_date)}</td>
-                      <td className="py-3 px-4">
+                    <tr key={batch.id} className="hover:bg-[#fef9f0]/40 transition-colors">
+                      <td className="py-3.5 px-5 font-mono font-bold text-xs text-[#181413]">
+                        {batchCode}
+                      </td>
+                      <td className="py-3.5 px-4 font-black text-[#181413]">
+                        {batch.quantity_left}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-[#7a7469]">
+                        {formatDisplayDate(batch.purchase_date)}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-[#7a7469] font-medium">
+                        {formatDisplayDate(batch.expiration_date)}
+                      </td>
+                      <td className="py-3.5 px-4">
                         <span
-                          className={`text-xs px-2 py-0.5 rounded border font-medium ${getBatchBadgeClass(batchStatus)}`}
+                          className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border font-bold ${getBatchBadgeClass(batchStatus)}`}
                         >
                           {batchStatus}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-3.5 px-5 text-right">
+                        <div className="flex items-center justify-end gap-2 text-xs">
                           <button
                             type="button"
                             onClick={() => handleOpenCorrectQuantity(batch)}
                             disabled={actionRunning}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                            className="font-semibold text-[#207429] hover:underline disabled:opacity-50"
                           >
-                            Correct quantity
+                            Correct Qty
                           </button>
-                          <span className="text-gray-300">|</span>
+                          <span className="text-[#ece3d2]">|</span>
                           <button
                             type="button"
                             onClick={() => handleOpenEditDates(batch)}
                             disabled={actionRunning}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                            className="font-semibold text-[#207429] hover:underline disabled:opacity-50"
                           >
-                            Edit dates
+                            Edit Dates
                           </button>
-                          <span className="text-gray-300">|</span>
+                          <span className="text-[#ece3d2]">|</span>
                           <button
                             type="button"
                             onClick={() => handleOpenDeleteBatch(batch)}
                             disabled={actionRunning}
-                            className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                            className="font-semibold text-[#d32f2f] hover:underline disabled:opacity-50"
                           >
                             Delete
                           </button>

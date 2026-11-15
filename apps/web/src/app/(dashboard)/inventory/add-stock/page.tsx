@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
+  ArrowLeft,
+  Search,
+  ScanBarcode,
+  CheckCircle2,
+} from 'lucide-react';
+import {
   findProductByBarcode,
   searchProductsByName,
   addStock,
@@ -226,28 +232,46 @@ export default function AddStockPage() {
   const hasExpiredWarning = expirationDate && isValidCalendarDate(expirationDate) && isDateInPast(expirationDate);
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 w-full">
       {/* Notice Banner */}
-      <div className="border border-blue-200 bg-blue-50 p-4 rounded text-blue-900 text-sm">
-        Camera barcode scanning is available in the mobile app.
+      <div className="border border-[#ece3d2] bg-[#fef9f0] p-4 rounded-xl text-[#524c40] text-xs flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2">
+          <ScanBarcode className="w-4 h-4 text-[#207429]" />
+          <span>Camera barcode scanning is available in the mobile app. On desktop, type barcode or search by name.</span>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Add Stock</h1>
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900">
+      <div className="flex items-center justify-between pb-2 border-b border-[#ece3d2]">
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/inventory"
+            className="p-1.5 rounded-lg border border-[#ece3d2] bg-white text-[#7a7469] hover:text-[#181413] hover:bg-[#fef9f0] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <h1 className="text-2xl font-black text-[#181413] tracking-tight">Add Stock</h1>
+        </div>
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] transition-colors">
           Cancel
         </Link>
       </div>
 
       {/* SUCCESS VIEW */}
       {successInfo ? (
-        <div className="border border-green-300 bg-green-50 p-6 rounded space-y-4">
-          <h2 className="text-lg font-bold text-green-900">
-            Added {successInfo.quantity} units successfully
-          </h2>
-          <p className="text-sm text-green-800">
-            Stock batch has been recorded for {selectedProduct?.name}.
-          </p>
+        <div className="border border-[#207429]/30 bg-[#f4ffe1] p-6 rounded-2xl space-y-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white border border-[#207429]/30 flex items-center justify-center text-[#207429]">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-[#181413]">
+                Added {successInfo.quantity} units successfully
+              </h2>
+              <p className="text-xs text-[#7a7469] mt-0.5">
+                New batch has been recorded for <span className="font-semibold text-[#181413]">{selectedProduct?.name}</span> and scheduled in inventory.
+              </p>
+            </div>
+          </div>
           <div className="flex items-center gap-3 pt-2">
             <button
               type="button"
@@ -256,35 +280,38 @@ export default function AddStockPage() {
                 setQuantity('10');
                 setExpirationDate('');
               }}
-              className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+              className="bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
             >
-              Add more
+              Add Another Batch
             </button>
             <Link
               href={`/inventory/${successInfo.productId}`}
-              className="border border-gray-300 bg-white px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50"
+              className="border border-[#ece3d2] bg-white px-4 py-2 rounded-xl text-xs font-bold text-[#181413] hover:bg-[#fef9f0] transition-colors shadow-2xs"
             >
-              View product
+              View Product Batches
             </Link>
           </div>
         </div>
       ) : !selectedProduct ? (
         /* STEP 1: FIND PRODUCT */
-        <div className="bg-white border border-gray-200 rounded p-6 space-y-6">
-          <h2 className="text-base font-bold text-gray-900">Step 1: Select a product</h2>
+        <div className="bg-white border border-[#ece3d2] rounded-2xl p-6 space-y-6 shadow-2xs">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">Step 1: Select a Product</h2>
+            <p className="text-xs text-[#7a7469] mt-0.5">Find the product you are receiving new batches for.</p>
+          </div>
 
           {isArchivedError && (
-            <div className="p-3 border border-red-300 bg-red-50 text-red-800 text-sm rounded space-y-2">
+            <div className="p-4 border border-red-200 bg-red-50 text-red-900 text-xs rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <span>This product is archived.</span>
+                <span>This product is currently archived.</span>
                 {archivedProduct && (
                   <button
                     type="button"
                     onClick={() => setShowRestoreModal(true)}
                     disabled={restoring}
-                    className="border border-red-400 bg-white text-red-900 px-3 py-1 rounded text-xs font-semibold hover:bg-red-50 disabled:opacity-50"
+                    className="border border-red-300 bg-white text-red-900 px-3 py-1 rounded-lg text-xs font-bold hover:bg-red-50 disabled:opacity-50"
                   >
-                    {restoring ? 'Restoring...' : 'Restore product'}
+                    {restoring ? 'Restoring...' : 'Restore Product'}
                   </button>
                 )}
               </div>
@@ -295,44 +322,47 @@ export default function AddStockPage() {
           )}
 
           {searchError && (
-            <div className="p-3 border border-red-300 bg-red-50 text-red-800 text-sm rounded">
+            <div className="p-3 border border-red-200 bg-red-50 text-red-800 text-xs rounded-xl">
               {searchError}
             </div>
           )}
 
           {/* Option A: Type Barcode */}
           <form onSubmit={handleFindBarcode} className="space-y-2">
-            <label htmlFor="barcode-input" className="block text-sm font-medium text-gray-700">
-              Find by barcode
+            <label htmlFor="barcode-input" className="block text-xs font-bold uppercase tracking-wide text-[#524c40]">
+              Find by Barcode
             </label>
             <div className="flex gap-2">
-              <input
-                id="barcode-input"
-                type="text"
-                placeholder="Enter UPC-A or EAN-13 code..."
-                value={barcodeInput}
-                onChange={(e) => {
-                  setBarcodeInput(e.target.value);
-                  setBarcodeNotFound(null);
-                  setIsArchivedError(false);
-                }}
-                className="flex-1 border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-              />
+              <div className="relative flex-1">
+                <ScanBarcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af] pointer-events-none" />
+                <input
+                  id="barcode-input"
+                  type="text"
+                  placeholder="Enter barcode..."
+                  value={barcodeInput}
+                  onChange={(e) => {
+                    setBarcodeInput(e.target.value);
+                    setBarcodeNotFound(null);
+                    setIsArchivedError(false);
+                  }}
+                  className="w-full pl-9 pr-4 py-2 text-xs md:text-sm bg-[#f8faf8] border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] focus:bg-white transition-all"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={findingBarcode || !barcodeInput.trim()}
-                className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="bg-[#207429] text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
               >
                 {findingBarcode ? 'Finding...' : 'Find'}
               </button>
             </div>
 
             {barcodeNotFound && (
-              <div className="p-3 border border-amber-300 bg-amber-50 rounded text-sm text-amber-900 mt-2">
+              <div className="p-3 border border-[#fabe44] bg-[#fef9f0] rounded-xl text-xs text-[#524c40] mt-2">
                 <span>Product not found for barcode &quot;{barcodeNotFound}&quot;. </span>
                 <Link
                   href={`/inventory/new?barcode=${encodeURIComponent(barcodeNotFound)}`}
-                  className="font-medium underline hover:text-black"
+                  className="font-bold underline text-[#207429]"
                 >
                   Create new product with this barcode →
                 </Link>
@@ -340,52 +370,55 @@ export default function AddStockPage() {
             )}
           </form>
 
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-gray-200"></div>
-            <span className="flex-shrink mx-4 text-xs uppercase font-semibold text-gray-400">Or search by name</span>
-            <div className="flex-grow border-t border-gray-200"></div>
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-[#ece3d2]"></div>
+            <span className="flex-shrink mx-4 text-[10px] uppercase font-bold tracking-wider text-[#999182]">Or search by name</span>
+            <div className="flex-grow border-t border-[#ece3d2]"></div>
           </div>
 
           {/* Option B: Search by Name */}
           <div className="space-y-2">
-            <label htmlFor="name-query" className="block text-sm font-medium text-gray-700">
-              Product name
+            <label htmlFor="name-query" className="block text-xs font-bold uppercase tracking-wide text-[#524c40]">
+              Product Name
             </label>
-            <input
-              id="name-query"
-              type="text"
-              placeholder="Type product name to search..."
-              value={nameQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                setNameQuery(val);
-                if (!val.trim()) {
-                  setNameResults([]);
-                }
-              }}
-              className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-            />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af] pointer-events-none" />
+              <input
+                id="name-query"
+                type="text"
+                placeholder="Type product name to search..."
+                value={nameQuery}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNameQuery(val);
+                  if (!val.trim()) {
+                    setNameResults([]);
+                  }
+                }}
+                className="w-full pl-9 pr-4 py-2 text-xs md:text-sm bg-[#f8faf8] border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] focus:bg-white transition-all"
+              />
+            </div>
 
             {searchingName && (
-              <p className="text-xs text-gray-500">Searching...</p>
+              <p className="text-xs text-[#7a7469]">Searching products...</p>
             )}
 
             {nameResults.length > 0 && (
-              <div className="border border-gray-200 rounded max-h-60 overflow-y-auto divide-y divide-gray-100 bg-white">
+              <div className="border border-[#ece3d2] rounded-xl max-h-60 overflow-y-auto divide-y divide-[#f4f1ea] bg-white shadow-2xs">
                 {nameResults.map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => handleSelectProduct(p)}
-                    className="w-full text-left p-3 hover:bg-gray-50 flex items-center justify-between text-sm"
+                    className="w-full text-left p-3 hover:bg-[#fef9f0] flex items-center justify-between text-xs transition-colors"
                   >
                     <div>
-                      <span className="font-medium text-gray-900">{p.name}</span>
-                      <span className="text-xs text-gray-500 block">
+                      <span className="font-bold text-[#181413] block">{p.name}</span>
+                      <span className="text-[11px] text-[#7a7469] block">
                         Barcode: {p.barcode || 'None'} • ₱{p.price.toFixed(2)}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-400">Select →</span>
+                    <span className="text-xs font-bold text-[#207429]">Select →</span>
                   </button>
                 ))}
               </div>
@@ -394,14 +427,14 @@ export default function AddStockPage() {
         </div>
       ) : (
         /* STEP 2: BATCH FORM */
-        <div className="bg-white border border-gray-200 rounded p-6 space-y-6">
-          <div className="flex items-start justify-between border-b border-gray-200 pb-4">
+        <div className="bg-white border border-[#ece3d2] rounded-2xl p-6 space-y-6 shadow-2xs">
+          <div className="flex items-start justify-between border-b border-[#ece3d2] pb-4">
             <div>
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Adding stock for:
+              <span className="text-[10px] font-bold text-[#999182] uppercase tracking-wider">
+                Adding Stock For:
               </span>
-              <h2 className="text-lg font-bold text-gray-900 mt-0.5">{selectedProduct.name}</h2>
-              <p className="text-xs text-gray-500">
+              <h2 className="text-lg font-bold text-[#181413] mt-0.5">{selectedProduct.name}</h2>
+              <p className="text-xs text-[#7a7469]">
                 Barcode: {selectedProduct.barcode || 'None'} • Category: {selectedProduct.category?.name || 'Uncategorized'}
               </p>
             </div>
@@ -409,18 +442,18 @@ export default function AddStockPage() {
               type="button"
               onClick={handleResetProduct}
               disabled={saving}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs font-bold text-[#207429] hover:underline"
             >
-              Change product
+              Change Product
             </button>
           </div>
 
           {formError && (
-            <div className="p-3 border border-red-300 bg-red-50 text-red-800 text-sm rounded space-y-2">
+            <div className="p-3 border border-red-200 bg-red-50 text-red-900 text-xs rounded-xl space-y-2">
               <p>{formError}</p>
               {showNetworkWarning && (
                 <div className="pt-1">
-                  <Link href="/inventory" className="text-sm font-semibold underline text-red-900">
+                  <Link href="/inventory" className="text-xs font-bold underline text-red-900">
                     Go to Inventory to check stock status →
                   </Link>
                 </div>
@@ -429,70 +462,72 @@ export default function AddStockPage() {
           )}
 
           <form onSubmit={handleOpenConfirm} className="space-y-4">
-            <div>
-              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                Quantity (1 to 100,000)
-              </label>
-              <input
-                id="quantity"
-                type="number"
-                min="1"
-                max="100000"
-                required
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                disabled={saving || showNetworkWarning}
-                className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-              />
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="quantity" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                  Quantity (1 to 100,000)
+                </label>
+                <input
+                  id="quantity"
+                  type="number"
+                  min="1"
+                  max="100000"
+                  required
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  disabled={saving || showNetworkWarning}
+                  className="w-full border border-[#ece3d2] p-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                />
+              </div>
 
-            <div>
-              <label htmlFor="purchase-date" className="block text-sm font-medium text-gray-700 mb-1">
-                Purchase date
-              </label>
-              <input
-                id="purchase-date"
-                type="date"
-                value={purchaseDate}
-                onChange={(e) => setPurchaseDate(e.target.value)}
-                disabled={saving || showNetworkWarning}
-                className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-              />
-            </div>
+              <div>
+                <label htmlFor="purchase-date" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                  Purchase Date
+                </label>
+                <input
+                  id="purchase-date"
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                  disabled={saving || showNetworkWarning}
+                  className="w-full border border-[#ece3d2] p-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                />
+              </div>
 
-            <div>
-              <label htmlFor="expiration-date" className="block text-sm font-medium text-gray-700 mb-1">
-                Expiration date
-              </label>
-              <input
-                id="expiration-date"
-                type="date"
-                required
-                value={expirationDate}
-                onChange={(e) => setExpirationDate(e.target.value)}
-                disabled={saving || showNetworkWarning}
-                className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
-              />
-              {hasExpiredWarning && (
-                <p className="text-xs text-amber-700 font-medium mt-1">
-                  Warning: Expiration date is in the past.
-                </p>
-              )}
+              <div className="lg:col-span-2">
+                <label htmlFor="expiration-date" className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1">
+                  Expiration Date
+                </label>
+                <input
+                  id="expiration-date"
+                  type="date"
+                  required
+                  value={expirationDate}
+                  onChange={(e) => setExpirationDate(e.target.value)}
+                  disabled={saving || showNetworkWarning}
+                  className="w-full border border-[#ece3d2] p-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white"
+                />
+                {hasExpiredWarning && (
+                  <p className="text-xs text-[#b45309] font-medium mt-1">
+                    Warning: Expiration date is in the past.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="pt-2 flex items-center gap-3">
               <button
                 type="submit"
                 disabled={saving || showNetworkWarning}
-                className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="bg-[#207429] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
               >
-                {saving ? 'Saving...' : 'Add Stock'}
+                {saving ? 'Saving...' : 'Add Stock Batch'}
               </button>
               <button
                 type="button"
                 onClick={handleResetProduct}
                 disabled={saving}
-                className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50"
+                className="border border-[#ece3d2] px-4 py-2.5 rounded-xl text-xs font-semibold text-[#524c40] hover:bg-[#fef9f0]"
               >
                 Cancel
               </button>

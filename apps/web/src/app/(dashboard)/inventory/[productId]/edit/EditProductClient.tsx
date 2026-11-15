@@ -3,6 +3,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 import { useStoreSettings } from '../../../../../context/StoreSettingsContext';
 import {
   getProductWithBatches,
@@ -295,30 +300,40 @@ export function EditProductClient({ productId }: EditProductClientProps) {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Update details for {initialProduct?.name}
-          </p>
+      <div className="flex items-center justify-between pb-2 border-b border-[#ece3d2]">
+        <div className="flex items-center gap-2.5">
+          <Link
+            href={`/inventory/${productId}`}
+            className="p-1.5 rounded-lg border border-[#ece3d2] bg-white text-[#7a7469] hover:text-[#181413] hover:bg-[#fef9f0] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-black text-[#181413] tracking-tight">Edit Product</h1>
+            <p className="text-xs text-[#7a7469] mt-0.5">
+              Update details for <span className="font-semibold text-[#181413]">{initialProduct?.name}</span>
+            </p>
+          </div>
         </div>
         <Link
           href={`/inventory/${productId}`}
-          className="text-sm text-gray-600 hover:text-gray-900"
+          className="text-xs font-bold text-[#7a7469] hover:text-[#181413] transition-colors"
         >
           Cancel
         </Link>
       </div>
 
       {successMessage && (
-        <div className="p-4 border border-green-300 bg-green-50 text-green-800 text-sm rounded font-medium">
-          {successMessage}
+        <div className="p-4 border border-[#207429]/30 bg-[#f4ffe1] text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2 shadow-2xs">
+          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <span>{successMessage}</span>
         </div>
       )}
 
       {formError && (
-        <div className="p-4 border border-red-300 bg-red-50 text-red-800 text-sm rounded">
-          {formError}
+        <div className="p-3 border border-red-200 bg-red-50 text-red-900 text-xs rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{formError}</span>
         </div>
       )}
 
@@ -435,13 +450,13 @@ export function EditProductClient({ productId }: EditProductClientProps) {
             <button
               type="submit"
               disabled={saving || isUnchanged}
-              className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="bg-[#207429] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
             >
-              {saving ? 'Saving...' : 'Save changes'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
             <Link
               href={`/inventory/${productId}`}
-              className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50"
+              className="border border-[#ece3d2] px-4 py-2.5 rounded-xl text-xs font-semibold text-[#524c40] hover:bg-[#fef9f0]"
             >
               Cancel
             </Link>

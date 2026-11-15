@@ -9,7 +9,9 @@
  * - SyncStatus
  */
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { TouchableOpacity } from 'react-native';
+import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ArrowLeft } from 'lucide-react-native';
 import { ProfileStackParamList } from './types';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
@@ -17,12 +19,37 @@ import EditStoreScreen from '../screens/profile/EditStoreScreen';
 import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 import NotificationPreferencesScreen from '../screens/profile/NotificationPreferencesScreen';
 import SyncStatusScreen from '../screens/profile/SyncStatusScreen';
+import { COLORS, FONTS } from '../theme';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
 export default function ProfileNavigator() {
   return (
-    <Stack.Navigator initialRouteName="Profile">
+    <Stack.Navigator
+      initialRouteName="Profile"
+      screenOptions={({ navigation }: { navigation: NativeStackNavigationProp<ProfileStackParamList> }) => ({
+        headerTitleAlign: 'center',
+        headerTitleStyle: {
+          fontFamily: FONTS.bold,
+          fontSize: 16,
+          color: COLORS.text,
+        },
+        headerStyle: { backgroundColor: '#FEF7E6' },
+        headerShadowVisible: false,
+        headerTintColor: COLORS.text,
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Profile'))}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ paddingRight: 12, paddingVertical: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <ArrowLeft size={22} color={COLORS.text} strokeWidth={2.2} />
+          </TouchableOpacity>
+        ),
+      })}
+    >
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}

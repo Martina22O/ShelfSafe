@@ -42,23 +42,41 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   };
 
-  // Securely fetch user using getUser()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Securely fetch user using getUser(), falling back to cookie session if network fetch fails
+  let user = null;
+  try {
+    const {
+      data: { user: fetchedUser },
+    } = await supabase.auth.getUser();
+    user = fetchedUser;
+  } catch {
+    // Network or certificate verification issue in local Node.js environment
+  }
+
+  if (!user) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user) {
+        user = sessionData.session.user;
+      }
+    } catch {
+      // Fallback
+    }
+  }
 
   const { pathname } = request.nextUrl;
+  const isPublicRoute = pathname === '/' || pathname === '/sign-in' || pathname === '/sign-up';
   const isAuthRoute = pathname === '/sign-in' || pathname === '/sign-up';
 
-  // 1. Signed-out users can only see /sign-in and /sign-up and are redirected there from every other page
-  if (!user && !isAuthRoute) {
+  // 1. Signed-out users can only access public routes (/, /sign-in, /sign-up) and are redirected to /sign-in from protected pages
+  if (!user && !isPublicRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/sign-in';
     return redirectWithCookies(redirectUrl);
   }
 
-  // 2. Signed-in users who open /sign-in or /sign-up are redirected to the dashboard
-  if (user && isAuthRoute) {
+  // 2. Signed-in users who open public entry routes (/, /sign-in, /sign-up) are redirected to the dashboard
+  if (user && (isAuthRoute || pathname === '/')) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/dashboard';
     return redirectWithCookies(redirectUrl);

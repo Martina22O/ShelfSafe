@@ -1,6 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  History,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 import { getSaleHistory, undoSale } from '../../../lib/inventory';
 import { SaleHistoryRecord, SaleBatchBreakdownItem } from '../../../types/inventory';
 import { formatManilaDateTime, formatDisplayDate } from '../../../lib/date';
@@ -13,7 +21,7 @@ function formatBatchItem(b: SaleBatchBreakdownItem): string {
   const code = b.batch_id.replace(/-/g, '').slice(0, 8).toUpperCase();
   const unitStr = `${b.quantity} ${b.quantity === 1 ? 'unit' : 'units'}`;
   const expStr = b.expiration_date ? `exp ${formatDisplayDate(b.expiration_date)}` : '';
-  return `B - ${code} (${unitStr}${expStr ? `, ${expStr}` : ''})`;
+  return `B-${code} (${unitStr}${expStr ? `, ${expStr}` : ''})`;
 }
 
 export default function HistoryPage() {
@@ -108,7 +116,6 @@ export default function HistoryPage() {
 
       const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
       if (timeSinceLastFetch < 20000) {
-        // Data is under 20 seconds old; skip auto-reload
         return;
       }
 
@@ -119,97 +126,38 @@ export default function HistoryPage() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadHistory, limit]);
 
-  // Manual refresh button click
-  const handleRefresh = () => {
-    setSuccessBanner(null);
-    setActionErrorBanner(null);
-    loadHistory(limit, true);
-  };
-
-  // "Show more" handler
-  const handleShowMore = () => {
-    const nextLimit = Math.min(limit + 50, 500);
-    if (nextLimit > limit) {
-      setLimit(nextLimit);
-      setLoadingMore(true);
-      loadHistory(nextLimit, false);
-    }
-  };
-
-  // Execute undo when confirmed
-  const handleConfirmUndo = async () => {
-    if (!saleToUndo) return;
-    const targetSale = saleToUndo;
-
-    setIsUndoing(true);
-    setUndoingSaleId(targetSale.sales_scan_id);
-    setSuccessBanner(null);
-    setActionErrorBanner(null);
-
-    const res = await undoSale(
-      targetSale.sales_scan_id,
-      targetSale.product_id,
-      targetSale.batch_breakdown
-    );
-
-    setIsUndoing(false);
-    setUndoingSaleId(null);
-    setSaleToUndo(null);
-
-    if (res.kind === 'error') {
-      setActionErrorBanner(res.message);
-
-      // If network/timeout failure, keep this row's button disabled until reload finishes
-      if (!res.isDatabaseError) {
-        setUnclearFailedSaleIds((prev) => new Set(prev).add(targetSale.sales_scan_id));
-      }
-
-      // Reload list after any undo failure and trust each row's real is_undone status
-      await loadHistory(limit, false);
-      return;
-    }
-
-    // Success
-    if (res.hadArchivedItems) {
-      setSuccessBanner('Stock restored. The archived product/batches were restored too');
-    } else {
-      setSuccessBanner(
-        `Sale for ${targetSale.product_name || 'item'} undone. Units restored to batches.`
-      );
-    }
-
-    // Reload history to reflect restored stock and undone status
-    await loadHistory(limit, false);
-  };
-
-  // Filtered list
+  // Filtered and searched sales list
   const filteredSales = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    return sales.filter((item) => {
+      // Status chip filter
+      if (activeChip === 'Recorded' && item.is_undone) return false;
+      if (activeChip === 'Undone' && !item.is_undone) return false;
 
-    return sales.filter((sale) => {
-      // 1. Search filter: matches product name or barcode
-      if (query) {
-        const nameMatch = sale.product_name
-          ? sale.product_name.toLowerCase().includes(query)
+      // Substring search on name OR barcode
+      if (search.trim()) {
+        const query = search.toLowerCase();
+        const matchesName = item.product_name.toLowerCase().includes(query);
+        const matchesBarcode = item.product_barcode
+          ? item.product_barcode.toLowerCase().includes(query)
           : false;
-        const barcodeMatch = sale.product_barcode
-          ? sale.product_barcode.toLowerCase().includes(query)
-          : false;
-        if (!nameMatch && !barcodeMatch) return false;
+        if (!matchesName && !matchesBarcode) return false;
       }
-
-      // 2. Chip status filter
-      if (activeChip === 'Recorded' && sale.is_undone) return false;
-      if (activeChip === 'Undone' && !sale.is_undone) return false;
 
       return true;
     });
-  }, [sales, search, activeChip]);
+  }, [sales, activeChip, search]);
 
-  // Chip counts based on currently loaded sales
+  // Counts for filter chips
   const counts = useMemo(() => {
-    const recorded = sales.filter((s) => !s.is_undone).length;
-    const undone = sales.filter((s) => s.is_undone).length;
+    let recorded = 0;
+    let undone = 0;
+    for (const s of sales) {
+      if (s.is_undone) {
+        undone++;
+      } else {
+        recorded++;
+      }
+    }
     return {
       All: sales.length,
       Recorded: recorded,
@@ -217,134 +165,142 @@ export default function HistoryPage() {
     };
   }, [sales]);
 
-  // Whether older sales might exist
-  const mayHaveOlderSales = sales.length >= limit || limit >= 500;
+  const handleManualRefresh = () => {
+    if (isFetchingRef.current) return;
+    loadHistory(limit, true);
+  };
+
+  const handleLoadMore = () => {
+    if (limit >= 500) return;
+    const nextLimit = Math.min(limit + 50, 500);
+    setLimit(nextLimit);
+    setLoadingMore(true);
+    loadHistory(nextLimit, false);
+  };
+
+  const handleConfirmUndo = async () => {
+    if (!saleToUndo) return;
+    const targetSale = saleToUndo;
+    setSaleToUndo(null);
+    setUndoingSaleId(targetSale.sales_scan_id);
+    setIsUndoing(true);
+    setSuccessBanner(null);
+    setActionErrorBanner(null);
+
+    const res = await undoSale(targetSale.sales_scan_id);
+    setIsUndoing(false);
+    setUndoingSaleId(null);
+
+    if (res.kind === 'success') {
+      setSuccessBanner(
+        `Sale of ${targetSale.total_quantity} unit(s) of "${targetSale.product_name}" was successfully undone. Batches have been replenished to their original inventory.`
+      );
+      loadHistory(limit, false);
+      return;
+    }
+
+    if (res.kind === 'error') {
+      if (res.isAlreadyUndone) {
+        setActionErrorBanner(
+          `This sale of "${targetSale.product_name}" has already been undone.`
+        );
+        loadHistory(limit, false);
+        return;
+      }
+
+      if (res.isDatabaseError) {
+        setActionErrorBanner(`Unable to undo sale: ${res.message}`);
+        return;
+      }
+
+      // Network / timeout error: keep button disabled until fresh reload
+      setActionErrorBanner(
+        `Network issue while undoing sale: ${res.message}. The action may have succeeded on the server. Please refresh to verify.`
+      );
+      setUnclearFailedSaleIds((prev) => new Set(prev).add(targetSale.sales_scan_id));
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header and Refresh Bar */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-[#ece3d2]/80">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">History</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Sales are recorded in the mobile app. You can undo a wrong entry here.
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-black text-[#181413] tracking-tight">Movement &amp; Audit History</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#fef9f0] text-[#7a7469] border border-[#ece3d2]">
+              {sales.length} records loaded
+            </span>
+          </div>
+          <p className="text-xs text-[#7a7469] mt-1">
+            Complete audit trail of sales and batch deductions. Undo restores units to original batches.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={handleRefresh}
-            disabled={loading || refreshing || isUndoing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            onClick={handleManualRefresh}
+            disabled={refreshing || loading}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#ece3d2] bg-white text-xs font-bold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs disabled:opacity-50"
           >
-            <svg
-              className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh History'}
           </button>
         </div>
       </div>
 
       {/* Success Notification Banner */}
       {successBanner && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 text-sm flex items-start justify-between">
+        <div className="p-4 bg-[#f4ffe1] border border-[#207429]/30 rounded-2xl text-[#207429] text-xs font-semibold flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
-            <svg
-              className="w-5 h-5 text-emerald-600 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+            <CheckCircle2 className="w-4 h-4 text-[#207429]" />
             <span>{successBanner}</span>
           </div>
           <button
             type="button"
             onClick={() => setSuccessBanner(null)}
-            className="text-emerald-700 hover:text-emerald-900 ml-4"
-            aria-label="Dismiss message"
+            className="text-[#207429] hover:text-[#185e21] font-bold text-xs px-2 py-1"
           >
-            ×
+            ✕
           </button>
         </div>
       )}
 
       {/* Action Error Notification Banner */}
       {actionErrorBanner && (
-        <div className="p-3.5 bg-red-50 border border-red-200 rounded text-red-800 text-sm flex items-start justify-between">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-900 text-xs font-semibold flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
-            <svg
-              className="w-5 h-5 text-red-600 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
             <span>{actionErrorBanner}</span>
           </div>
           <button
             type="button"
             onClick={() => setActionErrorBanner(null)}
-            className="text-red-700 hover:text-red-900 ml-4 font-bold"
-            aria-label="Dismiss error"
+            className="text-red-700 hover:text-red-900 font-bold text-xs px-2 py-1"
           >
-            ×
+            ✕
           </button>
         </div>
       )}
 
       {/* Search & Filter bar */}
-      <div className="space-y-3">
+      <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search product name or barcode..."
-              className="w-full px-3 py-2 pl-9 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full pl-9 pr-8 py-2 text-xs md:text-sm bg-[#f8faf8] border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] focus:bg-white transition-all"
             />
-            <svg
-              className="w-4 h-4 text-gray-400 absolute left-3 top-2.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-2.5 text-xs text-gray-400 hover:text-gray-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#999182] hover:text-[#181413]"
               >
                 Clear
               </button>
@@ -352,7 +308,7 @@ export default function HistoryPage() {
           </div>
 
           {/* Chips */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {CHIP_FILTERS.map((chip) => {
               const count = counts[chip];
               const isSelected = activeChip === chip;
@@ -361,10 +317,10 @@ export default function HistoryPage() {
                   key={chip}
                   type="button"
                   onClick={() => setActiveChip(chip)}
-                  className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
                     isSelected
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[#207429] text-white shadow-2xs'
+                      : 'bg-[#fef9f0] text-[#524c40] border border-[#ece3d2] hover:bg-white'
                   }`}
                 >
                   {chip} ({count})
@@ -374,85 +330,75 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* Small note near search box */}
-        <p className="text-xs text-gray-500">
-          Search covers the latest {sales.length} sales loaded.
+        <p className="text-[11px] text-[#999182]">
+          Searching across latest {sales.length} transactions loaded from audit log.
         </p>
       </div>
 
       {/* Main Content Area */}
       {loading && !refreshing ? (
-        <div className="py-16 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-          <p className="mt-3 text-sm text-gray-500">Loading sales history...</p>
+        <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+          <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+          <p className="font-medium">Loading sales history...</p>
         </div>
       ) : error ? (
-        <div className="p-4 bg-red-50 border border-red-200 rounded text-red-800">
-          <p className="font-semibold text-sm">Unable to load sales history</p>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-900 shadow-xs">
+          <p className="font-bold text-sm">Unable to load sales history</p>
           <p className="text-xs text-red-700 mt-1">{error}</p>
           <div className="mt-3">
             <button
               type="button"
               onClick={() => loadHistory(limit, false)}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+              className="inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-bold text-white bg-[#d32f2f] rounded-xl hover:bg-red-700"
             >
+              <RefreshCw className="w-3.5 h-3.5" />
               Retry
             </button>
           </div>
         </div>
       ) : sales.length === 0 ? (
         /* Empty State */
-        <div className="bg-white border border-gray-200 rounded p-12 text-center">
-          <svg
-            className="w-12 h-12 text-gray-300 mx-auto mb-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <h3 className="text-base font-semibold text-gray-800">No sales yet</h3>
-          <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
-            Sales are recorded in the mobile app. You can undo a wrong entry here.
+        <div className="bg-white border border-dashed border-[#ece3d2] rounded-2xl p-12 text-center shadow-2xs">
+          <div className="w-12 h-12 rounded-full bg-[#f4ffe1] text-[#207429] mx-auto flex items-center justify-center mb-3">
+            <History className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-[#181413]">No sales transactions yet</h3>
+          <p className="text-xs text-[#7a7469] mt-1 max-w-sm mx-auto">
+            Sales recorded via POS will appear here with complete batch deductions.
           </p>
         </div>
       ) : filteredSales.length === 0 ? (
         /* Filter Empty State */
-        <div className="bg-white border border-gray-200 rounded p-8 text-center">
-          <p className="text-sm text-gray-600">No sales match your search or filter.</p>
+        <div className="bg-white border border-dashed border-[#ece3d2] rounded-2xl p-8 text-center shadow-2xs">
+          <p className="text-xs text-[#7a7469]">No transactions match your search query or filter.</p>
           <button
             type="button"
             onClick={() => {
               setSearch('');
               setActiveChip('All');
             }}
-            className="mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 underline"
+            className="mt-2 text-xs font-bold text-[#207429] hover:underline"
           >
-            Reset filters
+            Reset Filters
           </button>
         </div>
       ) : (
         /* Sales List */
         <div className="space-y-4">
           {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto bg-white border border-gray-200 rounded shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-gray-700">
+          <div className="hidden md:block overflow-x-auto bg-white border border-[#ece3d2] rounded-2xl shadow-2xs">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#fef9f0] border-b border-[#ece3d2] text-[#7a7469] font-bold text-[11px] uppercase tracking-wider">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Product</th>
-                  <th className="px-4 py-3 text-left font-semibold">Units Sold</th>
-                  <th className="px-4 py-3 text-left font-semibold">Batches Used</th>
-                  <th className="px-4 py-3 text-left font-semibold">Date &amp; Time</th>
-                  <th className="px-4 py-3 text-left font-semibold">Status</th>
-                  <th className="px-4 py-3 text-right font-semibold">Action</th>
+                  <th className="py-3 px-5">Product &amp; Barcode</th>
+                  <th className="py-3 px-4">Units Deducted</th>
+                  <th className="py-3 px-4">Batches Used</th>
+                  <th className="py-3 px-4">Timestamp</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-[#f4f1ea]">
                 {filteredSales.map((sale) => {
                   const batchesFormatted =
                     sale.batch_breakdown.length > 0
@@ -466,46 +412,47 @@ export default function HistoryPage() {
                   return (
                     <tr
                       key={sale.sales_scan_id}
-                      className={sale.is_undone ? 'bg-gray-50/60 text-gray-500' : 'hover:bg-gray-50/50'}
+                      className={sale.is_undone ? 'bg-[#fafafa] text-[#999182]' : 'hover:bg-[#fef9f0]/40 transition-colors'}
                     >
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">
+                      <td className="py-3.5 px-5">
+                        <div className="font-bold text-[#181413]">
                           {sale.product_name}
                         </div>
                         {sale.product_barcode && (
-                          <div className="text-xs text-gray-500 font-mono">
+                          <div className="text-[11px] text-[#7a7469] font-mono">
                             {sale.product_barcode}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-800">
+                      <td className="py-3.5 px-4 font-black text-[#181413]">
                         {sale.total_quantity} {sale.total_quantity === 1 ? 'unit' : 'units'}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600 max-w-xs break-words">
+                      <td className="py-3.5 px-4 text-xs text-[#524c40] max-w-xs break-words font-mono">
                         {batchesFormatted}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">
+                      <td className="py-3.5 px-4 text-xs text-[#7a7469] whitespace-nowrap">
                         {formatManilaDateTime(sale.created_at)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         {sale.is_undone ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
                             Undone
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#f4ffe1] text-[#207429] border border-[#207429]/30">
                             Recorded
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <td className="py-3.5 px-5 whitespace-nowrap text-right">
                         {!sale.is_undone && (
                           <button
                             type="button"
                             onClick={() => setSaleToUndo(sale)}
                             disabled={isUndoDisabled}
-                            className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-40 transition-colors"
+                            className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#d32f2f] bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-40 transition-colors"
                           >
+                            <RotateCcw className="w-3 h-3" />
                             {isRowUndoing ? 'Undoing...' : 'Undo'}
                           </button>
                         )}
@@ -532,58 +479,46 @@ export default function HistoryPage() {
               return (
                 <div
                   key={sale.sales_scan_id}
-                  className={`bg-white border rounded p-4 shadow-sm space-y-2.5 ${
-                    sale.is_undone ? 'border-gray-200 bg-gray-50/50' : 'border-gray-300'
+                  className={`bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs space-y-2.5 ${
+                    sale.is_undone ? 'opacity-70 bg-gray-50' : ''
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-semibold text-gray-900 text-sm">
-                        {sale.product_name}
-                      </h4>
+                      <h4 className="font-bold text-sm text-[#181413]">{sale.product_name}</h4>
                       {sale.product_barcode && (
-                        <p className="text-xs text-gray-500 font-mono mt-0.5">
-                          Barcode: {sale.product_barcode}
-                        </p>
+                        <p className="text-[11px] text-[#7a7469] font-mono">{sale.product_barcode}</p>
                       )}
                     </div>
-                    <div>
-                      {sale.is_undone ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                          Undone
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Recorded
-                        </span>
-                      )}
-                    </div>
+                    {sale.is_undone ? (
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                        Undone
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-[#f4ffe1] text-[#207429] border border-[#207429]/30">
+                        Recorded
+                      </span>
+                    )}
                   </div>
 
-                  <div className="text-xs text-gray-700 space-y-1">
+                  <div className="text-xs text-[#524c40] space-y-1">
                     <p>
-                      <span className="font-medium text-gray-900">Units sold:</span>{' '}
-                      {sale.total_quantity} {sale.total_quantity === 1 ? 'unit' : 'units'}
+                      <span className="font-bold text-[#181413]">{sale.total_quantity} units</span> deducted
                     </p>
-                    <p>
-                      <span className="font-medium text-gray-900">Time:</span>{' '}
-                      {formatManilaDateTime(sale.created_at)}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-900">Batches used:</span>{' '}
-                      <span className="text-gray-600">{batchesFormatted}</span>
-                    </p>
+                    <p className="font-mono text-[11px] text-[#7a7469]">{batchesFormatted}</p>
+                    <p className="text-[11px] text-[#999182]">{formatManilaDateTime(sale.created_at)}</p>
                   </div>
 
                   {!sale.is_undone && (
-                    <div className="pt-2 border-t border-gray-100 flex justify-end">
+                    <div className="pt-2 border-t border-[#f4f1ea] flex justify-end">
                       <button
                         type="button"
                         onClick={() => setSaleToUndo(sale)}
                         disabled={isUndoDisabled}
-                        className="px-3 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-40 transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#d32f2f] bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-40 transition-colors"
                       >
-                        {isRowUndoing ? 'Undoing...' : 'Undo'}
+                        <RotateCcw className="w-3 h-3" />
+                        {isRowUndoing ? 'Undoing...' : 'Undo Sale'}
                       </button>
                     </div>
                   )}
@@ -592,49 +527,35 @@ export default function HistoryPage() {
             })}
           </div>
 
-          {/* "Show more" button and older sales note */}
-          <div className="pt-4 text-center space-y-2">
-            {sales.length >= limit && limit < 500 && (
+          {/* Load More Pagination */}
+          {limit < 500 && sales.length >= limit && (
+            <div className="pt-4 text-center">
               <button
                 type="button"
-                onClick={handleShowMore}
-                disabled={loadingMore || refreshing || isUndoing}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ece3d2] rounded-xl text-xs font-bold text-[#181413] hover:bg-[#fef9f0] shadow-2xs transition-colors disabled:opacity-50"
               >
-                {loadingMore ? 'Loading more...' : 'Show more'}
+                {loadingMore ? 'Loading older transactions...' : 'Load 50 More Transactions'}
               </button>
-            )}
-
-            {mayHaveOlderSales && (
-              <p className="text-xs text-gray-500">
-                Older sales recorded in the mobile app may not be shown once limits are reached.
-              </p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ConfirmModal for Undo */}
-      <ConfirmModal
-        isOpen={Boolean(saleToUndo)}
-        title="Undo Sale"
-        message={
-          saleToUndo
-            ? `Put ${saleToUndo.total_quantity} ${
-                saleToUndo.total_quantity === 1 ? 'unit' : 'units'
-              } back into the same batches?`
-            : ''
-        }
-        confirmText="Confirm Undo"
-        cancelText="Cancel"
-        isSaving={isUndoing}
-        onConfirm={handleConfirmUndo}
-        onCancel={() => {
-          if (!isUndoing) {
-            setSaleToUndo(null);
-          }
-        }}
-      />
+      {/* Undo Confirmation Modal */}
+      {saleToUndo && (
+        <ConfirmModal
+          isOpen={true}
+          title="Undo Sale Transaction?"
+          message={`Are you sure you want to undo the sale of ${saleToUndo.total_quantity} unit(s) of "${saleToUndo.product_name}"? Units will be returned to their exact original batches.`}
+          confirmText="Yes, undo sale"
+          cancelText="Cancel"
+          isSaving={isUndoing}
+          onConfirm={handleConfirmUndo}
+          onCancel={() => setSaleToUndo(null)}
+        />
+      )}
     </div>
   );
 }

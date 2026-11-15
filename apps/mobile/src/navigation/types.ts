@@ -42,7 +42,7 @@ export type ProfileStackParamList = {
 export type MainTabParamList = {
   HomeTab: undefined;
   InventoryTab: { screen?: keyof InventoryStackParamList; params?: { productId?: string; productName?: string } } | undefined;
-  ScanTab: undefined;
+  ScanTab: { screen?: keyof ScanStackParamList } | undefined;
   AlertsTab: undefined;
-  ProfileTab: undefined;
+  ProfileTab: { screen?: keyof ProfileStackParamList } | undefined;
 };
