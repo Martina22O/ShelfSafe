@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  User,
+  Store,
+  Bell,
+  KeyRound,
+  LogOut,
+  CheckCircle2,
+  AlertCircle,
+  Save,
+  Phone,
+  Mail,
+  Lock,
+} from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { saveStoreDetails, saveNearExpiryDays } from '../../../lib/storeSettings';
@@ -60,7 +73,6 @@ function validateContactNumber(value: string): string | null {
   if (trimmed.length > 30) {
     return 'Contact number cannot exceed 30 characters';
   }
-  // Allow only digits, spaces, +, -, (, )
   if (!/^[0-9\s+\-()]+$/.test(trimmed)) {
     return 'Contact number can only contain digits, spaces, +, -, and parentheses ()';
   }
@@ -119,28 +131,23 @@ function EditNameSection({
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
-      const currentMetadata = user?.user_metadata || {};
-
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          ...currentMetadata,
-          name: trimmed,
-        },
+        error: updateError,
+      } = await supabase.auth.updateUser({
+        data: { name: trimmed },
       });
 
-      if (error) {
-        if (isDatabaseError(error)) {
-          setNameError(formatErrorMessage(error));
+      if (updateError) {
+        if (isDatabaseError(updateError)) {
+          setNameError(formatErrorMessage(updateError));
         } else {
           setNameError('Not sure if this was saved. Reload the page and check');
         }
         return;
       }
 
-      setNameInput(trimmed);
-      setNameSuccess('Name updated successfully');
-      onNameSaved(trimmed);
+      const updatedName = user?.user_metadata?.name || trimmed;
+      onNameSaved(updatedName);
+      setNameSuccess('Your name has been updated');
     } catch (err: unknown) {
       if (isDatabaseError(err)) {
         setNameError(formatErrorMessage(err));
@@ -153,85 +160,94 @@ function EditNameSection({
     }
   };
 
+  const isUnchanged = nameInput.trim() === initialName.trim();
+
   return (
-    <section className="bg-white border border-gray-200 rounded p-5 shadow-sm space-y-4">
-      <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2">
-        Account
-      </h2>
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
+        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+          <User className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
+            Account Identity
+          </h2>
+          <p className="text-xs text-[#7a7469]">Your operator name displayed on reports and receipts.</p>
+        </div>
+      </div>
 
       {nameSuccess && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded">
-          {nameSuccess}
+        <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <span>{nameSuccess}</span>
         </div>
       )}
+
       {nameError && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded">
-          {nameError}
+        <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{nameError}</span>
         </div>
       )}
 
       <div className="space-y-3">
         <div>
           <label
-            htmlFor="user-display-name"
-            className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1"
+            htmlFor="profile-email-readonly"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
           >
-            Display Name
+            Email Address (Read-only)
           </label>
-          <input
-            id="user-display-name"
-            type="text"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            disabled={savingName || isSavingAny}
-            maxLength={100}
-            placeholder="Enter your name"
-            className="w-full max-w-md px-3 py-2 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Current display name:{' '}
-            <span className="font-medium text-gray-800">
-              {initialName || 'Not set'}
-            </span>
-          </p>
+          <div className="relative">
+            <Mail className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="profile-email-readonly"
+              type="text"
+              readOnly
+              value={userEmail || '—'}
+              className="w-full pl-9 pr-3 py-2 text-sm bg-[#f8faf8] border border-[#ece3d2] rounded-xl text-[#7a7469] cursor-not-allowed select-all"
+            />
+          </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-            Email Address
+          <label
+            htmlFor="profile-name-input"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
+          >
+            Operator Name
           </label>
           <input
-            type="email"
-            value={userEmail}
-            disabled
-            readOnly
-            className="w-full max-w-md px-3 py-2 text-sm border border-gray-200 bg-gray-50 text-gray-500 rounded cursor-not-allowed"
+            id="profile-name-input"
+            type="text"
+            maxLength={100}
+            value={nameInput}
+            onChange={(e) => {
+              setNameInput(e.target.value);
+              setNameError(null);
+            }}
+            disabled={savingName || isSavingAny}
+            placeholder="e.g. Maria Santos"
+            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Email changes are not available yet.
-          </p>
         </div>
 
         <div className="pt-2">
           <button
             type="button"
             onClick={handleOpenConfirm}
-            disabled={
-              savingName ||
-              isSavingAny ||
-              !nameInput.trim() ||
-              nameInput.trim() === initialName
-            }
-            className="px-4 py-2 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            disabled={savingName || isSavingAny || isUnchanged || !nameInput.trim()}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
           >
-            {savingName ? 'Saving name...' : 'Save Name'}
+            <Save className="w-3.5 h-3.5" />
+            {savingName ? 'Saving...' : 'Save Name'}
           </button>
         </div>
       </div>
 
       <ConfirmModal
         isOpen={showConfirm}
-        title="Update Name"
+        title="Update Profile Name"
         message={`Are you sure you want to change your display name to "${nameInput.trim()}"?`}
         confirmText="Confirm"
         cancelText="Cancel"
@@ -335,105 +351,108 @@ function StoreDetailsSection({
     }
   };
 
+  const isStoreUnchanged =
+    storeNameInput.trim() === (storeName || '').trim() &&
+    contactNumberInput.trim() === (contactNumber || '').trim();
+
   return (
-    <section className="bg-white border border-gray-200 rounded p-5 shadow-sm space-y-4">
-      <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2">
-        Store Details
-      </h2>
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
+        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+          <Store className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
+            Store Details
+          </h2>
+          <p className="text-xs text-[#7a7469]">Custom retail shop information.</p>
+        </div>
+      </div>
 
       {storeSuccess && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded">
-          {storeSuccess}
+        <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <span>{storeSuccess}</span>
         </div>
       )}
       {storeError && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded">
-          {storeError}
+        <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{storeError}</span>
         </div>
       )}
 
       {settingsError ? (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded flex items-center justify-between">
+        <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-center justify-between">
           <span>Failed to load store settings: {settingsError}</span>
           <button
             type="button"
             onClick={() => onReloadSettings()}
-            className="underline font-semibold ml-2 text-red-900"
+            className="underline font-bold text-red-950"
           >
             Retry
           </button>
         </div>
       ) : settingsLoading ? (
-        <p className="text-xs text-gray-500">Loading store details...</p>
+        <p className="text-xs text-[#7a7469]">Loading store details...</p>
       ) : (
         <div className="space-y-3">
           <div>
             <label
               htmlFor="store-name-input"
-              className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
             >
               Store Name (Optional)
             </label>
             <input
               id="store-name-input"
               type="text"
-              value={storeNameInput}
-              onChange={(e) => setStoreNameInput(e.target.value)}
-              disabled={savingStore || isSavingAny}
               maxLength={100}
-              placeholder="Not set yet"
-              className="w-full max-w-md px-3 py-2 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
+              value={storeNameInput}
+              onChange={(e) => {
+                setStoreNameInput(e.target.value);
+                setStoreError(null);
+              }}
+              disabled={savingStore || isSavingAny}
+              placeholder="e.g. Aling Nena's Sari-Sari Store"
+              className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Current:{' '}
-              <span className="font-medium text-gray-800">
-                {storeName || 'Not set yet'}
-              </span>
-            </p>
           </div>
 
           <div>
             <label
-              htmlFor="store-contact-number"
-              className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1"
+              htmlFor="store-contact-input"
+              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
             >
               Contact Number (Optional)
             </label>
-            <input
-              id="store-contact-number"
-              type="text"
-              value={contactNumberInput}
-              onChange={(e) => setContactNumberInput(e.target.value)}
-              disabled={savingStore || isSavingAny}
-              maxLength={30}
-              placeholder="Not set yet"
-              className="w-full max-w-md px-3 py-2 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Current:{' '}
-              <span className="font-medium text-gray-800">
-                {contactNumber || 'Not set yet'}
-              </span>
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Allowed: digits, spaces, +, -, and parentheses (). Max 30 characters.
-            </p>
+            <div className="relative">
+              <Phone className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="store-contact-input"
+                type="text"
+                maxLength={30}
+                value={contactNumberInput}
+                onChange={(e) => {
+                  setContactNumberInput(e.target.value);
+                  setStoreError(null);
+                }}
+                disabled={savingStore || isSavingAny}
+                placeholder="e.g. +63 912 345 6789"
+                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
+              />
+            </div>
           </div>
 
           <div className="pt-2">
             <button
               type="button"
               onClick={handleOpenConfirm}
-              disabled={
-                savingStore ||
-                isSavingAny ||
-                Boolean(settingsError) ||
-                (storeNameInput.trim() === (storeName || '') &&
-                  contactNumberInput.trim() === (contactNumber || ''))
-              }
-              className="px-4 py-2 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              disabled={savingStore || isSavingAny || isStoreUnchanged}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
             >
-              {savingStore ? 'Saving details...' : 'Save Store Details'}
+              <Save className="w-3.5 h-3.5" />
+              {savingStore ? 'Saving...' : 'Save Store Details'}
             </button>
           </div>
         </div>
@@ -442,7 +461,7 @@ function StoreDetailsSection({
       <ConfirmModal
         isOpen={showConfirm}
         title="Update Store Details"
-        message="Are you sure you want to update your store details?"
+        message="Are you sure you want to save these store details?"
         confirmText="Confirm"
         cancelText="Cancel"
         isSaving={savingStore}
@@ -476,27 +495,32 @@ function NotificationPreferencesSection({
   onReloadSettings: () => Promise<void>;
 }) {
   const [daysInput, setDaysInput] = useState(
-    nearExpiryDays !== null ? String(nearExpiryDays) : ''
+    nearExpiryDays !== null ? String(nearExpiryDays) : '7'
   );
   const [expiryError, setExpiryError] = useState<string | null>(null);
   const [expirySuccess, setExpirySuccess] = useState<string | null>(null);
   const [savingExpiry, setSavingExpiry] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const trimmedDays = daysInput.trim();
-  const isWholeNumber = /^\d+$/.test(trimmedDays);
-  const parsedDays = isWholeNumber ? parseInt(trimmedDays, 10) : NaN;
-  const isExpiryValid = !isNaN(parsedDays) && parsedDays >= 1 && parsedDays <= 60;
+  useEffect(() => {
+    if (nearExpiryDays !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDaysInput(String(nearExpiryDays));
+    }
+  }, [nearExpiryDays]);
+
+  const parsedDays = parseInt(daysInput.trim(), 10);
+  const isExpiryValid =
+    !isNaN(parsedDays) &&
+    Number.isInteger(parsedDays) &&
+    parsedDays >= 1 &&
+    parsedDays <= 60;
+
   const isExpiryUnchanged =
     nearExpiryDays !== null && parsedDays === nearExpiryDays;
+
   const canSaveExpiry =
-    isExpiryValid &&
-    !isExpiryUnchanged &&
-    !savingExpiry &&
-    !isSavingAny &&
-    !settingsLoading &&
-    !settingsError &&
-    nearExpiryDays !== null;
+    isExpiryValid && !isExpiryUnchanged && !savingExpiry && !isSavingAny;
 
   const handleOpenConfirm = () => {
     setExpiryError(null);
@@ -549,45 +573,55 @@ function NotificationPreferencesSection({
   };
 
   return (
-    <section className="bg-white border border-gray-200 rounded p-5 shadow-sm space-y-4">
-      <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2">
-        Notification Preferences
-      </h2>
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
+        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+          <Bell className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
+            Notification Preferences
+          </h2>
+          <p className="text-xs text-[#7a7469]">Configurable near-expiry alert window.</p>
+        </div>
+      </div>
 
-      <p className="text-xs text-gray-600">
-        Products are marked near expiry when they expire within this many days.
+      <p className="text-xs text-[#7a7469]">
+        Batches are marked near expiry when their expiration date falls within this threshold.
       </p>
 
       {expirySuccess && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded">
-          {expirySuccess}
+        <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <span>{expirySuccess}</span>
         </div>
       )}
       {expiryError && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded">
-          {expiryError}
+        <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{expiryError}</span>
         </div>
       )}
 
       {settingsError ? (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded flex items-center justify-between">
+        <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-center justify-between">
           <span>Failed to load near-expiry settings: {settingsError}</span>
           <button
             type="button"
             onClick={() => onReloadSettings()}
-            className="underline font-semibold ml-2 text-red-900"
+            className="underline font-bold text-red-950 ml-2"
           >
             Retry
           </button>
         </div>
       ) : settingsLoading ? (
-        <p className="text-xs text-gray-500">Loading near-expiry settings...</p>
+        <p className="text-xs text-[#7a7469]">Loading near-expiry settings...</p>
       ) : (
         <div className="space-y-3">
           <div>
             <label
               htmlFor="near-expiry-days-input"
-              className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
             >
               Near-Expiry Window (1 to 60 Days)
             </label>
@@ -601,13 +635,13 @@ function NotificationPreferencesSection({
                 onChange={(e) => setDaysInput(e.target.value)}
                 disabled={savingExpiry || isSavingAny}
                 placeholder="e.g. 7"
-                className="w-32 px-3 py-2 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
+                className="w-32 px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
               />
-              <span className="text-sm text-gray-600">days</span>
+              <span className="text-sm font-semibold text-[#524c40]">days</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Current threshold:{' '}
-              <span className="font-medium text-gray-800">
+            <p className="text-[11px] text-[#999182] mt-1">
+              Current active threshold:{' '}
+              <span className="font-bold text-[#181413]">
                 {nearExpiryDays !== null ? `${nearExpiryDays} days` : 'Not loaded'}
               </span>
             </p>
@@ -615,18 +649,20 @@ function NotificationPreferencesSection({
 
           {/* Quick choices */}
           <div>
-            <span className="text-xs text-gray-500 block mb-1">Quick choices:</span>
-            <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#999182] block mb-1.5">
+              Quick Choices:
+            </span>
+            <div className="flex items-center gap-1.5">
               {QUICK_CHOICES.map((choice) => (
                 <button
                   key={choice}
                   type="button"
                   onClick={() => setDaysInput(String(choice))}
                   disabled={savingExpiry || isSavingAny}
-                  className={`px-3 py-1 text-xs rounded border transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
                     daysInput === String(choice)
-                      ? 'bg-emerald-600 text-white border-emerald-600 font-semibold'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[#207429] text-white shadow-2xs'
+                      : 'bg-[#fef9f0] text-[#524c40] border border-[#ece3d2] hover:bg-white'
                   }`}
                 >
                   {choice} days
@@ -640,9 +676,10 @@ function NotificationPreferencesSection({
               type="button"
               onClick={handleOpenConfirm}
               disabled={!canSaveExpiry}
-              className="px-4 py-2 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
             >
-              {savingExpiry ? 'Saving...' : 'Save Notification Preferences'}
+              <Save className="w-3.5 h-3.5" />
+              {savingExpiry ? 'Saving...' : 'Save Notification Window'}
             </button>
           </div>
         </div>
@@ -727,7 +764,6 @@ function ChangePasswordSection({
         return;
       }
 
-      // Step 1: Verify current password
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: userEmail,
         password: currentPassword,
@@ -738,7 +774,6 @@ function ChangePasswordSection({
         return;
       }
 
-      // Step 2: Update to new password
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
@@ -748,11 +783,10 @@ function ChangePasswordSection({
         return;
       }
 
-      // Step 3: Clear all three password fields, show success message, stay on page
+      setPasswordSuccess('Password changed successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setPasswordSuccess('Password changed successfully');
     } catch (err: unknown) {
       setPasswordError(mapAuthPasswordError(err));
     } finally {
@@ -762,27 +796,38 @@ function ChangePasswordSection({
   };
 
   return (
-    <section className="bg-white border border-gray-200 rounded p-5 shadow-sm space-y-4">
-      <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2">
-        Change Password
-      </h2>
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
+        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+          <KeyRound className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
+            Change Password
+          </h2>
+          <p className="text-xs text-[#7a7469]">Secure your operator credentials.</p>
+        </div>
+      </div>
 
       {passwordSuccess && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded">
-          {passwordSuccess}
-        </div>
-      )}
-      {passwordError && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded">
-          {passwordError}
+        <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <span>{passwordSuccess}</span>
         </div>
       )}
 
-      <div className="space-y-3 max-w-md">
+      {passwordError && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{passwordError}</span>
+        </div>
+      )}
+
+      <div className="space-y-3">
         <div>
           <label
             htmlFor="current-password-input"
-            className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
           >
             Current Password
           </label>
@@ -794,16 +839,16 @@ function ChangePasswordSection({
             onChange={(e) => setCurrentPassword(e.target.value)}
             disabled={savingPassword || isSavingAny}
             placeholder="Enter current password"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
+            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
           />
         </div>
 
         <div>
           <label
             htmlFor="new-password-input"
-            className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
           >
-            New Password
+            New Password (Min 8 Characters)
           </label>
           <input
             id="new-password-input"
@@ -813,14 +858,14 @@ function ChangePasswordSection({
             onChange={(e) => setNewPassword(e.target.value)}
             disabled={savingPassword || isSavingAny}
             placeholder="At least 8 characters"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
+            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
           />
         </div>
 
         <div>
           <label
             htmlFor="confirm-new-password-input"
-            className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
           >
             Confirm New Password
           </label>
@@ -832,7 +877,7 @@ function ChangePasswordSection({
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={savingPassword || isSavingAny}
             placeholder="Confirm new password"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
+            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
           />
         </div>
 
@@ -847,16 +892,11 @@ function ChangePasswordSection({
               !newPassword ||
               !confirmPassword
             }
-            className="px-4 py-2 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
           >
+            <Lock className="w-3.5 h-3.5" />
             {savingPassword ? 'Updating password...' : 'Update Password'}
           </button>
-        </div>
-
-        <div className="pt-1">
-          <p className="text-xs text-gray-500">
-            Password reset by email is not available yet.
-          </p>
         </div>
       </div>
 
@@ -903,26 +943,32 @@ function SignOutSection({
   };
 
   return (
-    <section className="bg-white border border-red-200 rounded p-5 shadow-sm space-y-3">
-      <h2 className="text-base font-semibold text-red-900 border-b border-red-100 pb-2">
-        Sign Out
-      </h2>
-      <p className="text-xs text-gray-600">
-        Sign out of your ShelfSafe account on this device.
+    <section className="bg-white border border-red-200 rounded-2xl p-6 shadow-2xs space-y-3">
+      <div className="flex items-center gap-2.5 border-b border-red-100 pb-3">
+        <div className="w-8 h-8 rounded-lg bg-red-50 text-[#d32f2f] flex items-center justify-center">
+          <LogOut className="w-4 h-4" />
+        </div>
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[#d32f2f]">
+          End Session
+        </h2>
+      </div>
+      <p className="text-xs text-[#7a7469]">
+        Sign out of your ShelfSafe retail session on this browser.
       </p>
       <button
         type="button"
         onClick={() => setShowConfirm(true)}
         disabled={isSavingAny || signingOut}
-        className="px-4 py-2 text-xs font-medium text-red-700 bg-red-50 border border-red-300 rounded hover:bg-red-100 disabled:opacity-50 transition-colors"
+        className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#d32f2f] bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 disabled:opacity-50 transition-colors"
       >
+        <LogOut className="w-3.5 h-3.5" />
         {signingOut ? 'Signing out...' : 'Sign Out'}
       </button>
 
       <ConfirmModal
         isOpen={showConfirm}
-        title="Sign out?"
-        message="Are you sure you want to sign out?"
+        title="Sign out of ShelfSafe?"
+        message="Are you sure you want to end your current session?"
         confirmText="Sign out"
         cancelText="Cancel"
         isSaving={signingOut}
@@ -959,7 +1005,6 @@ export default function ProfilePage() {
   const handleSaveStart = () => setSavingCount((c) => c + 1);
   const handleSaveEnd = () => setSavingCount((c) => Math.max(0, c - 1));
 
-  // Warn before leaving the page while saving
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isSavingAny) {
@@ -971,7 +1016,6 @@ export default function ProfilePage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isSavingAny]);
 
-  // Load user data asynchronously
   useEffect(() => {
     let ignore = false;
     async function fetchUser() {
@@ -999,73 +1043,79 @@ export default function ProfilePage() {
 
   if (loadingUser) {
     return (
-      <div className="py-16 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-3 text-sm text-gray-500">Loading profile...</p>
+      <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium">Loading profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Manage your account identity, store details, and notification preferences.
+    <div className="space-y-6 w-full">
+      <div className="pb-2 border-b border-[#ece3d2]/80">
+        <h1 className="text-2xl font-black text-[#181413] tracking-tight">Profile &amp; Settings</h1>
+        <p className="text-xs text-[#7a7469] mt-1">
+          Manage your operator identity, store settings, and near-expiry notification thresholds.
         </p>
       </div>
 
-      {/* SECTION 1 & 2: Account Identity & Edit Name */}
-      <EditNameSection
-        key={userName}
-        initialName={userName}
-        userEmail={userEmail}
-        isSavingAny={isSavingAny}
-        onSaveStart={handleSaveStart}
-        onSaveEnd={handleSaveEnd}
-        onNameSaved={handleNameSaved}
-      />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        <div className="space-y-6">
+          {/* SECTION 1: Account Identity */}
+          <EditNameSection
+            key={userName}
+            initialName={userName}
+            userEmail={userEmail}
+            isSavingAny={isSavingAny}
+            onSaveStart={handleSaveStart}
+            onSaveEnd={handleSaveEnd}
+            onNameSaved={handleNameSaved}
+          />
 
-      {/* SECTION 3: Store Details */}
-      <StoreDetailsSection
-        key={`${store_name}-${contact_number}-${settingsLoading}`}
-        storeName={store_name}
-        contactNumber={contact_number}
-        settingsLoading={settingsLoading}
-        settingsError={settingsError}
-        isSavingAny={isSavingAny}
-        onSaveStart={handleSaveStart}
-        onSaveEnd={handleSaveEnd}
-        onRefreshSettings={refreshSettings}
-        onReloadSettings={reloadSettings}
-      />
+          {/* SECTION 2: Store Details */}
+          <StoreDetailsSection
+            key={`${store_name}-${contact_number}-${settingsLoading}`}
+            storeName={store_name}
+            contactNumber={contact_number}
+            settingsLoading={settingsLoading}
+            settingsError={settingsError}
+            isSavingAny={isSavingAny}
+            onSaveStart={handleSaveStart}
+            onSaveEnd={handleSaveEnd}
+            onRefreshSettings={refreshSettings}
+            onReloadSettings={reloadSettings}
+          />
+        </div>
 
-      {/* SECTION 4: Notification Preferences */}
-      <NotificationPreferencesSection
-        key={`${near_expiry_days}-${settingsLoading}`}
-        nearExpiryDays={near_expiry_days}
-        settingsLoading={settingsLoading}
-        settingsError={settingsError}
-        isSavingAny={isSavingAny}
-        onSaveStart={handleSaveStart}
-        onSaveEnd={handleSaveEnd}
-        onRefreshSettings={refreshSettings}
-        onReloadSettings={reloadSettings}
-      />
+        <div className="space-y-6">
+          {/* SECTION 3: Notification Preferences */}
+          <NotificationPreferencesSection
+            key={`${near_expiry_days}-${settingsLoading}`}
+            nearExpiryDays={near_expiry_days}
+            settingsLoading={settingsLoading}
+            settingsError={settingsError}
+            isSavingAny={isSavingAny}
+            onSaveStart={handleSaveStart}
+            onSaveEnd={handleSaveEnd}
+            onRefreshSettings={refreshSettings}
+            onReloadSettings={reloadSettings}
+          />
 
-      {/* SECTION 5: Change Password */}
-      <ChangePasswordSection
-        userEmail={userEmail}
-        isSavingAny={isSavingAny}
-        onSaveStart={handleSaveStart}
-        onSaveEnd={handleSaveEnd}
-      />
+          {/* SECTION 4: Change Password */}
+          <ChangePasswordSection
+            userEmail={userEmail}
+            isSavingAny={isSavingAny}
+            onSaveStart={handleSaveStart}
+            onSaveEnd={handleSaveEnd}
+          />
 
-      {/* SECTION 6: Sign Out */}
-      <SignOutSection
-        isSavingAny={isSavingAny}
-        onClearStoreSettings={clearStoreSettings}
-      />
+          {/* SECTION 5: Sign Out */}
+          <SignOutSection
+            isSavingAny={isSavingAny}
+            onClearStoreSettings={clearStoreSettings}
+          />
+        </div>
+      </div>
     </div>
   );
 }

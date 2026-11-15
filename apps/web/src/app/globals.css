@@ -1,26 +1,58 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf8f5;
+  --foreground: #181413;
+
+  /* ShelfSafe Brand Color Tokens (measured from brand palette) */
+  --brand-primary: #3e8c1f;
+  --brand-primary-dark: #207429;
+  --brand-primary-deep: #254f08;
+  --brand-accent: #56a724;
+  --brand-bg-warm: #fef7e6;
+  --brand-bg-tint: #f4ffe1;
+  --brand-yellow: #ffdb3f;
+  --brand-amber: #fabe44;
+  --brand-orange: #faab06;
+  --brand-danger: #d32f2f;
+  --brand-surface: #ffffff;
+  --brand-border: #ece3d2;
+  --brand-text: #181413;
+  --brand-text-muted: #6b7280;
+
+  /* Typography: Nunito (Google Font) with System Fallback Stack */
+  --font-family-base: var(--font-nunito), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-dark: var(--brand-primary-dark);
+  --color-brand-primary-deep: var(--brand-primary-deep);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-bg-warm: var(--brand-bg-warm);
+  --color-brand-bg-tint: var(--brand-bg-tint);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-amber: var(--brand-amber);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-danger: var(--brand-danger);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-border: var(--brand-border);
+  --color-brand-text: var(--brand-text);
+  --color-brand-text-muted: var(--brand-text-muted);
+  --font-sans: var(--font-family-base);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-family-base);
+}
+
+/* Nunito applied across all headings, content, forms, and dialogs */
+h1, h2, h3, h4, h5, h6,
+button, input, select, textarea,
+.font-display, .font-heading {
+  font-family: var(--font-family-base);
 }

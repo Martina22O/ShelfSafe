@@ -2,6 +2,14 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import {
+  RefreshCw,
+  AlertOctagon,
+  Clock,
+  ShieldCheck,
+  ChevronRight,
+  Info,
+} from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { getInventoryAlerts } from '../../../lib/inventory';
 import { InventoryAlert } from '../../../types/inventory';
@@ -111,7 +119,7 @@ export default function NotificationsPage() {
 
   // Filter chips definitions
   const filterOptions: Array<{ key: FilterKey; label: string; count: number }> = [
-    { key: 'All', label: 'All', count: allCount },
+    { key: 'All', label: 'All Alerts', count: allCount },
     { key: 'Low Stock', label: 'Low Stock', count: lowStockCount },
     { key: 'Near Expiry', label: 'Near Expiry', count: nearExpiryCount },
     { key: 'Expired', label: 'Expired', count: expiredCount },
@@ -159,23 +167,24 @@ export default function NotificationsPage() {
 
   if (settingsLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-gray-500">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-3" />
-        <p className="text-sm">Loading store settings...</p>
+      <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium">Loading store settings...</p>
       </div>
     );
   }
 
   if (settingsError) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded p-6 max-w-xl mx-auto my-8">
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 shadow-xs">
         <h2 className="text-base font-bold text-red-900">Failed to load store settings</h2>
-        <p className="text-sm text-red-700 mt-1">{settingsError}</p>
+        <p className="text-xs text-red-700 mt-1 mb-4 leading-relaxed">{settingsError}</p>
         <button
           type="button"
           onClick={() => reloadSettings()}
-          className="mt-4 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#d32f2f] text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-colors shadow-2xs"
         >
+          <RefreshCw className="w-3.5 h-3.5" />
           Retry
         </button>
       </div>
@@ -184,26 +193,27 @@ export default function NotificationsPage() {
 
   if (loading && alerts.length === 0 && !error) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-gray-500">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-3" />
-        <p className="text-sm">Loading notifications...</p>
+      <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium">Loading notifications...</p>
       </div>
     );
   }
 
   if (error && alerts.length === 0) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded p-6 max-w-xl mx-auto my-8">
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 space-y-4 shadow-xs">
         <h2 className="text-base font-bold text-red-900">Failed to load notifications</h2>
-        <p className="text-sm text-red-700 mt-1">{error}</p>
+        <p className="text-xs text-red-700 mt-1 leading-relaxed">{error}</p>
         <button
           type="button"
           onClick={() => {
             setLoading(true);
             loadData();
           }}
-          className="mt-4 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] transition-colors shadow-2xs"
         >
+          <RefreshCw className="w-3.5 h-3.5" />
           Retry
         </button>
       </div>
@@ -211,13 +221,18 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-[#ece3d2]/80">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Refresh the page to see changes from other devices.
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-black text-[#181413] tracking-tight">Notifications Center</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#fef9f0] text-[#7a7469] border border-[#ece3d2]">
+              {allCount} active alert(s)
+            </span>
+          </div>
+          <p className="text-xs text-[#7a7469] mt-1">
+            Real-time shelf alerts, stock shortages, and batch expiration tracking.
           </p>
         </div>
         <button
@@ -228,15 +243,16 @@ export default function NotificationsPage() {
             loadData();
           }}
           disabled={loading}
-          className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#ece3d2] bg-white text-xs font-bold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs disabled:opacity-50"
         >
-          {loading ? 'Refreshing...' : 'Refresh'}
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? 'Refreshing...' : 'Refresh Alerts'}
         </button>
       </div>
 
       {/* Error banner if reload failed while having stale data */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-4 flex items-center justify-between text-sm text-red-800">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between text-xs text-red-900 shadow-2xs">
           <span>{error}</span>
           <button
             type="button"
@@ -252,42 +268,54 @@ export default function NotificationsPage() {
       <div className="space-y-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Expired Value at Risk */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-red-700">
-              Estimate
-            </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-red-900 mt-1">
-              ₱{formatPesosFromCentavos(expiredCentavos)}
+          <div className="bg-[#fffafa] border border-[#fecaca] rounded-2xl p-5 shadow-2xs flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#fee2e2] text-[#d32f2f] border border-[#fca5a5] flex items-center justify-center shrink-0 shadow-2xs">
+              <AlertOctagon className="w-6 h-6" />
             </div>
-            <p className="text-sm font-medium text-red-800 mt-1">
-              Estimated value at risk: expired
-            </p>
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#d32f2f] bg-[#fee2e2] px-2 py-0.5 rounded inline-block">
+                Estimated Loss (Expired)
+              </span>
+              <div className="text-2xl sm:text-3xl font-black text-[#d32f2f] mt-1 tracking-tight">
+                ₱{formatPesosFromCentavos(expiredCentavos)}
+              </div>
+              <p className="text-xs font-semibold text-[#d32f2f]/80 mt-0.5">
+                Estimated inventory value of expired batches
+              </p>
+            </div>
           </div>
 
           {/* Near Expiry Value at Risk */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
-              Estimate
-            </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-amber-900 mt-1">
-              ₱{formatPesosFromCentavos(nearExpiryCentavos)}
+          <div className="bg-[#fffdf7] border border-[#fde68a] rounded-2xl p-5 shadow-2xs flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#fef3c7] text-[#b45309] border border-[#fde68a] flex items-center justify-center shrink-0 shadow-2xs">
+              <Clock className="w-6 h-6" />
             </div>
-            <p className="text-sm font-medium text-amber-800 mt-1">
-              Estimated value at risk: near expiry
-            </p>
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#b45309] bg-[#fef3c7] px-2 py-0.5 rounded inline-block">
+                Value at Risk (Near Expiry)
+              </span>
+              <div className="text-2xl sm:text-3xl font-black text-[#b45309] mt-1 tracking-tight">
+                ₱{formatPesosFromCentavos(nearExpiryCentavos)}
+              </div>
+              <p className="text-xs font-semibold text-[#b45309]/80 mt-0.5">
+                Estimated value of batches expiring within threshold
+              </p>
+            </div>
           </div>
         </div>
 
         {totalMissingPrice > 0 && (
-          <p className="text-xs text-gray-500 italic">
-            * {totalMissingPrice === 1 ? '1 alert has' : `${totalMissingPrice} alerts have`} no
-            price recorded and {totalMissingPrice === 1 ? 'is' : 'are'} excluded from the estimate.
+          <p className="text-[11px] text-[#999182] flex items-center gap-1 pt-1">
+            <Info className="w-3.5 h-3.5 text-[#9ca3af]" />
+            <span>
+              * {totalMissingPrice === 1 ? '1 alert has' : `${totalMissingPrice} alerts have`} no price recorded and {totalMissingPrice === 1 ? 'is' : 'are'} excluded from the estimate.
+            </span>
           </p>
         )}
       </div>
 
       {/* Filter Chips */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 pt-1">
         {filterOptions.map((opt) => {
           const isSelected = selectedFilter === opt.key;
           return (
@@ -295,13 +323,12 @@ export default function NotificationsPage() {
               key={opt.key}
               type="button"
               onClick={() => setSelectedFilter(opt.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                isSelected
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${isSelected
+                  ? 'bg-[#207429] text-white shadow-2xs'
+                  : 'bg-white text-[#524c40] border border-[#ece3d2] hover:bg-[#fef9f0]'
+                }`}
             >
-              {isSelected ? `• ${opt.label} (${opt.count})` : `${opt.label} (${opt.count})`}
+              {opt.label} ({opt.count})
             </button>
           );
         })}
@@ -310,8 +337,12 @@ export default function NotificationsPage() {
       {/* Alert Items List */}
       <div className="space-y-3">
         {filteredAlerts.length === 0 ? (
-          <div className="bg-white border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500 text-sm">
-            No alerts. Your shelves look good.
+          <div className="bg-white border border-dashed border-[#ece3d2] rounded-2xl p-12 text-center shadow-2xs">
+            <div className="w-12 h-12 rounded-full bg-[#f4ffe1] text-[#207429] mx-auto flex items-center justify-center mb-3">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h2 className="text-sm font-bold text-[#181413]">No alerts right now</h2>
+            <p className="text-xs text-[#7a7469] mt-0.5">Your shelves are healthy and all batches are within safe dates.</p>
           </div>
         ) : (
           filteredAlerts.map((alert, idx) => {
@@ -322,14 +353,14 @@ export default function NotificationsPage() {
             const badgeLabel = isExpired
               ? 'Expired'
               : isNearExpiry
-              ? 'Near Expiry'
-              : 'Low Stock';
+                ? 'Near Expiry'
+                : 'Low Stock';
 
             const badgeColor = isExpired
-              ? 'bg-red-100 text-red-800 border-red-200'
+              ? 'bg-[#fee2e2] text-[#d32f2f] border-[#fca5a5]'
               : isNearExpiry
-              ? 'bg-amber-100 text-amber-800 border-amber-200'
-              : 'bg-orange-100 text-orange-800 border-orange-200';
+                ? 'bg-[#fef3c7] text-[#b45309] border-[#fde68a]'
+                : 'bg-[#ffedd5] text-[#c2410c] border-[#fed7aa]';
 
             const batchCode = alert.batch_id
               ? alert.batch_id.replace(/-/g, '').slice(0, 8).toUpperCase()
@@ -346,51 +377,56 @@ export default function NotificationsPage() {
               <Link
                 key={`${alert.alert_type}-${alert.product_id}-${alert.batch_id || idx}`}
                 href={`/inventory/${alert.product_id}`}
-                className="block bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-400 transition-colors shadow-sm"
+                className="group block bg-white border border-[#ece3d2] rounded-2xl p-5 hover:border-[#207429] hover:shadow-xs transition-all"
               >
                 {/* Header: Product name, Badge & Batch Code */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <span
                       className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${badgeColor}`}
                     >
                       {badgeLabel}
                     </span>
-                    <h2 className="text-base font-bold text-gray-900">{alert.product_name}</h2>
+                    <h2 className="text-base font-bold text-[#181413] group-hover:text-[#207429] transition-colors">
+                      {alert.product_name}
+                    </h2>
                   </div>
-                  {batchCode && (
-                    <span className="font-mono text-xs text-gray-500 font-semibold shrink-0">
-                      B-{batchCode}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {batchCode && (
+                      <span className="font-mono text-xs text-[#999182] font-semibold bg-[#fef9f0] px-2 py-0.5 rounded border border-[#ece3d2]">
+                        B-{batchCode}
+                      </span>
+                    )}
+                    <ChevronRight className="w-4 h-4 text-[#9ca3af] group-hover:text-[#207429] transition-colors" />
+                  </div>
                 </div>
 
                 {/* Details */}
-                <div className="text-xs text-gray-700 mt-2 space-y-1">
+                <div className="text-xs text-[#524c40] mt-2 space-y-1">
                   {isLowStock ? (
                     <p>
-                      Only <span className="font-semibold text-gray-900">{alert.current_stock ?? 0}</span>{' '}
-                      sellable unit(s) left (threshold {alert.low_stock_level ?? 5}).
+                      Only <span className="font-bold text-[#181413]">{alert.current_stock ?? 0}</span>{' '}
+                      sellable unit(s) left in store (alert threshold: {alert.low_stock_level ?? 5}).
                     </p>
                   ) : (
                     <div>
                       <p>
                         Batch B-{batchCode || 'N/A'}{' '}
-                        <span className="capitalize">{daysText}</span> with{' '}
-                        <span className="font-semibold text-gray-900">
+                        <span className="capitalize font-semibold text-[#b45309]">{daysText}</span> with{' '}
+                        <span className="font-bold text-[#181413]">
                           {alert.batch_quantity_left ?? 0}
                         </span>{' '}
-                        unit(s) left.
+                        unit(s) remaining.
                       </p>
                       {alert.expiration_date && (
-                        <p className="text-gray-500 text-[11px] mt-0.5">
+                        <p className="text-[#7a7469] text-[11px] mt-0.5">
                           Expires {formatDisplayDate(alert.expiration_date)}
                           {alert.price !== null && alert.price !== undefined && (
                             <>
                               {' · '}Est. ₱
                               {formatPesosFromCentavos(
                                 (alert.batch_quantity_left ?? 0) *
-                                  Math.round(Number(alert.price) * 100)
+                                Math.round(Number(alert.price) * 100)
                               )}{' '}
                               at ₱{formatPesosFromCentavos(Math.round(Number(alert.price) * 100))}/unit
                             </>
@@ -403,9 +439,11 @@ export default function NotificationsPage() {
 
                 {/* Suggested Action */}
                 {suggestedAction && (
-                  <div className="mt-3 bg-gray-50 border border-gray-200 rounded p-2 text-xs text-gray-700">
-                    <span className="font-semibold text-gray-900">Suggested action: </span>
-                    {suggestedAction}
+                  <div className="mt-3.5 bg-[#fef9f0] border border-[#ece3d2] rounded-xl p-2.5 text-xs text-[#524c40] flex items-center gap-2">
+                    <span className="font-bold text-[#207429] text-[10px] uppercase tracking-wider bg-[#f4ffe1] px-1.5 py-0.5 rounded border border-[#207429]/20">
+                      Suggested Action
+                    </span>
+                    <span className="font-medium text-[#181413]">{suggestedAction}</span>
                   </div>
                 )}
               </Link>

@@ -1,31 +1,46 @@
 /**
  * Screen: ScanBarcodeScreen
- * Real camera scanner using expo-camera CameraView.
+ * Reference: docs/design/mobile/04-scan/scan_mobile.png
+ * Features:
+ * - Real camera scanner using expo-camera CameraView
+ * - Reticle targeting frame with amber markers
+ * - Flashlight toggle with active pill indicator
+ * - Mode header (Stock In vs Record Sale)
+ * - Manual barcode entry CTA
+ * - Stability checks and restore flow
  */
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, Button, ScrollView, Linking, Modal, BackHandler } from 'react-native';
+import {
+  View,
+  Text,
+  Linking,
+  Modal,
+  BackHandler,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { CameraView as ExpoCameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-
-const CameraView = ExpoCameraView as unknown as React.ComponentType<any>;
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
+import { ArrowRight, Lightbulb, Flashlight, FlashlightOff } from 'lucide-react-native';
 import { ScanStackParamList } from '../../navigation/types';
 import { findProductByBarcode, getProductWithBatches, restoreProduct } from '../../services/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { useSaleCart } from '../../context/SaleCartContext';
 import { Product } from '../../types/inventory';
 import { isValidRetailBarcode } from '../../utils/barcode';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
-/**
- * Accepted retail barcode symbologies for camera scanning.
- * 'code128' and 'upc_e' are excluded because they can decode letters or produce false positives on blurry reads.
- * To add them back, append 'code128' and/or 'upc_e' to this array.
- */
 export const SCAN_BARCODE_TYPES = ['ean13', 'ean8', 'upc_a'] as const;
 
 const SCAN_CONFIRMATION_READS = 2;
 const SCAN_CONFIRMATION_WINDOW_MS = 1200;
 const SCAN_HINT_AFTER_MS = 4000;
+
+const Camera = CameraView as unknown as React.ComponentType<any>;
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'ScanBarcode'>;
 
@@ -58,7 +73,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     return () => backHandler.remove();
   }, [restoring]);
 
-  // Single-scan lock, duplicate prevention, and multi-read stability tracking
+  // Stability tracking
   const isScanningLocked = useRef(false);
   const lastScannedBarcode = useRef<string | null>(null);
   const lastCandidateRef = useRef<{ code: string; count: number; lastSeenAt: number } | null>(null);
@@ -70,7 +85,6 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     setShowScanHint(false);
   }, []);
 
-  // Reset scanner lock when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       isScanningLocked.current = false;
@@ -98,357 +112,707 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     };
 
     if (!rawCode || !isValidRetailBarcode(rawCode)) {
-      lastCandidateRef.current = null;
       recordIgnoredRead();
       return;
     }
 
-    if (lastScannedBarcode.current === rawCode) return;
+    const currentCandidate = lastCandidateRef.current;
+    if (
+      currentCandidate &&
+      currentCandidate.code === rawCode &&
+      now - currentCandidate.lastSeenAt <= SCAN_CONFIRMATION_WINDOW_MS
+    ) {
+      currentCandidate.count += 1;
+      currentCandidate.lastSeenAt = now;
+    } else {
+      lastCandidateRef.current = { code: rawCode, count: 1, lastSeenAt: now };
+    }
 
-    const prev = lastCandidateRef.current;
-    const nextCount =
-      prev && prev.code === rawCode && now - prev.lastSeenAt <= SCAN_CONFIRMATION_WINDOW_MS
-        ? prev.count + 1
-        : 1;
-
-    lastCandidateRef.current = { code: rawCode, count: nextCount, lastSeenAt: now };
-
-    if (nextCount < SCAN_CONFIRMATION_READS) {
-      recordIgnoredRead();
+    if ((lastCandidateRef.current?.count ?? 0) < SCAN_CONFIRMATION_READS) {
       return;
     }
 
-    // Accepted scan: clear stability state and hide hint
-    resetScanStability();
+    const barcode = rawCode;
+    lastCandidateRef.current = null;
+    firstIgnoredAtRef.current = null;
+    setShowScanHint(false);
 
-    // Lock scan handler
+    if (lastScannedBarcode.current === barcode) return;
+
     isScanningLocked.current = true;
-    lastScannedBarcode.current = rawCode;
+    lastScannedBarcode.current = barcode;
     setErrorMessage(null);
-    setNotFoundBarcode(null);
-    setStatusMessage(`Looking up barcode: ${rawCode}...`);
+    setStatusMessage(`Scanned ${barcode}...`);
 
-    const lookupResult = await findProductByBarcode(rawCode);
+    try {
+      const productRes = await findProductByBarcode(barcode);
 
-    if (lookupResult.kind === 'error') {
-      // On network/db error: show error, release lock, allow retry
-      setErrorMessage(lookupResult.message);
+      if (productRes.kind === 'error') {
+        setErrorMessage(productRes.message);
+        isScanningLocked.current = false;
+        lastScannedBarcode.current = null;
+        setStatusMessage(null);
+        return;
+      }
+
+      if (productRes.kind === 'archived') {
+        setStatusMessage(null);
+        setArchivedProduct(productRes.product);
+        setShowRestoreModal(true);
+        return;
+      }
+
+      if (productRes.kind === 'not_found') {
+        setStatusMessage(null);
+        if (mode === 'add') {
+          navigation.navigate('NewProduct', { barcode, fromScan: true });
+        } else {
+          setNotFoundBarcode(barcode);
+        }
+        return;
+      }
+
+      // Product found active
+      const product = productRes.product;
+
+      if (mode === 'add') {
+        setStatusMessage(null);
+        navigation.navigate('AddStockForm', {
+          productId: product.id,
+          barcode: product.barcode || barcode,
+          productName: product.name,
+        });
+      } else {
+        // Mode === 'sell'
+        const detailRes = await getProductWithBatches(product.id, near_expiry_days);
+        if (detailRes.kind === 'error' || detailRes.kind === 'not_found') {
+          setErrorMessage('Failed to load active batch details.');
+          isScanningLocked.current = false;
+          lastScannedBarcode.current = null;
+          setStatusMessage(null);
+          return;
+        }
+
+        const sellableUnits = detailRes.data.sellable_units;
+        if (sellableUnits <= 0) {
+          setErrorMessage(`"${product.name}" has 0 sellable units available (expired or out of stock).`);
+          isScanningLocked.current = false;
+          lastScannedBarcode.current = null;
+          setStatusMessage(null);
+          return;
+        }
+
+        addItem({
+          id: product.id,
+          name: product.name,
+          barcode: product.barcode,
+          price: product.price,
+          sellable_units: sellableUnits,
+        });
+
+        setStatusMessage(null);
+        navigation.navigate('SaleList');
+      }
+    } catch {
+      setErrorMessage('Unexpected scanner error.');
+      isScanningLocked.current = false;
+      lastScannedBarcode.current = null;
       setStatusMessage(null);
+    }
+  };
+
+  const handleBarcodeScannedRef = useRef(handleBarcodeScanned);
+  handleBarcodeScannedRef.current = handleBarcodeScanned;
+
+  const onBarcodeScanned = useCallback((result: BarcodeScanningResult) => {
+    if (isScanningLocked.current) return;
+    handleBarcodeScannedRef.current(result);
+  }, []);
+
+  const handleConfirmRestoreArchived = async () => {
+    if (!archivedProduct) return;
+    setRestoring(true);
+    setErrorMessage(null);
+
+    const res = await restoreProduct(archivedProduct.id);
+    setRestoring(false);
+
+    if (res.kind !== 'success') {
+      setErrorMessage(res.message);
+      setShowRestoreModal(false);
       isScanningLocked.current = false;
       lastScannedBarcode.current = null;
       return;
     }
 
-    if (lookupResult.kind === 'archived') {
-      // Archived product: keep message and show restore button
-      setErrorMessage('This product is archived');
-      setArchivedProduct(lookupResult.product);
-      setStatusMessage(null);
-      isScanningLocked.current = false;
-      return;
-    }
+    setShowRestoreModal(false);
+    const restoredProd = archivedProduct;
+    setArchivedProduct(null);
 
-    if (mode === 'sell') {
-      if (lookupResult.kind === 'not_found') {
-        setStatusMessage(null);
-        setNotFoundBarcode(rawCode);
-        return;
-      }
-
-      if (lookupResult.kind === 'found') {
-        setStatusMessage('Checking sellable stock...');
-        const batchRes = await getProductWithBatches(lookupResult.product.id, near_expiry_days);
-
-        if (batchRes.kind === 'error') {
-          setErrorMessage(batchRes.message);
-          setStatusMessage(null);
-          isScanningLocked.current = false;
-          lastScannedBarcode.current = null;
-          return;
-        }
-
-        const sellableUnits = batchRes.kind === 'success' ? batchRes.data.sellable_units : 0;
-
-        if (sellableUnits <= 0) {
-          setErrorMessage('No sellable units for this product');
-          setStatusMessage(null);
-          isScanningLocked.current = false;
-          return;
-        }
-
-        const addRes = addItem({
-          id: lookupResult.product.id,
-          name: lookupResult.product.name,
-          barcode: lookupResult.product.barcode || rawCode,
-          price: lookupResult.product.price,
-          sellable_units: sellableUnits,
-        });
-
-        if (!addRes.success) {
-          setErrorMessage(addRes.message);
-          setStatusMessage(null);
-          isScanningLocked.current = false;
-          return;
-        }
-
-        setStatusMessage(null);
-        navigation.navigate('SaleList');
-        return;
-      }
-    }
-
-    // Add mode
-    if (lookupResult.kind === 'found') {
-      setStatusMessage(null);
+    if (mode === 'add') {
       navigation.navigate('AddStockForm', {
-        productId: lookupResult.product.id,
-        barcode: lookupResult.product.barcode || rawCode,
-        productName: lookupResult.product.name,
+        productId: restoredProd.id,
+        barcode: restoredProd.barcode || undefined,
+        productName: restoredProd.name,
       });
-      return;
-    }
-
-    if (lookupResult.kind === 'not_found') {
-      setStatusMessage(null);
-      navigation.navigate('NewProduct', { barcode: rawCode, fromScan: true });
-      return;
+    } else {
+      setRestoreSuccessMessage(
+        `"${restoredProd.name}" restored to inventory! Scan again or type barcode to add it to your sale.`
+      );
+      isScanningLocked.current = false;
+      lastScannedBarcode.current = null;
     }
   };
 
-  // 1. Permission checking
+  const handleCancelRestore = () => {
+    setShowRestoreModal(false);
+    setArchivedProduct(null);
+    isScanningLocked.current = false;
+    lastScannedBarcode.current = null;
+    resetScanStability();
+  };
+
+  const isScanAction = mode === 'add' || mode === 'sell';
+
   if (!permission) {
     return (
-      <View style={{ flex: 1, padding: 16, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Checking camera permissions...</Text>
-      </View>
+      <SafeAreaView
+        style={[styles.centerContainer, isScanAction && { backgroundColor: COLORS.scanActionBg }]}
+      >
+        <ActivityIndicator color={COLORS.primary} size="large" />
+        <Text style={styles.statusText}>Requesting camera permission...</Text>
+      </SafeAreaView>
     );
   }
 
-  // 2. Permission denied state
   if (!permission.granted) {
     return (
-      <View style={{ flex: 1, padding: 16, justifyContent: 'center' }}>
-        <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Camera Permission Required</Text>
-        <Text style={{ color: 'gray', marginTop: 8 }}>
-          ShelfSafe needs camera access to scan barcodes on packages.
-        </Text>
-
-        <View style={{ marginTop: 24, gap: 12 }}>
+      <SafeAreaView
+        style={[styles.centerContainer, isScanAction && { backgroundColor: COLORS.scanActionBg }]}
+      >
+        <View style={styles.permCard}>
+          <Text style={styles.permTitle}>Camera Permission Required</Text>
+          <Text style={styles.permDesc}>
+            ShelfSafe needs camera access to scan retail product barcodes.
+          </Text>
           {permission.canAskAgain ? (
-            <Button title="Allow camera" onPress={requestPermission} />
+            <TouchableOpacity style={styles.primaryButton} onPress={requestPermission}>
+              <Text style={styles.primaryButtonText}>Grant Camera Permission</Text>
+            </TouchableOpacity>
           ) : (
-            <Button title="Open settings" onPress={() => Linking.openSettings()} />
+            <TouchableOpacity style={styles.primaryButton} onPress={() => Linking.openSettings()}>
+              <Text style={styles.primaryButtonText}>Open Device Settings</Text>
+            </TouchableOpacity>
           )}
-
-          <Button
-            title="Type barcode instead"
-            onPress={() => navigation.navigate('TypeBarcode', { mode })}
-            color="gray"
-          />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  // 3. Permission granted & ready to scan
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Scan Barcode</Text>
-      <Text style={{ color: 'gray', marginTop: 4 }}>
-        Mode: {mode === 'add' ? 'Add Stock' : 'Record Sold Items'}
-      </Text>
-
-      {/* Status Messages */}
-      {statusMessage ? (
-        <View style={{ marginTop: 8, padding: 8, backgroundColor: '#e8f4fd' }}>
-          <Text style={{ color: '#0056b3' }}>{statusMessage}</Text>
-        </View>
-      ) : null}
-
-      {/* Restore Success Message */}
-      {restoreSuccessMessage ? (
-        <View style={{ marginTop: 8, padding: 10, borderWidth: 1, borderColor: '#2e7d32', backgroundColor: '#edf7ed' }}>
-          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>{restoreSuccessMessage}</Text>
-        </View>
-      ) : null}
-
-      {/* Error Message and Restore Option */}
-      {errorMessage ? (
-        <View style={{ marginTop: 8, padding: 10, borderWidth: 1, borderColor: '#d9534f', backgroundColor: '#fdf7f7' }}>
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>{errorMessage}</Text>
-          {archivedProduct && (
-            <View style={{ marginTop: 10 }}>
-              <Button
-                title={restoring ? 'Restoring...' : 'Restore Product'}
-                disabled={restoring}
-                onPress={() => setShowRestoreModal(true)}
-                color="#2e7d32"
-              />
-            </View>
-          )}
-        </View>
-      ) : null}
-
-      {/* Not Found in Sell Mode banner */}
-      {notFoundBarcode ? (
-        <View
-          style={{
-            marginTop: 8,
-            padding: 12,
-            borderWidth: 1,
-            borderColor: '#ccc',
-            backgroundColor: '#fff3cd',
-          }}
-        >
-          <Text style={{ fontWeight: 'bold', color: '#856404' }}>
-            This product is not in your inventory
-          </Text>
-          <Text style={{ color: 'gray', marginTop: 4 }}>
-            Barcode: {notFoundBarcode}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <Button
-              title="Search by name"
-              onPress={() => {
-                setNotFoundBarcode(null);
-                navigation.navigate('TypeBarcode', { mode: 'sell' });
-              }}
-            />
-            <Button
-              title="Back to scanning"
-              onPress={() => {
-                setNotFoundBarcode(null);
-                isScanningLocked.current = false;
-                lastScannedBarcode.current = null;
-                resetScanStability();
-              }}
-              color="gray"
-            />
+    <SafeAreaView
+      style={[styles.container, isScanAction && { backgroundColor: COLORS.scanActionBg }]}
+      edges={['left', 'right']}
+    >
+      <StatusBar style="dark" />
+      <View style={styles.content}>
+        {/* Mode Badge Indicator (Native navigation bar provides single Back button) */}
+        <View style={styles.header}>
+          <View style={styles.modeBadge}>
+            <Text style={styles.modeBadgeText}>
+              {mode === 'add' ? 'Stock In Mode' : 'Record Sale Mode'}
+            </Text>
           </View>
         </View>
-      ) : null}
 
-      {/* Camera View Area - rendered only when screen is focused */}
-      <View
-        style={{
-          height: 300,
-          marginTop: 16,
-          backgroundColor: '#000',
-          justifyContent: 'center',
-          alignItems: 'center',
-          overflow: 'hidden',
-          borderRadius: 4,
-        }}
-      >
-        {isFocused ? (
-          <CameraView
-            style={{ width: '100%', height: '100%' }}
-            facing="back"
-            enableTorch={torch}
-            barcodeScannerSettings={{
-              barcodeTypes: SCAN_BARCODE_TYPES,
-            }}
-            onBarcodeScanned={isScanningLocked.current ? undefined : handleBarcodeScanned}
-          />
-        ) : (
-          <Text style={{ color: '#fff' }}>Camera paused</Text>
-        )}
-      </View>
-
-      <Text style={{ textAlign: 'center', color: 'gray', marginTop: 8 }}>
-        Align barcode within camera view to scan
-      </Text>
-
-      {showScanHint ? (
-        <Text style={{ textAlign: 'center', color: '#856404', marginTop: 6 }}>
-          Hold steady and fill the frame with the barcode. Use the flashlight if it is dark.
+        {/* Clear non-repetitive instructional title */}
+        <Text style={styles.screenTitle}>Position barcode inside frame</Text>
+        <Text style={styles.screenSubtitle}>
+          {mode === 'add'
+            ? 'Hold camera steady to add new batch stock'
+            : 'Hold camera steady to record sale deduction'}
         </Text>
-      ) : null}
 
-      {/* Controls */}
-      <View style={{ marginTop: 16, gap: 10 }}>
-        <Button
-          title={torch ? 'Turn Flashlight OFF' : 'Turn Flashlight ON'}
-          onPress={() => setTorch(!torch)}
-          color="#444"
-        />
+        {/* Notifications & Banners */}
+        {statusMessage ? (
+          <View style={styles.statusToast}>
+            <Text style={styles.statusToastText}>{statusMessage}</Text>
+          </View>
+        ) : null}
 
-        <Button
-          title="Type barcode instead"
-          onPress={() => navigation.navigate('TypeBarcode', { mode })}
-        />
+        {errorMessage ? (
+          <View style={styles.errorToast}>
+            <Text style={styles.errorToastText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {restoreSuccessMessage ? (
+          <View style={styles.successToast}>
+            <Text style={styles.successToastText}>{restoreSuccessMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Not Found In Inventory Banner */}
+        {notFoundBarcode ? (
+          <View style={styles.notFoundBox}>
+            <Text style={styles.notFoundTitle}>Product Not in Inventory</Text>
+            <Text style={styles.notFoundSub}>Barcode: {notFoundBarcode}</Text>
+            <View style={styles.notFoundBtnRow}>
+              <TouchableOpacity
+                style={styles.notFoundBtn}
+                onPress={() => {
+                  setNotFoundBarcode(null);
+                  navigation.navigate('TypeBarcode', { mode: 'sell' });
+                }}
+              >
+                <Text style={styles.notFoundBtnText}>Search by Name</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.notFoundBtn, { backgroundColor: COLORS.bgWarm }]}
+                onPress={() => {
+                  setNotFoundBarcode(null);
+                  isScanningLocked.current = false;
+                  lastScannedBarcode.current = null;
+                  resetScanStability();
+                }}
+              >
+                <Text style={[styles.notFoundBtnText, { color: COLORS.text }]}>Resume Scan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Camera Viewfinder Card with Targeting Frame */}
+        <View style={styles.viewfinderCard}>
+          {isFocused ? (
+            <Camera
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              enableTorch={torch}
+              barcodeScannerSettings={{
+                barcodeTypes: SCAN_BARCODE_TYPES,
+              }}
+              onBarcodeScanned={onBarcodeScanned}
+            />
+          ) : (
+            <Text style={{ color: COLORS.white }}>Camera paused</Text>
+          )}
+
+          {/* Reticle Frame Overlay */}
+          <View style={styles.reticleFrame} pointerEvents="none">
+            <View style={[styles.cornerMarker, styles.cornerTL]} />
+            <View style={[styles.cornerMarker, styles.cornerTR]} />
+            <View style={[styles.cornerMarker, styles.cornerBL]} />
+            <View style={[styles.cornerMarker, styles.cornerBR]} />
+            <View style={styles.laserGuide} />
+          </View>
+        </View>
+
+        {showScanHint ? (
+          <View style={styles.hintContainer}>
+            <Lightbulb size={16} color={COLORS.amberDark} strokeWidth={2} />
+            <Text style={styles.hintText}>
+              Hold steady and fill the frame with the barcode. Turn on flash if dim.
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Controls (Flashlight & Manual Entry) */}
+        <View style={styles.controlsRow}>
+          <TouchableOpacity
+            style={[styles.torchButton, torch && styles.torchButtonActive]}
+            onPress={() => setTorch(!torch)}
+            accessibilityRole="button"
+            accessibilityLabel={torch ? 'Turn flashlight off' : 'Turn flashlight on'}
+          >
+            {torch ? (
+              <Flashlight size={18} color={COLORS.amberDark} strokeWidth={2} />
+            ) : (
+              <FlashlightOff size={18} color={COLORS.textSecondary} strokeWidth={2} />
+            )}
+            <Text style={[styles.torchText, torch && styles.torchTextActive]}>
+              {torch ? 'Flashlight ON' : 'Flashlight OFF'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.manualButton}
+            onPress={() => navigation.navigate('TypeBarcode', { mode })}
+            accessibilityRole="button"
+          >
+            <Text style={styles.manualButtonText}>Type Barcode Manually</Text>
+            <ArrowRight size={16} color={COLORS.white} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Restore Confirmation Modal */}
-      <Modal
-        visible={showRestoreModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          if (!restoring) setShowRestoreModal(false);
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              padding: 20,
-              borderRadius: 6,
-              width: '100%',
-              maxWidth: 360,
-              borderWidth: 1,
-              borderColor: '#ccc',
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Restore Product?</Text>
-            <Text style={{ color: '#333', marginTop: 10, fontSize: 14 }}>
-              Restore "{archivedProduct?.name}" to active inventory?
+      {/* Restore Archived Product Modal */}
+      <Modal visible={showRestoreModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Archived Product Detected</Text>
+            <Text style={styles.modalDesc}>
+              "{archivedProduct?.name}" is currently archived. Restore it to inventory to continue?
             </Text>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <Button
-                title="Cancel"
-                onPress={() => setShowRestoreModal(false)}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={handleCancelRestore}
                 disabled={restoring}
-                color="gray"
-              />
-              <Button
-                title={restoring ? 'Restoring...' : 'Yes, Restore'}
-                onPress={async () => {
-                  if (!archivedProduct) return;
-                  setRestoring(true);
-                  const res = await restoreProduct(archivedProduct.id);
-                  setRestoring(false);
-                  setShowRestoreModal(false);
-
-                  if (res.kind === 'db_error') {
-                    setErrorMessage(res.message);
-                    return;
-                  }
-                  if (res.kind === 'network_timeout') {
-                    setErrorMessage(res.message);
-                    return;
-                  }
-
-                  setRestoreSuccessMessage(`"${archivedProduct.name}" restored! You can now scan or add stock.`);
-                  setErrorMessage(null);
-                  setArchivedProduct(null);
-                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalPrimaryBtn}
+                onPress={handleConfirmRestoreArchived}
                 disabled={restoring}
-                color="#2e7d32"
-              />
+              >
+                {restoring ? (
+                  <ActivityIndicator color={COLORS.white} size="small" />
+                ) : (
+                  <Text style={styles.modalPrimaryText}>Restore & Continue</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.canvas,
+    padding: 24,
+  },
+  statusText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.textMuted,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  backBtn: {
+    paddingVertical: 6,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  modeBadge: {
+    backgroundColor: COLORS.bgTint,
+    borderWidth: 1,
+    borderColor: '#d6f0b4',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  modeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
+  },
+  screenSubtitle: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    marginBottom: 16,
+  },
+  statusToast: {
+    backgroundColor: COLORS.bgTint,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  statusToastText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorToast: {
+    backgroundColor: COLORS.dangerLight,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  errorToastText: {
+    color: COLORS.dangerDark,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  successToast: {
+    backgroundColor: COLORS.bgTint,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  successToastText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  notFoundBox: {
+    backgroundColor: COLORS.amberLight,
+    borderWidth: 1,
+    borderColor: COLORS.amberBorder,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+  },
+  notFoundTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.amberDark,
+  },
+  notFoundSub: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  notFoundBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  notFoundBtn: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  notFoundBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  viewfinderCard: {
+    height: 320,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    marginBottom: 14,
+  },
+  reticleFrame: {
+    width: 240,
+    height: 160,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  cornerMarker: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderColor: COLORS.amber,
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderTopLeftRadius: 8,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderTopRightRadius: 8,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderBottomLeftRadius: 8,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderBottomRightRadius: 8,
+  },
+  laserGuide: {
+    width: '90%',
+    height: 1.5,
+    backgroundColor: COLORS.amber,
+    opacity: 0.8,
+  },
+  hintContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  hintText: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.amberDark,
+    textAlign: 'center',
+  },
+  controlsRow: {
+    gap: 10,
+    marginTop: 8,
+  },
+  torchButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  torchButtonActive: {
+    backgroundColor: COLORS.amberLight,
+    borderColor: COLORS.amber,
+  },
+  torchText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  torchTextActive: {
+    color: COLORS.amberDark,
+  },
+  manualButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  manualButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  permCard: {
+    backgroundColor: COLORS.white,
+    padding: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    maxWidth: 320,
+  },
+  permTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  permDesc: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  primaryButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  primaryButtonText: {
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 22,
+    width: '100%',
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  modalDesc: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  modalPrimaryBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalPrimaryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+});

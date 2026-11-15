@@ -8,19 +8,28 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   ActivityIndicator,
   Modal,
   BackHandler,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+// Lucide icons
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
 import { isDatabaseError } from '../../services/inventory';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'EditProfile'>;
 
 export default function EditProfileScreen({ navigation }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
@@ -81,204 +90,394 @@ export default function EditProfileScreen({ navigation }: Props) {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    const trimmedName = name.trim();
-
     try {
       const {
-        data: { user },
+        data: { user: currentUser },
       } = await supabase.auth.getUser();
-      const currentMetadata = user?.user_metadata || {};
+
+      const existingMeta = currentUser?.user_metadata || {};
 
       const { error } = await supabase.auth.updateUser({
         data: {
-          ...currentMetadata,
-          name: trimmedName,
+          ...existingMeta,
+          name: name.trim(),
         },
       });
 
       if (error) {
+        setSaving(false);
         if (isDatabaseError(error)) {
           setErrorMessage(error.message);
         } else {
           setErrorMessage(
-            'Not sure if this was saved. Pull down to refresh and check'
+            'Unable to save profile changes right now. Please check your network and try again.'
           );
         }
         return;
       }
 
-      // Refresh signed-in user so Dashboard and Profile immediately show the new name
-      await supabase.auth.getUser();
-      setSuccessMessage('Profile name updated successfully');
-      setName(trimmedName);
-    } catch (err: any) {
-      if (isDatabaseError(err)) {
-        setErrorMessage(err?.message || 'Database error updating profile');
-      } else {
-        setErrorMessage(
-          'Not sure if this was saved. Pull down to refresh and check'
-        );
-      }
-    } finally {
       setSaving(false);
+      setSuccessMessage('Profile updated successfully!');
+      setTimeout(() => {
+        navigation.goBack();
+      }, 800);
+    } catch {
+      setSaving(false);
+      setErrorMessage(
+        'Unable to save profile changes right now. Please check your network and try again.'
+      );
     }
   };
 
   if (loadingUser) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={{ marginTop: 12, color: 'gray' }}>Loading profile...</Text>
-      </View>
+      <SafeAreaView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading account info...</Text>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Edit Profile</Text>
-
-      {/* Success banner */}
-      {successMessage && (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#2e7d32',
-            backgroundColor: '#edf7ed',
-          }}
-        >
-          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>
-            {successMessage}
-          </Text>
-        </View>
-      )}
-
-      {/* Error banner */}
-      {errorMessage && (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#d9534f',
-            backgroundColor: '#fdf7f7',
-          }}
-        >
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
-            {errorMessage}
-          </Text>
-        </View>
-      )}
-
-      <Text style={{ marginTop: 16 }}>Full name</Text>
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          padding: 8,
-          marginTop: 4,
-          backgroundColor: '#fff',
-        }}
-        placeholder="Enter your name"
-        value={name}
-        onChangeText={setName}
-        maxLength={100}
-        editable={!saving}
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      <Image
+        source={require('../../../assets/designs/screen-background.png')}
+        style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+        resizeMode="stretch"
       />
-      <Text style={{ color: 'gray', fontSize: 12, marginTop: 2 }}>
-        At most 100 characters
-      </Text>
+      <View style={styles.content}>
+        <Text style={styles.screenSub}>
+          Update your store operator name and account details
+        </Text>
 
-      <Text style={{ marginTop: 16 }}>Email address</Text>
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: '#e0e0e0',
-          backgroundColor: '#f5f5f5',
-          padding: 8,
-          marginTop: 4,
-        }}
-      >
-        <Text style={{ color: '#333' }}>{email}</Text>
-      </View>
-      <Text style={{ color: 'gray', fontSize: 12, marginTop: 4 }}>
-        Email changes are not available yet
-      </Text>
+        {/* Success Banner */}
+        {successMessage ? (
+          <View style={styles.successBox}>
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        ) : null}
 
-      <View style={{ marginTop: 24, gap: 12 }}>
-        <Button
-          title={saving ? 'Saving changes...' : 'Save changes'}
-          onPress={handleOpenConfirm}
-          disabled={saving || !name.trim()}
-          color="#2e7d32"
-        />
-        <Button
-          title="Back"
-          onPress={() => navigation.goBack()}
-          color="gray"
-          disabled={saving}
-        />
-      </View>
+        {/* Error Banner */}
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
 
-      {/* Confirmation Modal */}
-      <Modal
-        visible={showConfirmModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          if (!saving) setShowConfirmModal(false);
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
+        {/* Profile Form Card */}
+        <View style={styles.card}>
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your name"
+            placeholderTextColor={COLORS.textMuted}
+            value={name}
+            onChangeText={setName}
+            maxLength={100}
+            editable={!saving}
+          />
+          <Text style={styles.hint}>At most 100 characters</Text>
+
+          <Text style={[styles.label, { marginTop: 16 }]}>Email Address</Text>
+          <View style={styles.readOnlyInput}>
+            <Text style={styles.readOnlyText}>{email}</Text>
+          </View>
+          <Text style={styles.hint}>Email changes are managed via administration</Text>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.btnStack}>
+          <TouchableOpacity
+            style={[styles.primaryBtn, (saving || !name.trim()) && styles.btnDisabled]}
+            onPress={handleOpenConfirm}
+            disabled={saving || !name.trim()}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.primaryBtnText}>Save Profile Changes</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => navigation.goBack()}
+            disabled={saving}
+          >
+            <Text style={styles.secondaryBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Confirmation Modal */}
+        <Modal
+          visible={showConfirmModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => {
+            if (!saving) setShowConfirmModal(false);
           }}
         >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              padding: 24,
-              borderRadius: 8,
-              width: '100%',
-              maxWidth: 340,
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-              Save Profile Changes?
-            </Text>
-            <Text style={{ color: 'gray', marginTop: 8 }}>
-              Update your name to "{name.trim()}"?
-            </Text>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Save Profile Changes?</Text>
+              <Text style={styles.modalSub}>
+                Update your display name to "{name.trim()}"?
+              </Text>
 
-            <View
-              style={{
-                marginTop: 20,
-                flexDirection: 'row',
-                justifyContent: 'flex-end',
-                gap: 12,
-              }}
-            >
-              <Button
-                title="Cancel"
-                onPress={() => setShowConfirmModal(false)}
-                color="gray"
-                disabled={saving}
-              />
-              <Button
-                title="Save"
-                onPress={handleConfirmSave}
-                color="#2e7d32"
-                disabled={saving}
-              />
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setShowConfirmModal(false)}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalConfirmBtn}
+                  onPress={handleConfirmSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalConfirmText}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgWarm,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  topNav: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  screenSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  successBox: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  successText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primaryDark,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.danger,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  readOnlyInput: {
+    backgroundColor: COLORS.borderLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  readOnlyText: {
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+  },
+  hint: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  btnStack: {
+    marginTop: 24,
+    gap: 10,
+  },
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  secondaryBtn: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+  },
+  modalSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  modalConfirmBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+  },
+  modalConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+});

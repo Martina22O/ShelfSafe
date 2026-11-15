@@ -27,17 +27,23 @@ export default function AuthNavigator() {
       <Stack.Screen
         name="SignIn"
         component={SignInScreen}
-        options={{ title: 'Sign In' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CreateAccount"
         component={CreateAccountScreen}
-        options={{ title: 'Create Account' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ForgotPassword"
         component={ForgotPasswordScreen}
-        options={{ title: 'Forgot Password' }}
+        options={{
+          title: 'Forgot Password',
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#FEF7E6' },
+          headerShadowVisible: false,
+          headerTintColor: '#181413',
+        }}
       />
     </Stack.Navigator>
   );

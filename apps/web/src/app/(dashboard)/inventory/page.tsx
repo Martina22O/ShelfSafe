@@ -2,6 +2,21 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import {
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  Archive,
+  RotateCcw,
+  Boxes,
+  Layers,
+  ChevronRight,
+  AlertCircle,
+  CheckCircle2,
+  Filter,
+  X,
+} from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { getInventory, getCategories, getArchivedProducts, restoreProduct } from '../../../lib/inventory';
 import { ProductWithBatches, Category, ProductStockStatus, Product } from '../../../types/inventory';
@@ -76,6 +91,7 @@ export default function InventoryPage() {
   }, [near_expiry_days, settingsLoading, settingsError]);
 
   const loadArchivedData = useCallback(async () => {
+    setLoadingArchived(true);
     const res = await getArchivedProducts();
     setLoadingArchived(false);
 
@@ -120,7 +136,7 @@ export default function InventoryPage() {
   // Reload when window regains focus, ignoring if a fetch is already in progress
   useEffect(() => {
     const handleFocus = () => {
-      if (!isFetchingRef.current && !settingsLoading && !settingsError && near_expiry_days !== null && !actionRunning) {
+      if (!isFetchingRef.current && !settingsLoading && !settingsError && near_expiry_days !== null) {
         loadData();
         if (showArchived) {
           loadArchivedData();
@@ -130,73 +146,73 @@ export default function InventoryPage() {
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [loadData, loadArchivedData, settingsLoading, settingsError, near_expiry_days, showArchived, actionRunning]);
+  }, [loadData, loadArchivedData, settingsLoading, settingsError, near_expiry_days, showArchived]);
 
-  // Totals of all non-archived products (NOT including archived)
-  const totalProducts = products.length;
-  const totalUnits = useMemo(() => {
-    return products.reduce((acc, p) => acc + p.total_units, 0);
-  }, [products]);
-
-  // Filtered products based on search, category chip, and status chip
+  // Filtering: Search by name OR barcode
   const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return products.filter((p) => {
-      // 1. Search term (case-insensitive substring on name or barcode)
-      if (query) {
-        const nameMatch = p.name.toLowerCase().includes(query);
-        const barcodeMatch = p.barcode ? p.barcode.toLowerCase().includes(query) : false;
-        if (!nameMatch && !barcodeMatch) {
+    return products.filter((prod) => {
+      if (search.trim() !== '') {
+        const query = search.toLowerCase();
+        const matchesName = prod.name.toLowerCase().includes(query);
+        const matchesBarcode = prod.barcode ? prod.barcode.toLowerCase().includes(query) : false;
+        if (!matchesName && !matchesBarcode) {
           return false;
         }
       }
 
-      // 2. Category filter
       if (selectedCategory !== 'All') {
-        const catName = p.category?.name || 'Uncategorized';
+        const catName = prod.category?.name || 'Uncategorized';
         if (catName !== selectedCategory) {
           return false;
         }
       }
 
-      // 3. Status filter
-      if (selectedStatus === 'Low Stock' && !p.statuses.includes('Low stock')) {
-        return false;
-      }
-      if (selectedStatus === 'Near Expiry' && !p.statuses.includes('Near expiry')) {
-        return false;
-      }
-      if (selectedStatus === 'Expired' && !p.statuses.includes('Has expired stock')) {
-        return false;
+      if (selectedStatus !== 'All Stocks') {
+        if (selectedStatus === 'Low Stock' && !prod.statuses.includes('Low stock')) {
+          return false;
+        }
+        if (selectedStatus === 'Near Expiry' && !prod.statuses.includes('Near expiry')) {
+          return false;
+        }
+        if (selectedStatus === 'Expired' && !prod.statuses.includes('Has expired stock')) {
+          return false;
+        }
       }
 
       return true;
     });
   }, [products, search, selectedCategory, selectedStatus]);
 
-  // Group filtered products by category
+  // Group filtered products by Category
   const groupedProducts = useMemo(() => {
-    const groups: { [catName: string]: ProductWithBatches[] } = {};
-
+    const groups: { [cat: string]: ProductWithBatches[] } = {};
     for (const prod of filteredProducts) {
-      const catName = prod.category?.name || 'Uncategorized';
-      if (!groups[catName]) {
-        groups[catName] = [];
+      const cat = prod.category?.name || 'Uncategorized';
+      if (!groups[cat]) {
+        groups[cat] = [];
       }
-      groups[catName].push(prod);
+      groups[cat].push(prod);
     }
 
     return Object.keys(groups)
-      .sort((a, b) => a.localeCompare(b))
-      .map((catName) => ({
-        categoryName: catName,
-        items: groups[catName],
+      .sort((a, b) => {
+        if (a === 'Uncategorized') return 1;
+        if (b === 'Uncategorized') return -1;
+        return a.localeCompare(b);
+      })
+      .map((cat) => ({
+        categoryName: cat,
+        items: groups[cat],
       }));
   }, [filteredProducts]);
 
-  // Handle Restore Product
-  const handleOpenRestore = (prod: Product) => {
+  const totalProducts = products.length;
+  const totalUnits = useMemo(
+    () => products.reduce((acc, p) => acc + p.total_units, 0),
+    [products]
+  );
+
+  const handleOpenRestoreModal = (prod: Product) => {
     if (actionRunning) return;
     setRestoringProduct(prod);
     setShowRestoreModal(true);
@@ -235,55 +251,67 @@ export default function InventoryPage() {
     setActionRunning(false);
   };
 
-  // Badge styling helper
   const getBadgeClass = (status: ProductStockStatus) => {
     switch (status) {
       case 'Has expired stock':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-[#fee2e2] text-[#d32f2f] border-[#fca5a5]';
       case 'Near expiry':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-[#fef3c7] text-[#b45309] border-[#fde68a]';
       case 'Low stock':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
+        return 'bg-[#ffedd5] text-[#c2410c] border-[#fed7aa]';
       case 'In Stock':
       default:
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-[#f4ffe1] text-[#207429] border-[#207429]/30';
     }
   };
 
   if (settingsLoading) {
     return (
-      <div className="py-8 text-center text-gray-500 text-sm">
-        Loading store settings...
+      <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium">Loading store settings...</p>
       </div>
     );
   }
 
   if (settingsError) {
     return (
-      <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800 max-w-md my-4">
-        <h2 className="font-bold text-base mb-1">Failed to load store settings</h2>
-        <p className="text-sm mb-4">{settingsError}</p>
-        <button
-          type="button"
-          onClick={() => reloadSettings()}
-          className="bg-red-700 text-white px-3 py-1.5 rounded text-sm hover:bg-red-800"
-        >
-          Retry
-        </button>
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 shadow-xs">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-bold text-base mb-1">Failed to load store settings</h2>
+            <p className="text-xs text-red-700 mb-4 leading-relaxed">{settingsError}</p>
+            <button
+              type="button"
+              onClick={() => reloadSettings()}
+              className="inline-flex items-center gap-1.5 bg-[#d32f2f] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-red-700 transition-colors shadow-2xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Retry
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error && !loading) {
     return (
-      <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800 max-w-md my-4">
-        <h2 className="font-bold text-base mb-1">Error Loading Inventory</h2>
-        <p className="text-sm mb-4">{error}</p>
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 space-y-4 shadow-xs">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-bold text-base">Error Loading Inventory</h2>
+            <p className="text-xs text-red-700 mt-1 leading-relaxed">{error}</p>
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => loadData()}
-          className="bg-black text-white px-3 py-1.5 rounded text-sm hover:bg-gray-800"
+          className="inline-flex items-center gap-1.5 bg-[#207429] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
         >
+          <RefreshCw className="w-3.5 h-3.5" />
           Retry
         </button>
       </div>
@@ -292,30 +320,39 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Restore Success Alert */}
+      {/* Restore Success Toast */}
       {restoreSuccess && (
-        <div className="p-4 border border-green-300 bg-green-50 text-green-800 text-sm rounded font-medium flex items-center justify-between">
-          <span>{restoreSuccess}</span>
+        <div className="p-4 border border-[#207429]/30 bg-[#f4ffe1] text-[#207429] text-xs md:text-sm rounded-xl font-semibold flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+            <span>{restoreSuccess}</span>
+          </div>
           <button
             type="button"
             onClick={() => setRestoreSuccess(null)}
-            className="text-green-700 hover:text-green-900 text-xs font-bold"
+            aria-label="Dismiss restore notification"
+            className="text-[#207429] hover:text-[#185e21] p-1 rounded-md"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Header and Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header & Quick Action Buttons */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-[#ece3d2]/80">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {totalProducts} products • {totalUnits} units
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-black text-[#181413] tracking-tight">Inventory</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#fef9f0] text-[#7a7469] border border-[#ece3d2]">
+              {totalProducts} products • {totalUnits} total units
+            </span>
+          </div>
+          <p className="text-xs text-[#7a7469] mt-1">
+            Track batches, monitor expiration dates, and manage active stock.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
             onClick={() => {
@@ -323,65 +360,74 @@ export default function InventoryPage() {
               if (showArchived) loadArchivedData();
             }}
             disabled={actionRunning}
-            className="border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#ece3d2] bg-white text-xs font-semibold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs disabled:opacity-50"
           >
+            <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </button>
           <Link
             href="/inventory/add-stock"
-            className={`border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-100 font-medium ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#ece3d2] bg-white text-xs font-semibold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs ${
               actionRunning ? 'pointer-events-none opacity-50' : ''
             }`}
           >
-            Add stock
+            <Layers className="w-3.5 h-3.5 text-[#207429]" />
+            Add Stock
           </Link>
           <Link
             href="/inventory/new"
-            className={`bg-black text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-gray-800 ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#207429] text-white text-xs font-bold hover:bg-[#185e21] transition-colors shadow-xs ${
               actionRunning ? 'pointer-events-none opacity-50' : ''
             }`}
           >
-            New product
+            <Plus className="w-3.5 h-3.5" />
+            New Product
           </Link>
         </div>
       </div>
 
-      {/* Search, Filters, and Show Archived Toggle */}
-      <div className="space-y-3">
-        {/* Search Input and Toggle */}
+      {/* Search, Filter Bar, and Archive Toggle */}
+      <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-4 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <input
-            type="text"
-            placeholder="Search by name or barcode..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={actionRunning}
-            className="w-full sm:max-w-md border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black bg-white"
-          />
+          <div className="relative w-full sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af] pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by product name or barcode..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={actionRunning}
+              className="w-full pl-9 pr-4 py-2 text-xs md:text-sm bg-[#f8faf8] border border-[#ece3d2] rounded-xl text-[#181413] placeholder-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#207429] focus:bg-white transition-all disabled:opacity-50"
+            />
+          </div>
 
-          <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700 select-none">
+          <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-[#524c40] select-none hover:text-[#181413]">
             <input
               type="checkbox"
               checked={showArchived}
               onChange={(e) => setShowArchived(e.target.checked)}
               disabled={actionRunning}
-              className="rounded border-gray-300 text-black focus:ring-black h-4 w-4"
+              className="rounded border-[#d1d5db] text-[#207429] focus:ring-[#207429] h-4 w-4"
             />
-            <span className="font-medium">Show archived</span>
+            <Archive className="w-3.5 h-3.5 text-[#7a7469]" />
+            <span>Show archived products</span>
           </label>
         </div>
 
-        {/* Category Chips */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase mr-1">Category:</span>
+        {/* Category Filters */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#f4f1ea]">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#999182] mr-1 flex items-center gap-1">
+            <Filter className="w-3 h-3" />
+            Category:
+          </span>
           <button
             type="button"
             onClick={() => setSelectedCategory('All')}
             disabled={actionRunning}
-            className={`px-2.5 py-1 rounded text-xs font-medium border disabled:opacity-50 ${
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
               selectedCategory === 'All'
-                ? 'bg-black text-white border-black'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                ? 'bg-[#207429] text-white shadow-2xs'
+                : 'bg-[#fef9f0] text-[#524c40] border border-[#ece3d2] hover:bg-white'
             }`}
           >
             All
@@ -392,10 +438,10 @@ export default function InventoryPage() {
               type="button"
               onClick={() => setSelectedCategory(cat.name)}
               disabled={actionRunning}
-              className={`px-2.5 py-1 rounded text-xs font-medium border disabled:opacity-50 ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
                 selectedCategory === cat.name
-                  ? 'bg-black text-white border-black'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  ? 'bg-[#207429] text-white shadow-2xs'
+                  : 'bg-[#fef9f0] text-[#524c40] border border-[#ece3d2] hover:bg-white'
               }`}
             >
               {cat.name}
@@ -403,19 +449,21 @@ export default function InventoryPage() {
           ))}
         </div>
 
-        {/* Status Chips */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase mr-1">Status:</span>
+        {/* Stock Status Filters */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#999182] mr-1">
+            Status:
+          </span>
           {STATUS_FILTERS.map((status) => (
             <button
               key={status}
               type="button"
               onClick={() => setSelectedStatus(status)}
               disabled={actionRunning}
-              className={`px-2.5 py-1 rounded text-xs font-medium border disabled:opacity-50 ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
                 selectedStatus === status
-                  ? 'bg-black text-white border-black'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  ? 'bg-[#181413] text-white shadow-2xs'
+                  : 'bg-[#f8faf8] text-[#524c40] border border-[#ece3d2] hover:bg-white'
               }`}
             >
               {status}
@@ -424,82 +472,126 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Loading state indicator */}
+      {/* Loading Indicator */}
       {loading && (
-        <div className="py-12 text-center text-gray-500 text-sm">
-          Loading inventory...
+        <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+          <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+          <p className="font-medium">Loading inventory...</p>
         </div>
       )}
 
-      {/* Empty State: No products in database at all */}
+      {/* Empty State: No products in database */}
       {!loading && products.length === 0 && (
-        <div className="border border-dashed border-gray-300 rounded p-12 text-center bg-white">
-          <p className="text-gray-900 font-medium text-base mb-1">No products in inventory yet</p>
-          <p className="text-gray-500 text-sm mb-4">
-            Get started by adding your first product and initial stock.
+        <div className="border border-dashed border-[#ece3d2] rounded-2xl p-12 text-center bg-white shadow-2xs">
+          <div className="w-12 h-12 rounded-full bg-[#f4ffe1] text-[#207429] mx-auto flex items-center justify-center mb-3">
+            <Package className="w-6 h-6" />
+          </div>
+          <h2 className="text-[#181413] font-bold text-base mb-1">No products in inventory yet</h2>
+          <p className="text-[#7a7469] text-xs max-w-sm mx-auto mb-5 leading-relaxed">
+            Get started by adding your first product and receiving your initial stock batch.
           </p>
           <Link
             href="/inventory/new"
-            className="inline-block bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+            className="inline-flex items-center gap-2 bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-xs"
           >
-            Create first product
+            <Plus className="w-4 h-4" />
+            Create First Product
           </Link>
         </div>
       )}
 
-      {/* Empty State: Search/filter yielded no results */}
+      {/* Empty State: Filter yielded no results */}
       {!loading && products.length > 0 && filteredProducts.length === 0 && (
-        <div className="border border-dashed border-gray-300 rounded p-8 text-center bg-white">
-          <p className="text-gray-900 font-medium text-sm mb-1">No products match</p>
-          <p className="text-gray-500 text-xs">Try another search or filter.</p>
+        <div className="border border-dashed border-[#ece3d2] rounded-2xl p-8 text-center bg-white shadow-2xs">
+          <p className="text-[#181413] font-bold text-sm mb-1">No products match your filter</p>
+          <p className="text-[#7a7469] text-xs">Try clearing the search query or changing category and status filters.</p>
         </div>
       )}
 
       {/* Grouped Product List */}
       {!loading && filteredProducts.length > 0 && (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {groupedProducts.map((group) => (
             <div key={group.categoryName} className="space-y-3">
-              <h2 className="text-lg font-bold text-gray-800 border-b border-gray-200 pb-2">
-                {group.categoryName} ({group.items.length})
-              </h2>
+              <div className="flex items-center justify-between border-b border-[#ece3d2] pb-2">
+                <div className="flex items-center gap-2">
+                  <Boxes className="w-4 h-4 text-[#207429]" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
+                    {group.categoryName}
+                  </h2>
+                </div>
+                <span className="text-xs font-semibold text-[#7a7469] bg-[#fef9f0] px-2 py-0.5 rounded-md border border-[#ece3d2]">
+                  {group.items.length} product(s)
+                </span>
+              </div>
 
-              {/* Wide screens: Table */}
-              <div className="hidden md:block overflow-x-auto bg-white border border-gray-200 rounded">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto bg-white border border-[#ece3d2] rounded-2xl shadow-2xs">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-medium text-xs">
+                  <thead className="bg-[#fef9f0] border-b border-[#ece3d2] text-[#7a7469] font-bold text-[11px] uppercase tracking-wider">
                     <tr>
-                      <th className="py-2.5 px-4">Product</th>
-                      <th className="py-2.5 px-4">Barcode</th>
-                      <th className="py-2.5 px-4">Price</th>
-                      <th className="py-2.5 px-4">Total units</th>
-                      <th className="py-2.5 px-4">Batches</th>
-                      <th className="py-2.5 px-4">Status</th>
+                      <th className="py-3 px-5">Product & SKU</th>
+                      <th className="py-3 px-4">Barcode</th>
+                      <th className="py-3 px-4">Price</th>
+                      <th className="py-3 px-4">Total Units</th>
+                      <th className="py-3 px-4">Batches</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-[#f4f1ea]">
                     {group.items.map((prod) => (
-                      <tr key={prod.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 font-medium text-gray-900">
-                          <Link href={`/inventory/${prod.id}`} className="hover:underline">
+                      <tr key={prod.id} className="hover:bg-[#fef9f0]/40 transition-colors group">
+                        <td className="py-3.5 px-5">
+                          <Link
+                            href={`/inventory/${prod.id}`}
+                            className="font-bold text-[#181413] hover:text-[#207429] transition-colors block text-sm"
+                          >
                             {prod.name}
                           </Link>
+                          {prod.low_stock_level && (
+                            <span className="text-[10px] text-[#999182]">
+                              Alert at ≤ {prod.low_stock_level} units
+                            </span>
+                          )}
                         </td>
-                        <td className="py-3 px-4 text-gray-500">{prod.barcode || '—'}</td>
-                        <td className="py-3 px-4 text-gray-700">₱{prod.price.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-gray-900 font-semibold">{prod.total_units}</td>
-                        <td className="py-3 px-4 text-gray-500">{prod.batch_count}</td>
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4 font-mono text-xs text-[#7a7469]">
+                          {prod.barcode || '—'}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-[#181413]">
+                          ₱{prod.price.toFixed(2)}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-extrabold text-[#181413]">
+                            {prod.total_units}
+                          </span>
+                          <span className="text-[11px] text-[#7a7469] ml-1">units</span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-[#f8faf8] border border-[#ece3d2] text-[#4a443a]">
+                            {prod.batch_count} {prod.batch_count === 1 ? 'batch' : 'batches'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
                           <div className="flex flex-wrap gap-1">
                             {prod.statuses.map((st) => (
                               <span
                                 key={st}
-                                className={`text-[11px] px-2 py-0.5 rounded border font-medium ${getBadgeClass(st)}`}
+                                className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border font-bold ${getBadgeClass(st)}`}
                               >
                                 {st}
                               </span>
                             ))}
                           </div>
+                        </td>
+                        <td className="py-3.5 px-5 text-right">
+                          <Link
+                            href={`/inventory/${prod.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-[#207429] hover:underline"
+                          >
+                            <span>Manage</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Link>
                         </td>
                       </tr>
                     ))}
@@ -507,30 +599,33 @@ export default function InventoryPage() {
                 </table>
               </div>
 
-              {/* Mobile screens: Cards */}
+              {/* Mobile Card View */}
               <div className="md:hidden space-y-3">
                 {group.items.map((prod) => (
                   <Link
                     key={prod.id}
                     href={`/inventory/${prod.id}`}
-                    className="block bg-white border border-gray-200 rounded p-4 hover:border-gray-400 transition-colors"
+                    className="block bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs hover:border-[#207429] transition-all"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-gray-900 text-sm">{prod.name}</h3>
-                      <span className="text-sm font-bold text-gray-900">
-                        {prod.total_units} units
+                      <h3 className="font-bold text-sm text-[#181413]">{prod.name}</h3>
+                      <span className="font-bold text-sm text-[#207429]">
+                        ₱{prod.price.toFixed(2)}
                       </span>
                     </div>
 
-                    <p className="text-xs text-gray-500 mt-1">
-                      Barcode: {prod.barcode || 'None'} • ₱{prod.price.toFixed(2)}
-                    </p>
+                    <div className="flex items-center justify-between text-xs text-[#7a7469] mt-2">
+                      <span>Barcode: {prod.barcode || '—'}</span>
+                      <span className="font-bold text-[#181413]">
+                        {prod.total_units} units ({prod.batch_count} batches)
+                      </span>
+                    </div>
 
-                    <div className="mt-3 flex flex-wrap gap-1">
+                    <div className="mt-2.5 flex flex-wrap gap-1">
                       {prod.statuses.map((st) => (
                         <span
                           key={st}
-                          className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getBadgeClass(st)}`}
+                          className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${getBadgeClass(st)}`}
                         >
                           {st}
                         </span>
@@ -544,71 +639,53 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* --- ARCHIVED PRODUCTS SECTION --- */}
+      {/* Archived Products Section */}
       {showArchived && (
-        <div className="border-t border-gray-300 pt-8 mt-12 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Archived Products</h2>
-              <p className="text-xs text-gray-500">
-                Archived products are hidden from inventory counts and sales scanning.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => loadArchivedData()}
-              disabled={actionRunning || loadingArchived}
-              className="text-xs border border-gray-300 px-2.5 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Refresh archived
-            </button>
+        <div className="mt-10 pt-6 border-t border-[#ece3d2] space-y-4">
+          <div className="flex items-center gap-2">
+            <Archive className="w-5 h-5 text-[#7a7469]" />
+            <h2 className="text-base font-bold text-[#181413]">Archived Products</h2>
           </div>
+          <p className="text-xs text-[#7a7469]">
+            Archived items are hidden from normal POS checkout and inventory count. You can restore them below.
+          </p>
 
           {archivedLoadError && (
-            <div className="p-3 border border-red-300 bg-red-50 text-red-800 text-sm rounded">
+            <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-xl">
               {archivedLoadError}
             </div>
           )}
 
           {loadingArchived ? (
-            <div className="py-6 text-center text-gray-500 text-sm">
+            <div className="py-6 text-center text-[#7a7469] text-xs">
               Loading archived products...
             </div>
           ) : archivedProducts.length === 0 ? (
-            <div className="border border-dashed border-gray-300 rounded p-6 text-center text-gray-500 text-sm bg-white">
+            <div className="border border-dashed border-[#ece3d2] rounded-xl p-6 text-center bg-white text-xs text-[#7a7469]">
               No archived products.
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded divide-y divide-gray-200">
-              {archivedProducts.map((archived) => (
-                <div
-                  key={archived.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50"
-                >
+            <div className="bg-white border border-[#ece3d2] rounded-2xl overflow-hidden shadow-2xs divide-y divide-[#f4f1ea]">
+              {archivedProducts.map((p) => (
+                <div key={p.id} className="p-4 flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold text-gray-900 text-sm">{archived.name}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Barcode: {archived.barcode || 'None'} • Category: {archived.category?.name || 'Uncategorized'} • ₱
-                      {archived.price.toFixed(2)}
+                    <h3 className="font-bold text-sm text-[#181413]">{p.name}</h3>
+                    <p className="text-xs text-[#7a7469]">
+                      Barcode: {p.barcode || '—'} • Price: ₱{p.price.toFixed(2)}
                     </p>
-                    {/* Error displayed plain next to product (rule 3) */}
-                    {restoreErrors[archived.id] && (
-                      <p className="text-xs text-red-600 font-semibold mt-1">
-                        {restoreErrors[archived.id]}
-                      </p>
+                    {restoreErrors[p.id] && (
+                      <p className="text-xs text-red-600 mt-1 font-medium">{restoreErrors[p.id]}</p>
                     )}
                   </div>
-
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenRestore(archived)}
-                      disabled={actionRunning}
-                      className="border border-gray-300 bg-white text-gray-800 px-3 py-1.5 rounded text-xs font-semibold hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Restore
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRestoreModal(p)}
+                    disabled={actionRunning}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#ece3d2] bg-[#fef9f0] text-xs font-bold text-[#207429] hover:bg-[#f4ffe1] transition-colors disabled:opacity-50"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Restore
+                  </button>
                 </div>
               ))}
             </div>

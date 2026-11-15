@@ -6,19 +6,29 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  Button,
+  TouchableOpacity,
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { ClipboardList, Undo2 } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { getSaleHistory, undoSale } from '../../services/inventory';
 import { SaleHistoryRecord } from '../../types/inventory';
 import { formatManilaDateTime } from '../../utils/date';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 const RefreshControlComponent = RefreshControl as any;
 
 export default function HistoryScreen() {
+  const navigation = useNavigation<any>();
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const [sales, setSales] = useState<SaleHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,222 +84,506 @@ export default function HistoryScreen() {
 
     if (res.kind === 'error') {
       if (res.isAlreadyUndone) {
-        setActionMessage('This sale has already been undone.');
+        setActionMessage('This sale was already undone.');
       } else {
-        setActionMessage(`Undo failed: ${res.message}`);
+        setActionMessage(`Failed to undo sale: ${res.message}`);
       }
-      loadHistory(true);
-      return;
+    } else {
+      setActionMessage(
+        `Sale for ${sale.product_name} (${sale.total_quantity} units) was undone. Units returned to original batches.`
+      );
     }
 
-    setActionMessage(
-      `Sale for ${sale.product_name || 'item'} undone. Units restored to batches.`
-    );
     loadHistory(true);
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, padding: 16 }}
-      refreshControl={
-        <RefreshControlComponent refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Sales History</Text>
-      <Text style={{ color: 'gray', marginTop: 4 }}>
-        Deductions made from sold-item scans
-      </Text>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControlComponent
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
+        {/* Background Decorative Wave */}
+        <Image
+          source={require('../../../assets/designs/screen-background.png')}
+          style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+          resizeMode="stretch"
+        />
 
-      {/* Global Action Banner (success / already undone notification) */}
-      {actionMessage && (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            backgroundColor: '#e8f4fd',
-            borderWidth: 1,
-            borderColor: '#b8daff',
-          }}
-        >
-          <Text style={{ color: '#004085', fontWeight: 'bold' }}>
-            {actionMessage}
-          </Text>
-        </View>
-      )}
+        <Text style={[styles.screenSub, { marginTop: 4 }]}>
+          Audit trail of batch deductions and reversible sales
+        </Text>
 
-      {/* Loading state indicator */}
-      {loading && !refreshing && (
-        <View style={{ marginTop: 40, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#2e7d32" />
-          <Text style={{ marginTop: 8, color: 'gray' }}>
-            Loading sales history...
-          </Text>
-        </View>
-      )}
+        {/* Action / Success Banner */}
+        {actionMessage ? (
+          <View style={styles.actionBanner}>
+            <Text style={styles.actionBannerText}>{actionMessage}</Text>
+          </View>
+        ) : null}
 
-      {/* Error state banner */}
-      {error && !loading && (
-        <View
-          style={{
-            marginTop: 20,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: '#d9534f',
-            backgroundColor: '#fdf7f7',
-          }}
-        >
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
-            Unable to load sales history
-          </Text>
-          <Text style={{ color: '#333', marginTop: 4 }}>{error}</Text>
-          <View style={{ marginTop: 12 }}>
-            <Button
-              title="Retry"
+        {/* Loading State */}
+        {loading && !refreshing && (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingBoxText}>Loading sales history...</Text>
+          </View>
+        )}
+
+        {/* Error State Banner */}
+        {error && !loading && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorTitle}>Unable to load sales history</Text>
+            <Text style={styles.errorSub}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
               onPress={() => {
                 setLoading(true);
                 loadHistory(true);
               }}
-            />
+            >
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Sales List or Empty State */}
-      {!loading && !error && (
-        <View style={{ marginTop: 16, marginBottom: 40 }}>
-          {sales.length === 0 ? (
-            <View style={{ marginTop: 32, padding: 24, alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#555' }}>
-                No sales yet
-              </Text>
-              <Text style={{ color: 'gray', marginTop: 4, textAlign: 'center' }}>
-                Sales recorded using the Scan tab will appear here.
-              </Text>
-            </View>
-          ) : (
-            <View style={{ gap: 12 }}>
-              {sales.map((sale) => {
-                const isConfirming = confirmingSaleId === sale.sales_scan_id;
-                const isCurrentlyUndoing = undoingSaleId === sale.sales_scan_id;
+        {/* Sales List or Empty State */}
+        {!loading && !error && (
+          <View style={styles.listSection}>
+            {sales.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <ClipboardList size={40} color={COLORS.textTertiary} strokeWidth={1.5} />
+                <Text style={styles.emptyTitle}>No sales yet</Text>
+                <Text style={styles.emptySub}>
+                  Sales recorded using the Scan tab will appear here.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.cardsStack}>
+                {sales.map((sale) => {
+                  const isConfirming = confirmingSaleId === sale.sales_scan_id;
+                  const isCurrentlyUndoing = undoingSaleId === sale.sales_scan_id;
 
-                const batchesFormatted =
-                  sale.batch_breakdown.length > 0
-                    ? sale.batch_breakdown
-                        .map(
-                          (b) =>
-                            `B - ${b.batch_id
-                              .replace(/-/g, '')
-                              .slice(0, 8)
-                              .toUpperCase()} (${b.quantity} ${
-                              b.quantity === 1 ? 'unit' : 'units'
-                            })`
-                        )
-                        .join(', ')
-                    : 'N/A';
+                  const batchesFormatted =
+                    sale.batch_breakdown.length > 0
+                      ? sale.batch_breakdown
+                          .map(
+                            (b) =>
+                              `B-${b.batch_id
+                                .replace(/-/g, '')
+                                .slice(0, 8)
+                                .toUpperCase()} (${b.quantity} ${
+                                b.quantity === 1 ? 'unit' : 'units'
+                              })`
+                          )
+                          .join(', ')
+                      : 'N/A';
 
-                return (
-                  <View
-                    key={sale.sales_scan_id}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#ccc',
-                      padding: 12,
-                      backgroundColor: '#fff',
-                    }}
-                  >
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                      }}
-                    >
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-                          {sale.product_name || 'Unknown Product'}
-                        </Text>
-                        {sale.product_barcode && (
-                          <Text style={{ color: 'gray', fontSize: 12 }}>
-                            Barcode: {sale.product_barcode}
+                  return (
+                    <View key={sale.sales_scan_id} style={styles.saleCard}>
+                      <View style={styles.saleHeaderRow}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={styles.saleProdName}>
+                            {sale.product_name || 'Unknown Product'}
                           </Text>
-                        )}
-                      </View>
+                          {sale.product_barcode ? (
+                            <Text style={styles.saleBarcode}>
+                              Barcode: {sale.product_barcode}
+                            </Text>
+                          ) : null}
+                        </View>
 
-                      {sale.is_undone ? (
-                        <Text style={{ color: 'orange', fontWeight: 'bold' }}>
-                          [Undone]
-                        </Text>
-                      ) : (
-                        <Text style={{ color: 'green', fontWeight: 'bold' }}>
-                          [Recorded]
-                        </Text>
-                      )}
-                    </View>
-
-                    <Text style={{ marginTop: 6, fontWeight: '500' }}>
-                      Quantity: {sale.total_quantity}{' '}
-                      {sale.total_quantity === 1 ? 'unit' : 'units'}
-                      {sale.product_price > 0 &&
-                        ` (₱${(sale.product_price * sale.total_quantity).toFixed(2)})`}
-                    </Text>
-
-                    <Text style={{ color: 'gray', marginTop: 2, fontSize: 13 }}>
-                      Time: {formatManilaDateTime(sale.created_at)}
-                    </Text>
-
-                    <Text style={{ color: 'gray', marginTop: 2, fontSize: 13 }}>
-                      Batches used: {batchesFormatted}
-                    </Text>
-
-                    {/* Inline Confirmation for Undo */}
-                    {isConfirming && !sale.is_undone && (
-                      <View
-                        style={{
-                          marginTop: 12,
-                          padding: 10,
-                          backgroundColor: '#fff3cd',
-                          borderWidth: 1,
-                          borderColor: '#ffeeba',
-                        }}
-                      >
-                        <Text style={{ fontWeight: 'bold', color: '#856404' }}>
-                          Put {sale.total_quantity}{' '}
-                          {sale.total_quantity === 1 ? 'unit' : 'units'} back into the same batches?
-                        </Text>
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                          <Button
-                            title={isCurrentlyUndoing ? 'Undoing...' : 'Confirm Undo'}
-                            onPress={() => handleExecuteUndo(sale)}
-                            disabled={isCurrentlyUndoing}
-                            color="#d9534f"
-                          />
-                          <Button
-                            title="Cancel"
-                            onPress={() => setConfirmingSaleId(null)}
-                            disabled={isCurrentlyUndoing}
-                            color="gray"
-                          />
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            sale.is_undone
+                              ? styles.statusBadgeUndone
+                              : styles.statusBadgeActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusBadgeText,
+                              sale.is_undone
+                                ? styles.statusBadgeTextUndone
+                                : styles.statusBadgeTextActive,
+                            ]}
+                          >
+                            {sale.is_undone ? 'Undone' : 'Recorded'}
+                          </Text>
                         </View>
                       </View>
-                    )}
 
-                    {/* Undo Trigger Button (Undone sales have no Undo button) */}
-                    {!sale.is_undone && !isConfirming && (
-                      <View style={{ marginTop: 10, alignItems: 'flex-start' }}>
-                        <Button
-                          title="Undo sale"
-                          onPress={() => setConfirmingSaleId(sale.sales_scan_id)}
-                          color="#d9534f"
-                        />
+                      <View style={styles.quantityRow}>
+                        <Text style={styles.quantityText}>
+                          Quantity: {sale.total_quantity}{' '}
+                          {sale.total_quantity === 1 ? 'unit' : 'units'}
+                        </Text>
+                        {sale.product_price > 0 ? (
+                          <Text style={styles.totalPriceText}>
+                            ₱{(sale.product_price * sale.total_quantity).toFixed(2)}
+                          </Text>
+                        ) : null}
                       </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
-      )}
-    </ScrollView>
+
+                      <Text style={styles.metaTime}>
+                        Timestamp: {formatManilaDateTime(sale.created_at)}
+                      </Text>
+
+                      <View style={styles.batchesBox}>
+                        <Text style={styles.batchesLabel}>Batches used:</Text>
+                        <Text style={styles.batchesValue}>{batchesFormatted}</Text>
+                      </View>
+
+                      {/* Inline Confirmation for Undo */}
+                      {isConfirming && !sale.is_undone && (
+                        <View style={styles.undoConfirmBox}>
+                          <Text style={styles.undoConfirmTitle}>
+                            Put {sale.total_quantity}{' '}
+                            {sale.total_quantity === 1 ? 'unit' : 'units'} back into the same batches?
+                          </Text>
+                          <View style={styles.undoConfirmBtnRow}>
+                            <TouchableOpacity
+                              style={styles.undoConfirmYesBtn}
+                              onPress={() => handleExecuteUndo(sale)}
+                              disabled={isCurrentlyUndoing}
+                            >
+                              {isCurrentlyUndoing ? (
+                                <ActivityIndicator size="small" color={COLORS.white} />
+                              ) : (
+                                <Text style={styles.undoConfirmYesText}>Confirm Undo</Text>
+                              )}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.undoConfirmCancelBtn}
+                              onPress={() => setConfirmingSaleId(null)}
+                              disabled={isCurrentlyUndoing}
+                            >
+                              <Text style={styles.undoConfirmCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Undo Trigger Button */}
+                      {!sale.is_undone && !isConfirming && (
+                        <TouchableOpacity
+                          style={styles.undoTriggerBtn}
+                          onPress={() => setConfirmingSaleId(sale.sales_scan_id)}
+                          accessibilityRole="button"
+                        >
+                          <View style={styles.undoBtnRow}>
+                            <Undo2 size={14} color={COLORS.danger} strokeWidth={2} />
+                            <Text style={styles.undoTriggerText}>Undo Sale</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  scrollContent: {
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  topNav: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  screenSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  actionBanner: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  actionBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.deepGreen,
+  },
+  loadingBox: {
+    marginTop: 40,
+    alignItems: 'center',
+  },
+  loadingBoxText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: 14,
+    padding: 16,
+    marginVertical: 16,
+  },
+  errorTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.danger,
+  },
+  errorSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: 4,
+  },
+  retryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+    marginTop: 10,
+  },
+  retryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  listSection: {
+    marginTop: 8,
+  },
+  emptyCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginTop: 20,
+  },
+  emptyEmoji: {
+    fontSize: 36,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+  },
+  emptySub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  cardsStack: {
+    gap: 12,
+  },
+  saleCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  saleHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  saleProdName: {
+    fontSize: 16,
+    fontWeight: '800',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  saleBarcode: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  statusBadgeActive: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  statusBadgeUndone: {
+    backgroundColor: COLORS.orangeLight,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+  },
+  statusBadgeTextActive: {
+    color: COLORS.primaryDark,
+  },
+  statusBadgeTextUndone: {
+    color: COLORS.orangeDark,
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  quantityText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  totalPriceText: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  metaTime: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  batchesBox: {
+    marginTop: 10,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.canvas,
+  },
+  batchesLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+  },
+  batchesValue: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: 2,
+  },
+  undoConfirmBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.amberBorder,
+    backgroundColor: COLORS.amberLight,
+  },
+  undoConfirmTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.amberDark,
+  },
+  undoConfirmBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  undoConfirmYesBtn: {
+    backgroundColor: COLORS.danger,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  undoConfirmYesText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  undoConfirmCancelBtn: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  undoConfirmCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  undoTriggerBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: COLORS.dangerLight,
+  },
+  undoBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  undoTriggerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.danger,
+  },
+});

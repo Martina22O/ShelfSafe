@@ -1,24 +1,33 @@
 /**
  * Screen: InventoryListScreen
- * Reference: docs/design/02-inventory(1,3,4).png
- * Real data integration with Supabase, client-side filtering, and category grouping.
- * Includes "Show archived" toggle with archived list and confirmation-based restore.
+ * Reference: docs/design/mobile/03-inventory/inventory_mobile.png
+ * Features:
+ * - Search by name or barcode
+ * - Horizontal scrolling category filter chips
+ * - Stock status filter chips (All, Low Stock, Near Expiry, Expired)
+ * - Product cards with SKU/Barcode, category pill, units, and FEFO expiry badge
+ * - Archived products toggle & restore modal
  */
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
-  Button,
   ScrollView,
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
   Modal,
   BackHandler,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { Search, Package, ArrowRight, X } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { InventoryStackParamList } from '../../navigation/types';
 import {
   getInventory,
@@ -28,6 +37,7 @@ import {
 } from '../../services/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { ProductWithBatches, Category, ProductStockStatus, Product } from '../../types/inventory';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 const RefreshControlComponent = RefreshControl as any;
 
@@ -37,6 +47,10 @@ const STATUS_FILTERS = ['All Stocks', 'Low Stock', 'Near Expiry', 'Expired'] as 
 type StatusFilterType = (typeof STATUS_FILTERS)[number];
 
 export default function InventoryListScreen({ navigation }: Props) {
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const {
     near_expiry_days,
     loading: settingsLoading,
@@ -99,20 +113,6 @@ export default function InventoryListScreen({ navigation }: Props) {
 
     setLoading(false);
     setRefreshing(false);
-
-    // If archived products view is active, reload archived list as well
-    if (showArchived) {
-      loadArchived();
-    }
-  };
-
-  const loadArchived = async () => {
-    setLoadingArchived(true);
-    const res = await getArchivedProducts();
-    setLoadingArchived(false);
-    if (res.kind === 'success') {
-      setArchivedProducts(res.products);
-    }
   };
 
   useFocusEffect(
@@ -120,108 +120,47 @@ export default function InventoryListScreen({ navigation }: Props) {
       let isMounted = true;
       if (!settingsLoading && !settingsError) {
         loadData(isMounted);
+        if (showArchived) {
+          loadArchivedData(isMounted);
+        }
       }
       return () => {
         isMounted = false;
       };
-    }, [showArchived, settingsLoading, settingsError, near_expiry_days])
+    }, [near_expiry_days, settingsLoading, settingsError, showArchived])
   );
 
-  useEffect(() => {
-    if (!settingsLoading && !settingsError) {
-      loadData(true);
+  const loadArchivedData = async (isMounted = true) => {
+    setLoadingArchived(true);
+    const res = await getArchivedProducts();
+    if (isMounted) {
+      if (res.kind === 'success') {
+        setArchivedProducts(res.products);
+      }
+      setLoadingArchived(false);
     }
-  }, [near_expiry_days, settingsLoading, settingsError]);
+  };
+
+  const toggleShowArchived = () => {
+    const next = !showArchived;
+    setShowArchived(next);
+    if (next) {
+      loadArchivedData();
+    }
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
     setRestoreSuccess(null);
+    loadData();
+    if (showArchived) {
+      loadArchivedData();
+    }
+  };
+
+  const handleOpenRestoreModal = (product: Product) => {
+    setRestoringProduct(product);
     setRestoreError(null);
-    loadData(true);
-  };
-
-  const toggleShowArchived = () => {
-    const nextState = !showArchived;
-    setShowArchived(nextState);
-    if (nextState) {
-      loadArchived();
-    }
-  };
-
-  // The header always shows total counts for all active non-archived products
-  const totalProducts = allProducts.length;
-  const totalUnits = allProducts.reduce((sum, p) => sum + p.total_units, 0);
-
-  // Category filter choices: "All Categories" + real categories from DB
-  const categoryOptions = [
-    'All Categories',
-    ...categories.map((c) => c.name),
-  ];
-
-  // Client-side filtering combining category, stock status, and search query
-  const filteredProducts = allProducts.filter((product) => {
-    // 1. Category Filter
-    if (selectedCategory !== 'All Categories') {
-      const prodCategoryName = product.category?.name || 'Uncategorized';
-      if (prodCategoryName !== selectedCategory) {
-        return false;
-      }
-    }
-
-    // 2. Stock Status Filter
-    if (selectedStatus === 'Low Stock') {
-      if (!product.statuses.includes('Low stock')) return false;
-    } else if (selectedStatus === 'Near Expiry') {
-      if (!product.statuses.includes('Near expiry')) return false;
-    } else if (selectedStatus === 'Expired') {
-      if (!product.statuses.includes('Has expired stock')) return false;
-    }
-
-    // 3. Search Filter (name or barcode, case-insensitive)
-    const query = search.trim().toLowerCase();
-    if (query) {
-      const matchName = product.name.toLowerCase().includes(query);
-      const matchBarcode = product.barcode
-        ? product.barcode.toLowerCase().includes(query)
-        : false;
-      if (!matchName && !matchBarcode) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-
-  // Group filtered products by category
-  const groupedByCategory: Record<string, ProductWithBatches[]> = {};
-  for (const product of filteredProducts) {
-    const catName = product.category?.name || 'Uncategorized';
-    if (!groupedByCategory[catName]) {
-      groupedByCategory[catName] = [];
-    }
-    groupedByCategory[catName].push(product);
-  }
-  const groupedCategoryNames = Object.keys(groupedByCategory);
-
-  const getBadgeStyle = (status: ProductStockStatus) => {
-    switch (status) {
-      case 'Has expired stock':
-        return { color: '#d9534f', label: '[Has expired stock]' };
-      case 'Low stock':
-        return { color: '#f0ad4e', label: '[Low stock]' };
-      case 'Near expiry':
-        return { color: '#e67e22', label: '[Near expiry]' };
-      case 'In Stock':
-      default:
-        return { color: '#2e7d32', label: '[In Stock]' };
-    }
-  };
-
-  // Restore action handlers
-  const handleOpenRestore = (p: Product) => {
-    setRestoreSuccess(null);
-    setRestoreError(null);
-    setRestoringProduct(p);
     setRestoreModalVisible(true);
   };
 
@@ -232,497 +171,823 @@ export default function InventoryListScreen({ navigation }: Props) {
 
     const res = await restoreProduct(restoringProduct.id);
     setRestoring(false);
+
+    if (res.kind !== 'success') {
+      setRestoreError(res.message);
+      return;
+    }
+
     setRestoreModalVisible(false);
-
-    if (res.kind === 'db_error') {
-      setRestoreError(res.message);
-      return;
-    }
-
-    if (res.kind === 'network_timeout') {
-      setRestoreError(res.message);
-      loadData(true);
-      return;
-    }
-
-    // Success
-    setRestoreSuccess(`"${restoringProduct.name}" has been restored to inventory.`);
-    loadData(true);
-    loadArchived();
+    setRestoreSuccess(`"${restoringProduct.name}" restored to active inventory.`);
+    setRestoringProduct(null);
+    loadData();
+    loadArchivedData();
   };
 
-  if (settingsLoading) {
+  // Client-side search & category filtering
+  const categoryOptions = ['All Categories', ...categories.map((c) => c.name)];
+
+  const filteredProducts = allProducts.filter((product) => {
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const matchName = product.name.toLowerCase().includes(q);
+      const matchBarcode = product.barcode ? product.barcode.toLowerCase().includes(q) : false;
+      if (!matchName && !matchBarcode) return false;
+    }
+
+    if (selectedCategory !== 'All Categories') {
+      const prodCatName = product.category ? product.category.name : 'Uncategorized';
+      if (prodCatName !== selectedCategory) return false;
+    }
+
+    if (selectedStatus !== 'All Stocks') {
+      if (selectedStatus === 'Low Stock' && !product.statuses.includes('Low stock')) return false;
+      if (selectedStatus === 'Near Expiry' && !product.statuses.includes('Near expiry')) return false;
+      if (selectedStatus === 'Expired' && !product.statuses.includes('Has expired stock')) return false;
+    }
+
+    return true;
+  });
+
+  const getStatusBadge = (statuses: ProductStockStatus[]) => {
+    if (statuses.includes('Has expired stock')) {
+      return { label: 'Expired', bg: COLORS.dangerLight, text: COLORS.danger, border: COLORS.dangerBorder };
+    }
+    if (statuses.includes('Near expiry')) {
+      return { label: 'Near Expiry', bg: COLORS.amberLight, text: COLORS.amberDark, border: COLORS.amberBorder };
+    }
+    if (statuses.includes('Low stock')) {
+      return { label: 'Low Stock', bg: COLORS.orangeLight, text: COLORS.orangeDark, border: COLORS.orangeBorder };
+    }
+    return { label: 'Good Stock', bg: COLORS.bgTint, text: COLORS.primary, border: '#d6f0b4' };
+  };
+
+  if (settingsLoading || (loading && !refreshing)) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={{ marginTop: 12, color: 'gray' }}>Loading store settings...</Text>
-      </View>
+      <SafeAreaView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading inventory...</Text>
+      </SafeAreaView>
     );
   }
 
-  if (settingsError) {
+  if (settingsError || (error && !loading)) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#d9534f', textAlign: 'center' }}>
-          Failed to load store settings
-        </Text>
-        <Text style={{ color: 'gray', marginTop: 8, textAlign: 'center' }}>
-          {settingsError}
-        </Text>
-        <View style={{ marginTop: 16 }}>
-          <Button title="Retry" onPress={reloadSettings} color="#2e7d32" />
+      <SafeAreaView style={styles.centerContainer}>
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>Error Loading Inventory</Text>
+          <Text style={styles.errorText}>{settingsError || error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => (settingsError ? reloadSettings() : loadData())}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    );
-  }
-
-  if (error && !loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#d9534f', textAlign: 'center' }}>
-          Error Loading Inventory
-        </Text>
-        <Text style={{ color: 'gray', marginTop: 8, textAlign: 'center' }}>
-          {error}
-        </Text>
-        <View style={{ marginTop: 16 }}>
-          <Button title="Retry" onPress={() => loadData(true)} color="#2e7d32" />
-        </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView
-      style={{ flex: 1, padding: 16 }}
-      refreshControl={
-        <RefreshControlComponent refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Header */}
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Inventory</Text>
-      <Text style={{ color: 'gray', marginTop: 4 }}>
-        {totalProducts} products • {totalUnits} units
-      </Text>
+    <View style={styles.container}>
+      <StatusBar style="dark" />
 
-      {/* Restore Success Banner */}
-      {restoreSuccess && (
-        <View
-          style={{
-            marginTop: 10,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#2e7d32',
-            backgroundColor: '#edf7ed',
-          }}
-        >
-          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>
-            {restoreSuccess}
-          </Text>
-        </View>
-      )}
-
-      {/* Restore Error Banner */}
-      {restoreError && (
-        <View
-          style={{
-            marginTop: 10,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#d9534f',
-            backgroundColor: '#fdf7f7',
-          }}
-        >
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
-            {restoreError}
-          </Text>
-        </View>
-      )}
-
-      {/* Search Input */}
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          padding: 8,
-          marginTop: 12,
-          backgroundColor: '#fff',
-        }}
-        placeholder="Search name or barcode"
-        value={search}
-        onChangeText={setSearch}
-      />
-
-      {/* Categories Filter Selector */}
-      <View style={{ marginTop: 16 }}>
-        <Text style={{ fontWeight: 'bold' }}>Categories</Text>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 8 }}
+          ref={scrollRef}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControlComponent
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+            />
+          }
         >
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {categoryOptions.map((cat) => {
-              const isSelected = selectedCategory === cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  onPress={() => setSelectedCategory(cat)}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 4,
-                    borderWidth: 1,
-                    borderColor: isSelected ? '#2e7d32' : '#ccc',
-                    backgroundColor: isSelected ? '#2e7d32' : '#fff',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: isSelected ? '#fff' : '#000',
-                      fontWeight: isSelected ? 'bold' : 'normal',
-                    }}
-                  >
-                    {isSelected ? `• ${cat}` : cat}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
-      </View>
+          {/* Screen Background Image with Yellow Wave (scrolls naturally with content) */}
+          <Image
+            source={require('../../../assets/designs/screen-background.png')}
+            style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+            resizeMode="stretch"
+          />
 
-      {/* Stock Status Filter Selector */}
-      <View style={{ marginTop: 16 }}>
-        <Text style={{ fontWeight: 'bold' }}>Stock status</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-          {STATUS_FILTERS.map((status) => {
-            const isSelected = selectedStatus === status;
-            return (
-              <TouchableOpacity
-                key={status}
-                onPress={() => setSelectedStatus(status)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 4,
-                  borderWidth: 1,
-                  borderColor: isSelected ? '#2e7d32' : '#ccc',
-                  backgroundColor: isSelected ? '#2e7d32' : '#fff',
-                }}
-              >
-                <Text
-                  style={{
-                    color: isSelected ? '#fff' : '#000',
-                    fontWeight: isSelected ? 'bold' : 'normal',
-                  }}
-                >
-                  {isSelected ? `• ${status}` : status}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Show Archived Toggle */}
-      <View style={{ marginTop: 16 }}>
-        <TouchableOpacity
-          onPress={toggleShowArchived}
-          style={{
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-            borderWidth: 1,
-            borderColor: showArchived ? '#333' : '#ccc',
-            backgroundColor: showArchived ? '#f0f0f0' : '#fff',
-            borderRadius: 4,
-            alignSelf: 'flex-start',
-          }}
-        >
-          <Text style={{ fontWeight: '600', color: '#333' }}>
-            {showArchived ? 'Hide Archived Products' : 'Show Archived Products'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Archived Products Section */}
-      {showArchived && (
-        <View
-          style={{
-            marginTop: 16,
-            padding: 12,
-            borderWidth: 1,
-            borderColor: '#999',
-            backgroundColor: '#f9f9f9',
-          }}
-        >
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#444' }}>
-            Archived Products
-          </Text>
-          <Text style={{ color: 'gray', fontSize: 13, marginTop: 2, marginBottom: 12 }}>
-            Archived products do not count in totals, active stock, or alerts.
-          </Text>
-
-          {loadingArchived ? (
-            <ActivityIndicator size="small" color="#2e7d32" style={{ marginVertical: 12 }} />
-          ) : archivedProducts.length === 0 ? (
-            <Text style={{ color: 'gray', fontStyle: 'italic', marginVertical: 8 }}>
-              No archived products.
-            </Text>
-          ) : (
-            archivedProducts.map((p) => (
-              <View
-                key={p.id}
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#ccc',
-                  padding: 12,
-                  backgroundColor: '#fff',
-                  marginBottom: 10,
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{p.name}</Text>
-                    <Text style={{ color: 'gray', marginTop: 2 }}>
-                      Barcode: {p.barcode || 'N/A'}
-                    </Text>
-                    <Text style={{ color: 'gray', marginTop: 2 }}>
-                      Category: {p.category?.name || 'Uncategorized'} • Price: ₱
-                      {p.price.toFixed(2)}
-                    </Text>
-                  </View>
-                  <Button
-                    title={restoring && restoringProduct?.id === p.id ? 'Restoring...' : 'Restore'}
-                    disabled={restoring}
-                    onPress={() => handleOpenRestore(p)}
-                    color="#2e7d32"
-                  />
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-      )}
-
-      {/* Loading state indicator */}
-      {loading && !refreshing && (
-        <View style={{ marginTop: 40, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#2e7d32" />
-          <Text style={{ marginTop: 8, color: 'gray' }}>Loading inventory...</Text>
-        </View>
-      )}
-
-      {/* Error state */}
-      {error && !loading && (
-        <View
-          style={{
-            marginTop: 20,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: '#d9534f',
-            backgroundColor: '#fdf7f7',
-          }}
-        >
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
-            Unable to load inventory
-          </Text>
-          <Text style={{ color: '#333', marginTop: 4 }}>{error}</Text>
-          <View style={{ marginTop: 12 }}>
-            <Button
-              title="Retry"
-              onPress={() => {
-                setLoading(true);
-                loadData(true);
-              }}
+          {/* Top Logo Row */}
+          <View style={styles.topLogoRow}>
+            <Image
+              source={require('../../../assets/designs/shelfsafe-logo.jpg')}
+              style={styles.screenLogo}
+              resizeMode="contain"
             />
           </View>
-        </View>
-      )}
 
-      {/* Active Product list or Empty states */}
-      {!loading && !error && (
-        <View style={{ marginTop: 24, marginBottom: 40 }}>
-          {/* Case 1: No products in DB at all */}
-          {allProducts.length === 0 ? (
-            <View style={{ marginTop: 24, padding: 24, alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#555' }}>
-                No active products in inventory
-              </Text>
-              <Text style={{ color: 'gray', marginTop: 4, textAlign: 'center' }}>
-                You have not added any stock yet. Use the Scan tab to add products.
-              </Text>
+          {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Inventory</Text>
+            <Text style={styles.subtitle}>
+              {allProducts.length} products • {filteredProducts.length} showing
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.archivedToggleBtn}
+            onPress={toggleShowArchived}
+          >
+            <Text style={styles.archivedToggleText}>
+              {showArchived ? 'Hide Archived' : 'Archived'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Restore Success Toast */}
+        {restoreSuccess && (
+          <View style={styles.successToast}>
+            <Text style={styles.successToastText}>{restoreSuccess}</Text>
+            <TouchableOpacity onPress={() => setRestoreSuccess(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={16} color={COLORS.primary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Search size={18} color={COLORS.textTertiary} strokeWidth={2} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search product name or barcode..."
+            placeholderTextColor={COLORS.textSubtle}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={16} color={COLORS.textSecondary} strokeWidth={2} style={styles.clearSearch} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Status Filter Chips */}
+        <View style={styles.chipSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.chipRow}>
+              {STATUS_FILTERS.map((status) => {
+                const isSelected = selectedStatus === status;
+                return (
+                  <TouchableOpacity
+                    key={status}
+                    style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                    onPress={() => setSelectedStatus(status)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        isSelected && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {status}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          ) : filteredProducts.length === 0 ? (
-            /* Case 2: Filter/search yielded 0 matches */
-            <View style={{ marginTop: 24, padding: 24, alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#555' }}>
-                No products match
-              </Text>
-              <Text style={{ color: 'gray', marginTop: 4 }}>
-                Try another search or filter
+          </ScrollView>
+        </View>
+
+        {/* Category Filter Chips */}
+        <View style={styles.chipSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.chipRow}>
+              {categoryOptions.map((cat) => {
+                const isSelected = selectedCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                    onPress={() => setSelectedCategory(cat)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Product List */}
+        <View style={styles.listSection}>
+          {filteredProducts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Package size={40} color={COLORS.textTertiary} strokeWidth={1.5} />
+              <Text style={styles.emptyTitle}>No products found</Text>
+              <Text style={styles.emptySubtitle}>
+                Try adjusting your search query or filters.
               </Text>
             </View>
           ) : (
-            /* Case 3: Display grouped active product cards */
-            groupedCategoryNames.map((catName) => (
-              <View key={catName} style={{ marginBottom: 20 }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>
-                  {catName}
-                </Text>
-                <View style={{ gap: 10 }}>
-                  {groupedByCategory[catName].map((product) => {
-                    const batchText =
-                      product.sellable_units < product.total_units
-                        ? `${product.batch_count} ${
-                            product.batch_count === 1 ? 'batch' : 'batches'
-                          } • ${product.sellable_units} sellable`
-                        : `${product.batch_count} ${
-                            product.batch_count === 1 ? 'batch' : 'batches'
-                          }`;
+            filteredProducts.map((product) => {
+              const statusInfo = getStatusBadge(product.statuses);
+              const catName = product.category ? product.category.name : 'General';
 
-                    return (
-                      <TouchableOpacity
-                        key={product.id}
-                        activeOpacity={0.7}
-                        onPress={() =>
-                          navigation.navigate('ProductDetail', {
-                            productId: product.id,
-                            productName: product.name,
-                          })
-                        }
-                        style={{
-                          borderWidth: 1,
-                          borderColor: '#ccc',
-                          padding: 12,
-                          backgroundColor: '#fff',
-                        }}
-                      >
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontWeight: 'bold',
-                              fontSize: 16,
-                              flex: 1,
-                              marginRight: 8,
-                            }}
-                          >
-                            {product.name}
-                          </Text>
-                          <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-                            ₱{product.price.toFixed(2)}
-                          </Text>
-                        </View>
+              return (
+                <TouchableOpacity
+                  key={product.id}
+                  style={styles.productCard}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate('ProductDetail', {
+                      productId: product.id,
+                      productName: product.name,
+                    })
+                  }
+                >
+                  <View style={styles.productCardHeader}>
+                    <View style={styles.productMetaLeft}>
+                      <View style={styles.categoryPill}>
+                        <Text style={styles.categoryPillText}>{catName}</Text>
+                      </View>
+                      {product.barcode ? (
+                        <Text style={styles.barcodeText}>{product.barcode}</Text>
+                      ) : null}
+                    </View>
 
-                        <Text style={{ color: 'gray', marginTop: 2 }}>
-                          Barcode: {product.barcode || 'N/A'}
-                        </Text>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        {
+                          backgroundColor: statusInfo.bg,
+                          borderColor: statusInfo.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.statusPillText, { color: statusInfo.text }]}>
+                        {statusInfo.label}
+                      </Text>
+                    </View>
+                  </View>
 
-                        <Text style={{ marginTop: 4 }}>
-                          <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-                            {product.total_units}
-                          </Text>{' '}
-                          units ({batchText})
-                        </Text>
+                  <Text style={styles.productName}>{product.name}</Text>
 
-                        {/* Status badges */}
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            flexWrap: 'wrap',
-                            gap: 6,
-                            marginTop: 6,
-                          }}
-                        >
-                          {product.statuses.map((status) => {
-                            const badge = getBadgeStyle(status);
-                            return (
-                              <Text
-                                key={status}
-                                style={{
-                                  color: badge.color,
-                                  fontWeight: '600',
-                                  fontSize: 13,
-                                }}
-                              >
-                                {badge.label}
-                              </Text>
-                            );
-                          })}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ))
+                  <View style={styles.productCardFooter}>
+                    <View style={styles.stockInfoWrapper}>
+                      <Text style={styles.stockUnitsValue}>
+                        {product.total_units}{' '}
+                        <Text style={styles.stockUnitsLabel}>units</Text>
+                      </Text>
+                      <Text style={styles.batchCountText}>
+                        • {product.batch_count} {product.batch_count === 1 ? 'batch' : 'batches'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.viewDetailLinkRow}>
+                      <Text style={styles.viewDetailLink}>Details</Text>
+                      <ArrowRight size={14} color={COLORS.primary} strokeWidth={2} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
-      )}
+
+        {/* Archived Products Section */}
+        {showArchived && (
+          <View style={styles.archivedSection}>
+            <Text style={styles.archivedSectionTitle}>Archived Products</Text>
+            {loadingArchived ? (
+              <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 12 }} />
+            ) : archivedProducts.length === 0 ? (
+              <Text style={styles.archivedEmptyText}>No archived products.</Text>
+            ) : (
+              archivedProducts.map((p) => (
+                <View key={p.id} style={styles.archivedCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.archivedName}>{p.name}</Text>
+                    <Text style={styles.archivedBarcode}>{p.barcode || 'No barcode'}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.restoreBtn}
+                    onPress={() => handleOpenRestoreModal(p)}
+                  >
+                    <Text style={styles.restoreBtnText}>Restore</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+      </ScrollView>
 
       {/* Restore Confirmation Modal */}
       <Modal
         visible={restoreModalVisible}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => {
           if (!restoring) setRestoreModalVisible(false);
         }}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              padding: 20,
-              borderRadius: 6,
-              width: '100%',
-              maxWidth: 360,
-              borderWidth: 1,
-              borderColor: '#ccc',
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Restore Product?</Text>
-            <Text style={{ color: '#333', marginTop: 10, fontSize: 14 }}>
-              Restore "{restoringProduct?.name}" to active inventory?
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Restore Product?</Text>
+            <Text style={styles.modalDesc}>
+              Restore "{restoringProduct?.name}" back to active inventory with its existing batches.
             </Text>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <Button
-                title="Cancel"
+            {restoreError && <Text style={styles.modalError}>{restoreError}</Text>}
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
                 onPress={() => setRestoreModalVisible(false)}
                 disabled={restoring}
-                color="gray"
-              />
-              <Button
-                title={restoring ? 'Restoring...' : 'Yes, Restore'}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
                 onPress={handleConfirmRestore}
                 disabled={restoring}
-                color="#2e7d32"
-              />
+              >
+                {restoring ? (
+                  <ActivityIndicator color={COLORS.white} size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Restore</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.canvas,
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.dangerDark,
+    marginBottom: 6,
+  },
+  errorText: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.dangerDark,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+  },
+  scrollContent: {
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 36,
+  },
+  topLogoRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  screenLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  archivedToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+  },
+  archivedToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+  },
+  successToast: {
+    backgroundColor: COLORS.bgTint,
+    borderWidth: 1,
+    borderColor: '#d6f0b4',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successToastText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    flex: 1,
+  },
+  toastClose: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  clearSearch: {
+    fontSize: 14,
+    color: COLORS.textSubtle,
+    padding: 4,
+  },
+  chipSection: {
+    marginBottom: 10,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  filterChipTextActive: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  categoryChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  categoryChipActive: {
+    backgroundColor: COLORS.bgTint,
+    borderColor: COLORS.primary,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  categoryChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  listSection: {
+    marginTop: 26,
+    gap: 12,
+  },
+  emptyContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginTop: 12,
+  },
+  emptyIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  productCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  productCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  productMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  categoryPill: {
+    backgroundColor: COLORS.bgWarm,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  categoryPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+  },
+  barcodeText: {
+    fontSize: 10,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSubtle,
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  statusPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    textTransform: 'uppercase',
+  },
+  productName: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  productCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: 8,
+  },
+  stockInfoWrapper: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  stockUnitsValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    fontFamily: FONTS.black,
+    color: COLORS.text,
+  },
+  stockUnitsLabel: {
+    fontSize: 11,
+    fontWeight: 'normal',
+    color: COLORS.textMuted,
+  },
+  batchCountText: {
+    fontSize: 11,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  viewDetailLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewDetailLink: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  archivedSection: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  archivedSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  archivedEmptyText: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSubtle,
+    fontStyle: 'italic',
+  },
+  archivedCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  archivedName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  archivedBarcode: {
+    fontSize: 11,
+    color: COLORS.textSubtle,
+    marginTop: 2,
+  },
+  restoreBtn: {
+    backgroundColor: COLORS.bgTint,
+    borderWidth: 1,
+    borderColor: '#d6f0b4',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  restoreBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  modalDesc: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  modalError: {
+    color: COLORS.danger,
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  modalConfirmBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+});

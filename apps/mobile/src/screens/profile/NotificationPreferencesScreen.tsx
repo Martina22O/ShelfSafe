@@ -8,15 +8,22 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   TouchableOpacity,
+  ActivityIndicator,
   Modal,
   BackHandler,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+// Lucide icons
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { saveNearExpiryDays } from '../../services/storeSettings';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<
   ProfileStackParamList,
@@ -26,6 +33,8 @@ type Props = NativeStackScreenProps<
 const QUICK_CHOICES = [3, 7, 14, 30];
 
 export default function NotificationPreferencesScreen({ navigation }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const { near_expiry_days, refresh } = useStoreSettings();
 
   const [daysInput, setDaysInput] = useState(String(near_expiry_days));
@@ -58,17 +67,17 @@ export default function NotificationPreferencesScreen({ navigation }: Props) {
 
   // Validation
   const trimmed = daysInput.trim();
-  const isWholeNumber = /^\d+$/.test(trimmed);
-  const parsedDays = isWholeNumber ? parseInt(trimmed, 10) : NaN;
-  const isValid = !isNaN(parsedDays) && parsedDays >= 1 && parsedDays <= 60;
-  const isUnchanged = isValid && parsedDays === near_expiry_days;
+  const parsed = parseInt(trimmed, 10);
+  const isValidInteger = /^\d+$/.test(trimmed) && !isNaN(parsed);
+  const isInRange = isValidInteger && parsed >= 1 && parsed <= 60;
+  const isUnchanged = isValidInteger && parsed === near_expiry_days;
 
   const handleOpenConfirm = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!isValid) {
-      setErrorMessage('Near-expiry threshold must be a whole number between 1 and 60 days');
+    if (!isValidInteger || !isInRange) {
+      setErrorMessage('Please enter a valid whole number between 1 and 60 days');
       return;
     }
 
@@ -81,212 +90,391 @@ export default function NotificationPreferencesScreen({ navigation }: Props) {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    try {
-      const res = await saveNearExpiryDays(parsedDays);
+    const res = await saveNearExpiryDays(parsed);
 
-      if (res.kind === 'db_error') {
-        setErrorMessage(res.message);
-        return;
-      }
-
-      if (res.kind === 'network_error') {
-        setErrorMessage(res.message);
-        return;
-      }
-
-      await refresh();
-      setSuccessMessage('Near-expiry window saved successfully');
-    } catch (err: any) {
-      setErrorMessage(
-        'Not sure if this was saved. Pull down to refresh and check'
-      );
-    } finally {
+    if (res.kind !== 'success') {
       setSaving(false);
+      setErrorMessage(res.message);
+      return;
     }
+
+    await refresh();
+    setSaving(false);
+    setSuccessMessage(`Near-expiry threshold set to ${parsed} days!`);
+    setTimeout(() => {
+      navigation.goBack();
+    }, 800);
   };
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>
-        Notification Preferences
-      </Text>
-
-      {/* Success banner */}
-      {successMessage && (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#2e7d32',
-            backgroundColor: '#edf7ed',
-          }}
-        >
-          <Text style={{ color: '#2e7d32', fontWeight: 'bold' }}>
-            {successMessage}
-          </Text>
-        </View>
-      )}
-
-      {/* Error banner */}
-      {errorMessage && (
-        <View
-          style={{
-            marginTop: 12,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#d9534f',
-            backgroundColor: '#fdf7f7',
-          }}
-        >
-          <Text style={{ color: '#d9534f', fontWeight: 'bold' }}>
-            {errorMessage}
-          </Text>
-        </View>
-      )}
-
-      <View style={{ marginTop: 20 }}>
-        <Text style={{ fontSize: 16, fontWeight: 'bold' }}>
-          Near-expiry window (days)
-        </Text>
-        <Text style={{ color: 'gray', marginTop: 4 }}>
-          Products are marked near expiry when they expire within this many days.
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      <Image
+        source={require('../../../assets/designs/screen-background.png')}
+        style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+        resizeMode="stretch"
+      />
+      <View style={styles.content}>
+        <Text style={styles.screenSub}>
+          Configure how many days in advance products are flagged as Near Expiry
         </Text>
 
-        <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: '#ccc',
-            padding: 8,
-            marginTop: 12,
-            backgroundColor: '#fff',
-            fontSize: 18,
-          }}
-          value={daysInput}
-          onChangeText={(text) => {
-            setDaysInput(text);
-            setSuccessMessage(null);
-            setErrorMessage(null);
-          }}
-          keyboardType="number-pad"
-          editable={!saving}
-        />
-        <Text style={{ color: 'gray', fontSize: 12, marginTop: 4 }}>
-          Enter a whole number from 1 to 60
-        </Text>
+        {/* Notifications */}
+        {successMessage ? (
+          <View style={styles.successBox}>
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        ) : null}
 
-        {/* Quick-choice buttons */}
-        <Text style={{ marginTop: 16, fontWeight: 'bold', color: 'gray' }}>
-          Quick choices:
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-          {QUICK_CHOICES.map((choice) => {
-            const isSelected = parsedDays === choice;
-            return (
-              <TouchableOpacity
-                key={choice}
-                onPress={() => {
-                  setDaysInput(String(choice));
-                  setSuccessMessage(null);
-                  setErrorMessage(null);
-                }}
-                disabled={saving}
-                style={{
-                  borderWidth: 1,
-                  borderColor: isSelected ? '#2e7d32' : '#ccc',
-                  backgroundColor: isSelected ? '#e8f5e9' : '#fff',
-                  paddingVertical: 8,
-                  paddingHorizontal: 16,
-                  borderRadius: 4,
-                }}
-              >
-                <Text
-                  style={{
-                    color: isSelected ? '#2e7d32' : '#333',
-                    fontWeight: isSelected ? 'bold' : 'normal',
-                  }}
-                >
-                  {choice} days
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
 
-      <View style={{ marginTop: 32, gap: 12 }}>
-        <Button
-          title={saving ? 'Saving preferences...' : 'Save preferences'}
-          onPress={handleOpenConfirm}
-          disabled={saving || !isValid || isUnchanged}
-          color="#2e7d32"
-        />
-        <Button
-          title="Back"
-          onPress={() => navigation.goBack()}
-          color="gray"
-          disabled={saving}
-        />
-      </View>
-
-      {/* Confirmation Modal */}
-      <Modal
-        visible={showConfirmModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          if (!saving) setShowConfirmModal(false);
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              padding: 24,
-              borderRadius: 8,
-              width: '100%',
-              maxWidth: 340,
+        {/* Alert Window Form Card */}
+        <View style={styles.card}>
+          <Text style={styles.label}>Near-Expiry Alert Window (Days)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 7"
+            placeholderTextColor={COLORS.textMuted}
+            value={daysInput}
+            onChangeText={(text) => {
+              setDaysInput(text);
+              if (errorMessage) setErrorMessage(null);
             }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-              Save Near-Expiry Window?
-            </Text>
-            <Text style={{ color: 'gray', marginTop: 8 }}>
-              Set near-expiry window to {parsedDays} day{parsedDays === 1 ? '' : 's'}?
-            </Text>
+            keyboardType="number-pad"
+            editable={!saving}
+          />
+          <Text style={styles.hint}>Valid range: 1 to 60 days</Text>
 
-            <View
-              style={{
-                marginTop: 20,
-                flexDirection: 'row',
-                justifyContent: 'flex-end',
-                gap: 12,
-              }}
-            >
-              <Button
-                title="Cancel"
-                onPress={() => setShowConfirmModal(false)}
-                color="gray"
-                disabled={saving}
-              />
-              <Button
-                title="Save"
-                onPress={handleConfirmSave}
-                color="#2e7d32"
-                disabled={saving}
-              />
-            </View>
+          {/* Quick Choice Chips */}
+          <Text style={[styles.label, { marginTop: 16 }]}>Quick Selection</Text>
+          <View style={styles.chipsRow}>
+            {QUICK_CHOICES.map((days) => {
+              const isSelected = parsed === days;
+              return (
+                <TouchableOpacity
+                  key={days}
+                  style={[styles.chip, isSelected && styles.chipActive]}
+                  onPress={() => {
+                    setDaysInput(String(days));
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  disabled={saving}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      isSelected && styles.chipTextActive,
+                    ]}
+                  >
+                    {days} days
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
-      </Modal>
-    </View>
+
+        {/* Action Buttons */}
+        <View style={styles.btnStack}>
+          <TouchableOpacity
+            style={[
+              styles.primaryBtn,
+              (saving || !isInRange || isUnchanged) && styles.btnDisabled,
+            ]}
+            onPress={handleOpenConfirm}
+            disabled={saving || !isInRange || isUnchanged}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.primaryBtnText}>Save Preferences</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => navigation.goBack()}
+            disabled={saving}
+          >
+            <Text style={styles.secondaryBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Confirmation Modal */}
+        <Modal
+          visible={showConfirmModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => {
+            if (!saving) setShowConfirmModal(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Update Near-Expiry Window?</Text>
+              <Text style={styles.modalSub}>
+                Change the near-expiry alert threshold to {parsed} days? Batches expiring within this window will trigger alerts.
+              </Text>
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setShowConfirmModal(false)}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalConfirmBtn}
+                  onPress={handleConfirmSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalConfirmText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  topNav: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  screenSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  successBox: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  successText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primaryDark,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.danger,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  hint: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  chip: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chipActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primaryDark,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  chipTextActive: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+  },
+  btnStack: {
+    marginTop: 24,
+    gap: 10,
+  },
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  secondaryBtn: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+  },
+  modalSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  modalConfirmBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+  },
+  modalConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+});

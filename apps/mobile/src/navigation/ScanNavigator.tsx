@@ -13,7 +13,9 @@
  * - History
  */
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { TouchableOpacity } from 'react-native';
+import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ArrowLeft } from 'lucide-react-native';
 import { ScanStackParamList } from './types';
 import ScanChooserScreen from '../screens/scan/ScanChooserScreen';
 import ScanBarcodeScreen from '../screens/scan/ScanBarcodeScreen';
@@ -25,16 +27,41 @@ import SaleListScreen from '../screens/scan/SaleListScreen';
 import ConfirmSaleScreen from '../screens/scan/ConfirmSaleScreen';
 import SaleDoneScreen from '../screens/scan/SaleDoneScreen';
 import HistoryScreen from '../screens/scan/HistoryScreen';
+import { COLORS, FONTS } from '../theme';
 
 const Stack = createNativeStackNavigator<ScanStackParamList>();
 
 export default function ScanNavigator() {
   return (
-    <Stack.Navigator initialRouteName="ScanChooser">
+    <Stack.Navigator
+      initialRouteName="ScanChooser"
+      screenOptions={({ navigation }: { navigation: NativeStackNavigationProp<ScanStackParamList> }) => ({
+        headerTitleAlign: 'center',
+        headerTitleStyle: {
+          fontFamily: FONTS.bold,
+          fontSize: 16,
+          color: COLORS.text,
+        },
+        headerStyle: { backgroundColor: '#FEF7E6' },
+        headerShadowVisible: false,
+        headerTintColor: COLORS.text,
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ScanChooser'))}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ paddingRight: 12, paddingVertical: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <ArrowLeft size={22} color={COLORS.text} strokeWidth={2.2} />
+          </TouchableOpacity>
+        ),
+      })}
+    >
       <Stack.Screen
         name="ScanChooser"
         component={ScanChooserScreen}
-        options={{ title: 'Scan' }}
+        options={{ title: 'Scan', headerLeft: () => null }}
       />
       <Stack.Screen
         name="ScanBarcode"
@@ -44,6 +71,12 @@ export default function ScanNavigator() {
             route.params?.mode === 'add'
               ? 'Scan Barcode (Add Stock)'
               : 'Scan Barcode (Sell)',
+          headerStyle: {
+            backgroundColor:
+              route.params?.mode === 'add' || route.params?.mode === 'sell'
+                ? '#FDF7E3'
+                : '#FEF7E6',
+          },
         })}
       />
       <Stack.Screen
@@ -54,12 +87,21 @@ export default function ScanNavigator() {
             route.params?.mode === 'add'
               ? 'Type Barcode (Add Stock)'
               : 'Type Barcode (Sell)',
+          headerStyle: {
+            backgroundColor:
+              route.params?.mode === 'add' || route.params?.mode === 'sell'
+                ? '#FDF7E3'
+                : '#FEF7E6',
+          },
         })}
       />
       <Stack.Screen
         name="AddStockForm"
         component={AddStockFormScreen}
-        options={{ title: 'Add Stock' }}
+        options={{
+          title: 'Add Stock Batch',
+          headerStyle: { backgroundColor: '#FDF7E3' },
+        }}
       />
       <Stack.Screen
         name="NewProduct"
@@ -69,22 +111,25 @@ export default function ScanNavigator() {
       <Stack.Screen
         name="AddStockDone"
         component={AddStockDoneScreen}
-        options={{ title: 'Stock Added', headerBackVisible: false }}
+        options={{ title: 'Stock Added', headerBackVisible: false, headerLeft: () => null }}
       />
       <Stack.Screen
         name="SaleList"
         component={SaleListScreen}
-        options={{ title: 'Sale List' }}
+        options={{
+          title: 'Sale List',
+          headerStyle: { backgroundColor: '#FDF7E3' },
+        }}
       />
       <Stack.Screen
         name="ConfirmSale"
         component={ConfirmSaleScreen}
-        options={{ title: 'Review Sale', headerBackVisible: false }}
+        options={{ title: 'Review Sale', headerBackVisible: false, headerLeft: () => null }}
       />
       <Stack.Screen
         name="SaleDone"
         component={SaleDoneScreen}
-        options={{ title: 'Sale Done', headerBackVisible: false }}
+        options={{ title: 'Sale Done', headerBackVisible: false, headerLeft: () => null }}
       />
       <Stack.Screen
         name="History"

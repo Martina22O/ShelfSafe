@@ -7,12 +7,19 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { AlertCircle } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScanStackParamList } from '../../navigation/types';
+import DateField from '../../components/DateField';
 import { getCategories, createProductWithBatch } from '../../services/inventory';
 import { Category } from '../../types/inventory';
 import {
@@ -20,10 +27,13 @@ import {
   isValidCalendarDate,
   isDateInPast,
 } from '../../utils/date';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'NewProduct'>;
 
 export default function NewProductScreen({ route, navigation }: Props) {
+  const { width: screenWidth } = useWindowDimensions();
+  const bgHeight = screenWidth * (856 / 402);
   const initialBarcode = route.params?.barcode || '';
   const fromScan = Boolean(route.params?.fromScan && initialBarcode);
   const today = getTodayInManila();
@@ -48,19 +58,24 @@ export default function NewProductScreen({ route, navigation }: Props) {
 
   // Load real categories from database
   useEffect(() => {
-    async function load() {
+    let isMounted = true;
+    async function fetchCats() {
       setLoadingCategories(true);
       const res = await getCategories();
-      setLoadingCategories(false);
-
-      if (res.kind === 'success' && res.categories.length > 0) {
-        setCategories(res.categories);
-        setSelectedCategoryId(res.categories[0].id);
-      } else if (res.kind === 'error') {
-        setErrorMessage(res.message);
+      if (isMounted) {
+        if (res.kind === 'success') {
+          setCategories(res.categories);
+          if (res.categories.length > 0) {
+            setSelectedCategoryId(res.categories[0].id);
+          }
+        }
+        setLoadingCategories(false);
       }
     }
-    load();
+    fetchCats();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const isPastExpiry = isValidCalendarDate(expirationDate) && isDateInPast(expirationDate);
@@ -68,77 +83,77 @@ export default function NewProductScreen({ route, navigation }: Props) {
   const handleSave = async () => {
     setErrorMessage(null);
 
-    // 1. Validate name
+    // Validate name
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setErrorMessage('Product name cannot be empty');
+      setErrorMessage('Product name is required');
       return;
     }
 
-    // 2. Validate category
+    // Validate category
     if (!selectedCategoryId) {
       setErrorMessage('Please select a category');
       return;
     }
 
-    // 3. Validate price: number >= 0
+    // Validate price
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum < 0) {
-      setErrorMessage('Price must be a valid number greater than or equal to 0.00');
+      setErrorMessage('Price must be a valid non-negative number');
       return;
     }
 
-    // 4. Validate low-stock level: whole number >= 0
-    const lowStockNum = Number(lowStockLevel);
-    if (!Number.isInteger(lowStockNum) || lowStockNum < 0) {
-      setErrorMessage('Low-stock level must be a whole number greater than or equal to 0');
+    // Validate low stock level
+    const lowStockNum = parseInt(lowStockLevel, 10);
+    if (isNaN(lowStockNum) || lowStockNum < 0) {
+      setErrorMessage('Low stock alert level must be a non-negative whole number');
       return;
     }
 
-    // 5. Validate first batch quantity: whole number >= 1
-    const qtyNum = Number(quantity);
-    if (!Number.isInteger(qtyNum) || qtyNum < 1) {
+    // Validate quantity
+    const qtyNum = parseInt(quantity, 10);
+    if (isNaN(qtyNum) || qtyNum < 1) {
       setErrorMessage('Quantity must be a whole number of at least 1');
       return;
     }
 
-    // 6. Validate purchase date: real calendar date
+    // Validate purchase date
     const pDate = purchaseDate.trim() || today;
     if (!isValidCalendarDate(pDate)) {
-      setErrorMessage('Purchase date must be a valid calendar date in YYYY-MM-DD format');
+      setErrorMessage('Purchase date must be in valid YYYY-MM-DD format');
       return;
     }
 
-    // 7. Validate expiration date: real calendar date
+    // Validate expiration date
     const expDate = expirationDate.trim();
     if (!expDate) {
-      setErrorMessage('Expiration date is required');
+      setErrorMessage('Expiration date is required for the first batch');
       return;
     }
 
     if (!isValidCalendarDate(expDate)) {
-      setErrorMessage('Expiration date must be a valid calendar date in YYYY-MM-DD format (e.g. 2026-12-31)');
+      setErrorMessage('Expiration date must be in valid YYYY-MM-DD format (e.g. 2026-12-31)');
       return;
     }
 
-    // 8. Expiration cannot be before purchase date
     if (expDate < pDate) {
       setErrorMessage('Expiration date cannot be earlier than purchase date');
       return;
     }
 
-    // Execute atomic creation with double-tap prevention
     setSaving(true);
+
     const result = await createProductWithBatch({
       p_name: trimmedName,
+      p_barcode: barcode.trim() || null,
       p_category_id: selectedCategoryId,
       p_price: priceNum,
-      p_quantity: qtyNum,
-      p_expiration_date: expDate,
-      p_barcode: barcode.trim() || null,
       p_low_stock_level: lowStockNum,
+      p_quantity: qtyNum,
       p_purchase_date: pDate,
+      p_expiration_date: expDate,
     });
+
     setSaving(false);
 
     if (result.kind === 'error') {
@@ -156,150 +171,360 @@ export default function NewProductScreen({ route, navigation }: Props) {
   };
 
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>New Product</Text>
-      <Text style={{ color: 'gray', marginTop: 4 }}>
-        Create a new product with its first delivery batch
-      </Text>
-
-      {/* Error Message */}
-      {errorMessage ? (
-        <View style={{ marginTop: 12, padding: 8, backgroundColor: '#f8d7da' }}>
-          <Text style={{ color: '#721c24', fontWeight: 'bold' }}>{errorMessage}</Text>
-        </View>
-      ) : null}
-
-      {/* Product Details Section */}
-      <View style={{ marginTop: 16 }}>
-        <Text style={{ fontWeight: 'bold' }}>Product name</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="e.g. Milk 1L"
-          value={name}
-          onChangeText={(text) => {
-            setName(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          editable={!saving}
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Background Decorative Wave */}
+        <Image
+          source={require('../../../assets/designs/screen-background.png')}
+          style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+          resizeMode="stretch"
         />
 
-        <Text style={{ fontWeight: 'bold', marginTop: 12 }}>Barcode</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="Optional if barcode-less"
-          value={barcode}
-          onChangeText={(text) => {
-            setBarcode(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!saving}
-        />
-        {fromScan ? (
-          <Text style={{ color: 'gray', fontSize: 12, marginTop: 4 }}>
-            Check that this matches the barcode on the package.
-          </Text>
-        ) : null}
+        <Text style={[styles.screenSub, { marginTop: 4 }]}>
+          Create product record and its initial delivery batch
+        </Text>
 
-        <Text style={{ fontWeight: 'bold', marginTop: 12 }}>Category</Text>
-        {loadingCategories ? (
-          <ActivityIndicator size="small" color="#0056b3" style={{ marginVertical: 8 }} />
-        ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-            {categories.map((cat) => (
-              <Button
-                key={cat.id}
-                title={selectedCategoryId === cat.id ? `• ${cat.name}` : cat.name}
-                onPress={() => setSelectedCategoryId(cat.id)}
-                color={selectedCategoryId === cat.id ? '#0056b3' : 'gray'}
-                disabled={saving}
-              />
-            ))}
+        {/* Error Alert */}
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
-        )}
-
-        <Text style={{ fontWeight: 'bold', marginTop: 12 }}>Price (₱)</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="0.00"
-          value={price}
-          onChangeText={(text) => {
-            setPrice(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!saving}
-        />
-
-        <Text style={{ fontWeight: 'bold', marginTop: 12 }}>Low-stock alert level</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="5"
-          value={lowStockLevel}
-          onChangeText={(text) => {
-            setLowStockLevel(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!saving}
-        />
-      </View>
-
-      {/* First Batch Section */}
-      <View style={{ marginTop: 24, borderWidth: 1, borderColor: '#ccc', padding: 12 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>First Batch Details</Text>
-
-        <Text style={{ fontWeight: 'bold', marginTop: 8 }}>Quantity</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="10"
-          value={quantity}
-          onChangeText={(text) => {
-            setQuantity(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          keyboardType="numeric"
-          editable={!saving}
-        />
-
-        <Text style={{ fontWeight: 'bold', marginTop: 8 }}>Purchase date</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="YYYY-MM-DD"
-          value={purchaseDate}
-          onChangeText={(text) => {
-            setPurchaseDate(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          editable={!saving}
-        />
-
-        <Text style={{ fontWeight: 'bold', marginTop: 8 }}>Expiration date</Text>
-        <TextInput
-          style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 4 }}
-          placeholder="YYYY-MM-DD"
-          value={expirationDate}
-          onChangeText={(text) => {
-            setExpirationDate(text);
-            if (errorMessage) setErrorMessage(null);
-          }}
-          editable={!saving}
-        />
-
-        {isPastExpiry ? (
-          <Text style={{ color: '#d9534f', marginTop: 4, fontWeight: 'bold' }}>
-            Warning: The expiration date is already past!
-          </Text>
         ) : null}
-      </View>
 
-      <View style={{ marginTop: 24, marginBottom: 40 }}>
-        {saving ? (
-          <ActivityIndicator size="small" color="#0056b3" />
-        ) : (
-          <Button title="Save product" onPress={handleSave} disabled={saving} />
-        )}
-      </View>
-    </ScrollView>
+        {/* Product Details Section Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardSectionHeader}>Product Details</Text>
+
+          <Text style={styles.label}>Product Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Fresh Milk 1L"
+            placeholderTextColor={COLORS.textMuted}
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            editable={!saving}
+          />
+
+          <Text style={styles.label}>Barcode (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Scan or type barcode number"
+            placeholderTextColor={COLORS.textMuted}
+            value={barcode}
+            onChangeText={(text) => {
+              setBarcode(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            keyboardType="numeric"
+            editable={!saving}
+          />
+          {fromScan ? (
+            <Text style={styles.hintText}>
+              Scanned barcode automatically populated.
+            </Text>
+          ) : null}
+
+          <Text style={styles.label}>Category</Text>
+          {loadingCategories ? (
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 8 }} />
+          ) : (
+            <View style={styles.categoryChipsRow}>
+              {categories.map((cat) => {
+                const isSelected = selectedCategoryId === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                    onPress={() => setSelectedCategoryId(cat.id)}
+                    disabled={saving}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          <View style={styles.formRow}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.label}>Price (₱)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0.00"
+                placeholderTextColor={COLORS.textMuted}
+                value={price}
+                onChangeText={(text) => {
+                  setPrice(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                keyboardType="numeric"
+                editable={!saving}
+              />
+            </View>
+
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={styles.label}>Low Stock Level</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="5"
+                placeholderTextColor={COLORS.textMuted}
+                value={lowStockLevel}
+                onChangeText={(text) => {
+                  setLowStockLevel(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                keyboardType="numeric"
+                editable={!saving}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* First Batch Section Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardSectionHeader}>First Batch Details</Text>
+
+          <Text style={styles.label}>Quantity Received</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="10"
+            placeholderTextColor={COLORS.textMuted}
+            value={quantity}
+            onChangeText={(text) => {
+              setQuantity(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            keyboardType="numeric"
+            editable={!saving}
+          />
+
+          {/* Purchase Date */}
+          <DateField
+            label="Purchase Date"
+            value={purchaseDate}
+            onChange={(val) => {
+              setPurchaseDate(val);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            editable={!saving}
+          />
+
+          {/* Expiration Date */}
+          <DateField
+            label="Expiration Date"
+            value={expirationDate}
+            onChange={(val) => {
+              setExpirationDate(val);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            editable={!saving}
+          />
+
+          {isPastExpiry ? (
+            <View style={styles.pastExpiryBox}>
+              <AlertCircle size={16} color={COLORS.amberDark} strokeWidth={2} />
+              <Text style={styles.pastExpiryText}>
+                Warning: The expiration date is already in the past!
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Action Button */}
+        <View style={styles.actionSection}>
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && styles.btnDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.saveBtnText}>Save Product & Batch</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  scrollContent: {
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  topNav: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.deepGreen,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    letterSpacing: -0.4,
+  },
+  screenSub: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.danger,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  cardSectionHeader: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.deepGreen,
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  input: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  hintText: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  categoryChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  categoryChip: {
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  categoryChipActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primaryDark,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  categoryChipTextActive: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+  },
+  formRow: {
+    flexDirection: 'row',
+  },
+  pastExpiryBox: {
+    marginTop: 8,
+    backgroundColor: COLORS.dangerLight,
+    padding: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pastExpiryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.dangerDark,
+  },
+  actionSection: {
+    marginTop: 8,
+    marginBottom: 40,
+  },
+  saveBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+});

@@ -1,33 +1,38 @@
 /**
  * Screen: DashboardScreen
- * Reference: docs/design/02-dashboard.png
+ * Reference: docs/design/mobile/02-home/dashboard_mobile.png
  * Elements:
  * - Dynamic greeting with signed-in user's name ("Hello, {name}!")
- * - "View Inventory" CTA button
- * - Stock Overview cards:
- *   1. Total Products (totals of all non-archived products, matching Inventory header)
- *   2. Total Units (totals of all non-archived products, matching Inventory header)
- *   3. Low stock (products) (alert count from get_inventory_alerts)
- *   4. Near expiry (batches) (alert count from get_inventory_alerts)
- *   5. Expired (batches) (alert count from get_inventory_alerts)
+ * - "View Inventory" CTA button banner
+ * - Stock Overview cards (Total Products, Total Units, Near Expiry, Expired, Low Stock) with icons on left
  * - Units Sold with Daily / Weekly / Monthly toggle
- * - Important Alerts preview (top 4 urgent alerts: expired first, near expiry by soonest date, then low stock) with "See all" link
- * - Top 5 Lists: Most-stocked, Most-sold, Least-sold ("No sales yet" when no sales exist; undone sales never count)
- * - Low Stock, Near Expiry, and Expired sections showing top items with "See all" links
- * - useFocusEffect, pull-to-refresh, loading state, and error with Retry
+ * - Important Alerts preview (expired first, near expiry by soonest date, then low stock) with "See all"
+ * - Top 5 Lists: Most-stocked, Most-sold, Least-sold
+ * - Pull-to-refresh and loading skeleton
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  Button,
   ScrollView,
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import {
+  Package,
+  BarChart2,
+  Clock,
+  AlertCircle,
+  TrendingDown,
+  ArrowRight,
+} from 'lucide-react-native';
+import { useNavigation, useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 import {
   getInventory,
@@ -47,13 +52,20 @@ import {
 } from '../../types/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { formatExpirationDaysText } from '../../utils/suggestedActions';
+import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 const RefreshControlComponent = RefreshControl as any;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
+  const { width: screenWidth } = useWindowDimensions();
+  const bgScale = screenWidth / 402;
+  const bgHeight = screenWidth * (856 / 402);
   const {
     near_expiry_days,
+    store_name,
     loading: settingsLoading,
     error: settingsError,
     reload: reloadSettings,
@@ -77,20 +89,19 @@ export default function DashboardScreen() {
       if (user) {
         const name =
           user.user_metadata?.name ||
-          (user.email ? user.email.split('@')[0] : 'User');
+          (user.email ? user.email.split('@')[0] : 'Operator');
         setDisplayName(name);
       }
     });
   }, []);
 
-  useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
+  const loadData = useCallback(
+    async (isManualRefresh = false) => {
+      if (!isManualRefresh) {
+        setLoading(true);
+      }
+      setError(null);
 
-  const loadData = async (isMounted = true) => {
-    if (settingsLoading || settingsError) return;
-    setError(null);
-    try {
       const [
         invRes,
         alertsRes,
@@ -107,42 +118,31 @@ export default function DashboardScreen() {
         getLeastSoldProducts(5),
       ]);
 
-      if (!isMounted) return;
+      setLoading(false);
+      setRefreshing(false);
 
       if (invRes.kind === 'error') {
         setError(`Failed to load inventory: ${invRes.message}`);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
       if (alertsRes.kind === 'error') {
-        setError(`Failed to load alerts: ${alertsRes.message}`);
-        setLoading(false);
-        setRefreshing(false);
+        setError(`Failed to load inventory alerts: ${alertsRes.message}`);
         return;
       }
       if (metricsRes.kind === 'error') {
         setError(`Failed to load sales metrics: ${metricsRes.message}`);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
       if (mostStockedRes.kind === 'error') {
         setError(`Failed to load most-stocked products: ${mostStockedRes.message}`);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
       if (mostSoldRes.kind === 'error') {
         setError(`Failed to load most-sold products: ${mostSoldRes.message}`);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
       if (leastSoldRes.kind === 'error') {
         setError(`Failed to load least-sold products: ${leastSoldRes.message}`);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
 
@@ -152,35 +152,24 @@ export default function DashboardScreen() {
       setMostStocked(mostStockedRes.products);
       setMostSold(mostSoldRes.products);
       setLeastSold(leastSoldRes.products);
-    } catch (err: any) {
-      if (!isMounted) return;
-      setError(err?.message || 'Unexpected network error loading dashboard');
-    } finally {
-      if (isMounted) {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    }
-  };
+    },
+    [near_expiry_days]
+  );
 
   useFocusEffect(
     useCallback(() => {
-      let isMounted = true;
       refreshUser();
       if (!settingsLoading && !settingsError) {
-        loadData(isMounted);
+        loadData(true);
       }
-      return () => {
-        isMounted = false;
-      };
-    }, [refreshUser, settingsLoading, settingsError, near_expiry_days])
+    }, [refreshUser, loadData, settingsLoading, settingsError])
   );
 
   useEffect(() => {
     if (!settingsLoading && !settingsError) {
       loadData(true);
     }
-  }, [near_expiry_days, settingsLoading, settingsError]);
+  }, [near_expiry_days, settingsLoading, settingsError, loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -207,7 +196,7 @@ export default function DashboardScreen() {
   const nearExpiryCount = nearExpiryAlerts.length;
   const expiredCount = expiredAlerts.length;
 
-  // Important alerts: 4 most urgent alerts (expired first, then near expiry by soonest date, then low stock)
+  // Important alerts: 4 most urgent alerts
   const sortedExpired = [...expiredAlerts].sort(
     (a, b) => (a.days_until_expiration ?? 0) - (b.days_until_expiration ?? 0)
   );
@@ -223,507 +212,772 @@ export default function DashboardScreen() {
     ...sortedLowStock,
   ].slice(0, 4);
 
-  // Sales existence check: if there are no sales at all across all products, both most-sold and least-sold show "No sales yet."
   const hasAnySales = mostSold.some((p) => Number(p.total_sold) > 0);
 
-  // Units sold period display
   const soldToday = metrics?.sold_today ?? 0;
   const soldThisWeek = metrics?.sold_this_week ?? 0;
   const soldThisMonth = metrics?.sold_this_month ?? 0;
 
-  const getPeriodSubtitle = () => {
-    if (period === 'Daily') {
-      return soldToday === 0 ? 'No sold items today' : `${soldToday} sold item(s) today`;
-    }
-    if (period === 'Weekly') {
-      return soldThisWeek === 0 ? 'No sold items this week' : `${soldThisWeek} sold item(s) this week`;
-    }
-    return soldThisMonth === 0 ? 'No sold items this month' : `${soldThisMonth} sold item(s) this month`;
-  };
+  const currentSoldValue =
+    period === 'Daily' ? soldToday : period === 'Weekly' ? soldThisWeek : soldThisMonth;
 
-  if (settingsLoading) {
+  if (settingsLoading || (loading && !refreshing)) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={{ marginTop: 12, color: 'gray' }}>Loading store settings...</Text>
-      </View>
+      <SafeAreaView style={styles.centerContainer} edges={['top', 'left', 'right', 'bottom']}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      </SafeAreaView>
     );
   }
 
-  if (settingsError) {
+  if (settingsError || (error && !loading)) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorTitle}>Failed to load store settings</Text>
-        <Text style={styles.errorMessage}>{settingsError}</Text>
-        <View style={{ marginTop: 16 }}>
-          <Button title="Retry" onPress={reloadSettings} color="#2e7d32" />
+      <SafeAreaView style={styles.centerContainer} edges={['top', 'left', 'right', 'bottom']}>
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>Error Loading Dashboard</Text>
+          <Text style={styles.errorText}>{settingsError || error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => (settingsError ? reloadSettings() : loadData(true))}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    );
-  }
-
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={{ marginTop: 12, color: 'gray' }}>Loading dashboard...</Text>
-      </View>
-    );
-  }
-
-  if (error && !loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorTitle}>Error Loading Dashboard</Text>
-        <Text style={styles.errorMessage}>{error}</Text>
-        <View style={{ marginTop: 16 }}>
-          <Button title="Retry" onPress={() => loadData(true)} />
-        </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControlComponent refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <Text style={styles.screenTitle}>Dashboard</Text>
+    <View style={styles.container}>
+      <StatusBar style="dark" />
 
-      {/* Greeting Header */}
-      <View style={{ marginTop: 12 }}>
-        <Text style={styles.greetingTitle}>Hello, {displayName}!</Text>
-        <Text style={styles.subtitle}>Start keeping your shelves in check.</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControlComponent
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+            />
+          }
+        >
+          {/* Screen Background Image with Yellow Wave (scrolls naturally with content) */}
+          <Image
+            source={require('../../../assets/designs/dashboard-background.png')}
+            style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
+            resizeMode="stretch"
+          />
 
-      {/* CTA Button */}
-      <View style={{ marginTop: 16 }}>
-        <Button
-          title="View Inventory"
+          {/* Top Header Bar */}
+          <View style={styles.header}>
+            <View style={styles.headerTextGroup}>
+              <Text style={styles.greetingTitle}>Hello, {displayName || 'Operator'}!</Text>
+              <Text style={styles.storeSubtitle}>
+                {store_name || 'Retail Inventory'}
+              </Text>
+            </View>
+            <Image
+              source={require('../../../assets/designs/shelfsafe-logo.jpg')}
+              style={styles.headerSymbol}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Responsive Wave Clearance: lowers the section and keeps decorative wave unobstructed */}
+          <View style={{ height: Math.max(28, (200 - 117) * bgScale + 8) }} />
+
+          {/* Quick CTA Action Banner */}
+        <TouchableOpacity
+          style={styles.actionBanner}
+          activeOpacity={0.85}
           onPress={() => navigation.navigate('InventoryTab')}
-        />
-      </View>
-
-      {/* Stock Overview Cards */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={styles.sectionHeader}>Stock Overview</Text>
-        <View style={styles.overviewRow}>
-          <View style={styles.cardLarge}>
-            <Text style={styles.cardLabel}>Total Products</Text>
-            <Text style={styles.cardValueLarge}>{totalProducts}</Text>
+        >
+          <View style={styles.actionBannerLeft}>
+            <View style={styles.actionBannerIconWrapper}>
+              <Package size={20} color={COLORS.primary} strokeWidth={2} />
+            </View>
+            <View>
+              <Text style={styles.actionBannerTitle}>Store Inventory</Text>
+              <Text style={styles.actionBannerSub}>
+                {totalProducts} products • {totalUnits} total units in stock
+              </Text>
+            </View>
           </View>
-          <View style={styles.cardLarge}>
-            <Text style={styles.cardLabel}>Total Units</Text>
-            <Text style={styles.cardValueLarge}>{totalUnits}</Text>
+          <ArrowRight size={18} color={COLORS.textMuted} strokeWidth={2.2} />
+        </TouchableOpacity>
+
+        {/* Section: Stock Overview KPI Cards (Icons on the Left) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Stock Overview</Text>
+
+          {/* Top 2 large metric cards */}
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiCard}>
+              <View style={[styles.kpiIconWrapper, { backgroundColor: COLORS.bgTint }]}>
+                <Package size={20} color={COLORS.primary} strokeWidth={2} />
+              </View>
+              <View style={styles.kpiInfo}>
+                <Text style={styles.kpiLabel}>Total Products</Text>
+                <Text style={styles.kpiValue}>{totalProducts}</Text>
+              </View>
+            </View>
+
+            <View style={styles.kpiCard}>
+              <View style={[styles.kpiIconWrapper, { backgroundColor: '#f1f5f9' }]}>
+                <BarChart2 size={20} color={COLORS.text} strokeWidth={2} />
+              </View>
+              <View style={styles.kpiInfo}>
+                <Text style={styles.kpiLabel}>Total Units</Text>
+                <Text style={styles.kpiValue}>{totalUnits}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom 3 status cards */}
+          <View style={styles.statusRow}>
+            {/* Near Expiry */}
+            <View style={[styles.statusCard, { borderColor: COLORS.amberBorder, backgroundColor: '#fffdf5' }]}>
+              <View style={[styles.statusIconBadge, { backgroundColor: COLORS.amberLight }]}>
+                <Clock size={16} color={COLORS.amberDark} strokeWidth={2.2} />
+              </View>
+              <Text style={[styles.statusValue, { color: COLORS.amberDark }]}>{nearExpiryCount}</Text>
+              <Text style={styles.statusLabel}>Near Expiry</Text>
+            </View>
+
+            {/* Expired */}
+            <View style={[styles.statusCard, { borderColor: COLORS.dangerBorder, backgroundColor: '#fff8f8' }]}>
+              <View style={[styles.statusIconBadge, { backgroundColor: COLORS.dangerLight }]}>
+                <AlertCircle size={16} color={COLORS.danger} strokeWidth={2.2} />
+              </View>
+              <Text style={[styles.statusValue, { color: COLORS.danger }]}>{expiredCount}</Text>
+              <Text style={styles.statusLabel}>Expired</Text>
+            </View>
+
+            {/* Low Stock */}
+            <View style={[styles.statusCard, { borderColor: COLORS.orangeBorder, backgroundColor: '#fffaf5' }]}>
+              <View style={[styles.statusIconBadge, { backgroundColor: COLORS.orangeLight }]}>
+                <TrendingDown size={16} color={COLORS.orangeDark} strokeWidth={2.2} />
+              </View>
+              <Text style={[styles.statusValue, { color: COLORS.orangeDark }]}>{lowStockCount}</Text>
+              <Text style={styles.statusLabel}>Low Stock</Text>
+            </View>
           </View>
         </View>
-        <View style={styles.overviewSmallRow}>
-          <View style={[styles.cardSmall, { borderColor: '#ffeeba', backgroundColor: '#fffdf5' }]}>
-            <Text style={styles.cardLabelSmall}>Low stock (products)</Text>
-            <Text style={styles.cardValueSmall}>{lowStockCount}</Text>
-          </View>
-          <View style={[styles.cardSmall, { borderColor: '#ffeeba', backgroundColor: '#fffdf5' }]}>
-            <Text style={styles.cardLabelSmall}>Near expiry (batches)</Text>
-            <Text style={styles.cardValueSmall}>{nearExpiryCount}</Text>
-          </View>
-          <View style={[styles.cardSmall, { borderColor: '#f5c6cb', backgroundColor: '#fff5f5' }]}>
-            <Text style={styles.cardLabelSmall}>Expired (batches)</Text>
-            <Text style={[styles.cardValueSmall, { color: '#721c24' }]}>
-              {expiredCount}
-            </Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Units Sold Metrics */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={styles.sectionHeader}>Unit Sold</Text>
-        <View style={styles.toggleRow}>
-          <Button
-            title={period === 'Daily' ? '• Daily' : 'Daily'}
-            onPress={() => setPeriod('Daily')}
-          />
-          <Button
-            title={period === 'Weekly' ? '• Weekly' : 'Weekly'}
-            onPress={() => setPeriod('Weekly')}
-          />
-          <Button
-            title={period === 'Monthly' ? '• Monthly' : 'Monthly'}
-            onPress={() => setPeriod('Monthly')}
-          />
-        </View>
+        {/* Section: Units Sold with Period Segment Toggle */}
+        <View style={styles.unitsSoldCard}>
+          <View style={styles.unitsSoldHeader}>
+            <View>
+              <Text style={styles.unitsSoldTitle}>Units Sold</Text>
+              <Text style={styles.unitsSoldSub}>Earliest expiry tracking</Text>
+            </View>
 
-        <View style={styles.metricsRow}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>{soldToday}</Text>
-            <Text style={styles.cardLabel}>Today</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>{soldThisWeek}</Text>
-            <Text style={styles.cardLabel}>This week</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>{soldThisMonth}</Text>
-            <Text style={styles.cardLabel}>This month</Text>
-          </View>
-        </View>
-        <Text style={styles.periodNote}>{getPeriodSubtitle()}</Text>
-      </View>
-
-      {/* Important Alerts */}
-      <View style={{ marginTop: 24 }}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>Important alerts</Text>
-          <Button title="See all" onPress={() => navigation.navigate('AlertsTab')} />
-        </View>
-        <View style={{ marginTop: 8, gap: 8 }}>
-          {importantAlerts.length === 0 ? (
-            <Text style={styles.emptyText}>No urgent alerts. Your shelves look good.</Text>
-          ) : (
-            importantAlerts.map((item, idx) => {
-              const isExpired = item.alert_type === 'expired';
-              const isNearExpiry = item.alert_type === 'near_expiry';
-              const badgeLabel = isExpired
-                ? 'Expired batch'
-                : isNearExpiry
-                ? 'Near expiry'
-                : 'Low Stock';
-              const cardBorder = isExpired ? '#f5c6cb' : '#ffeeba';
-              const cardBg = isExpired ? '#fff5f5' : '#fffdf5';
-              const labelColor = isExpired ? '#721c24' : '#856404';
-
-              const infoLine = isExpired
-                ? `${formatExpirationDaysText(item.days_until_expiration, true)} (${item.batch_quantity_left ?? 0} units left)`
-                : isNearExpiry
-                ? `${formatExpirationDaysText(item.days_until_expiration, false)} (${item.batch_quantity_left ?? 0} units left)`
-                : `Only ${item.current_stock ?? 0} sellable unit(s) left (threshold ${item.low_stock_level ?? 5})`;
-
-              return (
+            {/* Toggle (Daily / Weekly / Monthly) */}
+            <View style={styles.segmentedToggle}>
+              {(['Daily', 'Weekly', 'Monthly'] as const).map((p) => (
                 <TouchableOpacity
-                  key={`${item.product_id}-${item.batch_id || idx}-${item.alert_type}`}
-                  style={[styles.alertCard, { borderColor: cardBorder, backgroundColor: cardBg }]}
-                  onPress={() => navigateToProductDetail(item.product_id, item.product_name)}
+                  key={p}
+                  style={[
+                    styles.toggleButton,
+                    period === p && styles.toggleButtonActive,
+                  ]}
+                  onPress={() => setPeriod(p)}
                 >
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.alertProductName}>{item.product_name}</Text>
-                    <Text style={[styles.alertBadgeText, { color: labelColor }]}>
-                      [{badgeLabel}]
-                    </Text>
-                  </View>
-                  <Text style={styles.alertDetail}>{infoLine}</Text>
+                  <Text
+                    style={[
+                      styles.toggleButtonText,
+                      period === p && styles.toggleButtonTextActive,
+                    ]}
+                  >
+                    {p}
+                  </Text>
                 </TouchableOpacity>
-              );
-            })
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.unitsSoldValueRow}>
+            <Text style={styles.unitsSoldLargeValue}>{currentSoldValue}</Text>
+            <Text style={styles.unitsSoldUnitLabel}>units deducted</Text>
+          </View>
+        </View>
+
+        {/* Section: Urgent Expiry Alerts Preview */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeader}>Urgent Alerts</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AlertsTab')}
+              style={styles.seeAllButton}
+            >
+              <Text style={styles.seeAllLink}>See all ({alerts.length})</Text>
+              <ArrowRight size={13} color={COLORS.primary} strokeWidth={2.4} style={{ marginLeft: 3 }} />
+            </TouchableOpacity>
+          </View>
+
+          {importantAlerts.length === 0 ? (
+            <View style={styles.emptyAlertsBox}>
+              <Text style={styles.emptyAlertsText}>
+                No near-expiry, expired, or low stock items right now.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.alertsList}>
+              {importantAlerts.map((alert, index) => {
+                const isExp = alert.alert_type === 'expired';
+                const isNear = alert.alert_type === 'near_expiry';
+                const badgeBg = isExp
+                  ? COLORS.dangerLight
+                  : isNear
+                  ? COLORS.amberLight
+                  : COLORS.orangeLight;
+                const badgeColor = isExp
+                  ? COLORS.danger
+                  : isNear
+                  ? COLORS.amberDark
+                  : COLORS.orangeDark;
+                const badgeLabel = isExp
+                  ? 'Expired'
+                  : isNear
+                  ? 'Near Expiry'
+                  : 'Low Stock';
+
+                const daysText =
+                  isExp || isNear
+                    ? formatExpirationDaysText(alert.days_until_expiration, isExp)
+                    : `Threshold: ${alert.low_stock_level ?? 5} units`;
+
+                return (
+                  <TouchableOpacity
+                    key={`${alert.alert_type}-${alert.product_id}-${alert.batch_id || index}`}
+                    style={styles.alertCard}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      navigateToProductDetail(alert.product_id, alert.product_name)
+                    }
+                  >
+                    <View style={styles.alertCardTop}>
+                      <View style={[styles.alertBadge, { backgroundColor: badgeBg }]}>
+                        <Text style={[styles.alertBadgeText, { color: badgeColor }]}>
+                          {badgeLabel}
+                        </Text>
+                      </View>
+                      {alert.batch_id && (
+                        <Text style={styles.alertBatchCode}>
+                          B-{alert.batch_id.replace(/-/g, '').slice(0, 8).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+
+                    <Text style={styles.alertProductName} numberOfLines={1}>
+                      {alert.product_name}
+                    </Text>
+
+                    <View style={styles.alertFooter}>
+                      <Text style={styles.alertStockInfo}>
+                        <Text style={styles.alertStockBold}>
+                          {isExp || isNear
+                            ? alert.batch_quantity_left ?? 0
+                            : alert.current_stock ?? 0}
+                        </Text>{' '}
+                        units left
+                      </Text>
+                      <Text style={[styles.alertDaysText, { color: badgeColor }]}>
+                        {daysText}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           )}
         </View>
-      </View>
 
-      {/* Most-Stocked (Top 5) */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={styles.sectionHeader}>Most-stocked</Text>
-        <View style={{ marginTop: 8, gap: 6 }}>
-          {mostStocked.length === 0 ? (
-            <Text style={styles.emptyText}>No stocked products yet.</Text>
-          ) : (
-            mostStocked.map((prod) => (
-              <TouchableOpacity
-                key={prod.product_id}
-                style={styles.listItem}
-                onPress={() => navigateToProductDetail(prod.product_id, prod.product_name)}
-              >
-                <Text style={styles.itemTitle}>• {prod.product_name}</Text>
-                <Text style={styles.itemValue}>{prod.total_stock} units</Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </View>
+        {/* Section: Sales Rankings Breakdown */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Top Stocked Products</Text>
 
-      {/* Most-Sold (Top 5) */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={styles.sectionHeader}>Most-sold</Text>
-        <View style={{ marginTop: 8, gap: 6 }}>
-          {!hasAnySales ? (
-            <Text style={styles.emptyText}>No sales yet.</Text>
-          ) : (
-            mostSold.map((prod) => (
-              <TouchableOpacity
-                key={prod.product_id}
-                style={styles.listItem}
-                onPress={() => navigateToProductDetail(prod.product_id, prod.product_name)}
-              >
-                <Text style={styles.itemTitle}>• {prod.product_name}</Text>
-                <Text style={styles.itemValue}>{prod.total_sold} sold</Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </View>
-
-      {/* Least-Sold (Top 5) */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={styles.sectionHeader}>Least sold</Text>
-        <View style={{ marginTop: 8, gap: 6 }}>
-          {!hasAnySales ? (
-            <Text style={styles.emptyText}>No sales yet.</Text>
-          ) : (
-            leastSold.map((prod) => (
-              <TouchableOpacity
-                key={prod.product_id}
-                style={styles.listItem}
-                onPress={() => navigateToProductDetail(prod.product_id, prod.product_name)}
-              >
-                <Text style={styles.itemTitle}>• {prod.product_name}</Text>
-                <Text style={styles.itemValue}>
-                  {prod.total_sold} sold ({prod.total_stock} in stock)
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </View>
-
-      {/* Low Stock Section */}
-      <View style={{ marginTop: 24 }}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>Low Stock</Text>
-          <Button title="See all" onPress={() => navigation.navigate('AlertsTab')} />
-        </View>
-        <View style={{ marginTop: 8, gap: 6 }}>
-          {lowStockAlerts.length === 0 ? (
-            <Text style={styles.emptyText}>No low stock products.</Text>
-          ) : (
-            lowStockAlerts.slice(0, 5).map((item) => (
+          {/* Most Stocked */}
+          <View style={styles.breakdownCard}>
+            <Text style={styles.breakdownTitle}>Top Stocked Products</Text>
+            {mostStocked.slice(0, 3).map((item, idx) => (
               <TouchableOpacity
                 key={item.product_id}
-                style={styles.listItem}
+                style={styles.breakdownRow}
                 onPress={() => navigateToProductDetail(item.product_id, item.product_name)}
               >
-                <Text style={styles.itemTitle}>• {item.product_name}</Text>
-                <Text style={styles.itemValue}>
-                  {item.current_stock ?? 0} left (threshold {item.low_stock_level ?? 5})
+                <View style={styles.rankBadge}>
+                  <Text style={styles.rankText}>#{idx + 1}</Text>
+                </View>
+                <Text style={styles.breakdownName} numberOfLines={1}>
+                  {item.product_name}
                 </Text>
+                <Text style={styles.breakdownValue}>{item.total_stock} units</Text>
               </TouchableOpacity>
-            ))
-          )}
+            ))}
+          </View>
         </View>
-      </View>
-
-      {/* Near Expiry Section */}
-      <View style={{ marginTop: 24 }}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>Near Expiry</Text>
-          <Button title="See all" onPress={() => navigation.navigate('AlertsTab')} />
-        </View>
-        <View style={{ marginTop: 8, gap: 6 }}>
-          {nearExpiryAlerts.length === 0 ? (
-            <Text style={styles.emptyText}>No near expiry batches.</Text>
-          ) : (
-            nearExpiryAlerts.slice(0, 5).map((item, idx) => (
-              <TouchableOpacity
-                key={`${item.product_id}-${item.batch_id || idx}`}
-                style={styles.listItem}
-                onPress={() => navigateToProductDetail(item.product_id, item.product_name)}
-              >
-                <Text style={styles.itemTitle}>• {item.product_name}</Text>
-                <Text style={styles.itemValue}>
-                  {item.batch_quantity_left ?? 0} units (
-                  {formatExpirationDaysText(item.days_until_expiration, false)})
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </View>
-
-      {/* Expired Section */}
-      <View style={{ marginTop: 24, marginBottom: 40 }}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>Expired</Text>
-          <Button title="See all" onPress={() => navigation.navigate('AlertsTab')} />
-        </View>
-        <View style={{ marginTop: 8, gap: 6 }}>
-          {expiredAlerts.length === 0 ? (
-            <Text style={styles.emptyText}>No expired batches.</Text>
-          ) : (
-            expiredAlerts.slice(0, 5).map((item, idx) => (
-              <TouchableOpacity
-                key={`${item.product_id}-${item.batch_id || idx}`}
-                style={styles.listItem}
-                onPress={() => navigateToProductDetail(item.product_id, item.product_name)}
-              >
-                <Text style={styles.itemTitle}>• {item.product_name}</Text>
-                <Text style={styles.itemValue}>
-                  {item.batch_quantity_left ?? 0} units (
-                  {formatExpirationDaysText(item.days_until_expiration, true)})
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: COLORS.dashboardCanvas,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
   centerContainer: {
     flex: 1,
-    padding: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: COLORS.dashboardCanvas,
+    padding: 24,
   },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.dangerDark,
+    marginBottom: 6,
+  },
+  errorText: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.dangerDark,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTextGroup: {
+    flex: 1,
+    marginRight: 12,
   },
   greetingTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 25,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
   },
-  subtitle: {
-    color: 'gray',
-    marginTop: 4,
+  storeSubtitle: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
-  sectionHeader: {
+  fefoBadge: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  headerSymbol: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+  },
+  actionBanner: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  actionBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionBannerIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBannerIcon: {
     fontSize: 18,
+  },
+  actionBannerTitle: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+  },
+  actionBannerSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontFamily: FONTS.medium,
+    marginTop: 2,
+  },
+  actionBannerArrow: {
+    color: COLORS.white,
+    fontSize: 20,
     fontWeight: 'bold',
+  },
+  section: {
+    marginBottom: 24,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  overviewRow: {
+  sectionHeader: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+    letterSpacing: -0.2,
+    marginBottom: 12,
+  },
+  seeAllButton: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    alignItems: 'center',
+    minHeight: 44,
+    paddingVertical: 8,
   },
-  overviewSmallRow: {
+  seeAllLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  kpiRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    gap: 12,
+    marginBottom: 12,
   },
-  cardLarge: {
+  kpiCard: {
     flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 12,
-    borderRadius: 4,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  cardSmall: {
+  kpiIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kpiIcon: {
+    fontSize: 18,
+  },
+  kpiInfo: {
     flex: 1,
-    borderWidth: 1,
-    padding: 10,
-    borderRadius: 4,
   },
-  cardLabel: {
-    color: 'gray',
-    fontSize: 13,
-  },
-  cardLabelSmall: {
-    color: '#555',
+  kpiLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
   },
-  cardValueLarge: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 4,
+  kpiValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    fontFamily: FONTS.black,
+    color: COLORS.text,
+    marginTop: 2,
   },
-  cardValueSmall: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  toggleRow: {
+  statusRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    gap: 10,
   },
-  metricsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  metricCard: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 12,
+  statusCard: {
     flex: 1,
-    borderRadius: 4,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    alignItems: 'center',
   },
-  metricValue: {
+  statusIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  statusIcon: {
+    fontSize: 14,
+  },
+  statusValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    fontFamily: FONTS.black,
   },
-  periodNote: {
-    color: 'gray',
-    marginTop: 6,
-    fontSize: 13,
+  statusLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  unitsSoldCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 24,
+  },
+  unitsSoldHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  unitsSoldTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    color: COLORS.text,
+  },
+  unitsSoldSub: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
+  segmentedToggle: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.bgWarm,
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  toggleButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  toggleButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  toggleButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  toggleButtonTextActive: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  unitsSoldValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: 12,
+  },
+  unitsSoldLargeValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    fontFamily: FONTS.black,
+    color: COLORS.text,
+  },
+  unitsSoldUnitLabel: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  emptyAlertsBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  emptyAlertsText: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  alertsList: {
+    gap: 10,
   },
   alertCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
-    padding: 10,
+    borderColor: COLORS.border,
+  },
+  alertCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  alertBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  alertBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
+    textTransform: 'uppercase',
+  },
+  alertBatchCode: {
+    fontSize: 11,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSubtle,
+    backgroundColor: COLORS.bgWarm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
   },
-  rowBetween: {
+  alertProductName: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  alertFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  alertProductName: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    flex: 1,
-    marginRight: 8,
-  },
-  alertBadgeText: {
-    fontWeight: 'bold',
+  alertStockInfo: {
     fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
   },
-  alertDetail: {
-    marginTop: 4,
-    color: '#444',
-    fontSize: 13,
+  alertStockBold: {
+    fontWeight: '700',
+    color: COLORS.text,
   },
-  listItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+  alertDaysText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+  },
+  breakdownCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 4,
-    backgroundColor: '#fafafa',
+    borderColor: COLORS.border,
   },
-  itemTitle: {
-    fontWeight: '500',
+  breakdownTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  rankBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: COLORS.bgTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  rankText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  breakdownName: {
     flex: 1,
+    fontSize: 13,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
   },
-  itemValue: {
-    color: '#555',
-    marginLeft: 8,
-  },
-  emptyText: {
-    color: 'gray',
-    fontStyle: 'italic',
-    paddingVertical: 4,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#721c24',
-  },
-  errorMessage: {
-    color: '#721c24',
-    textAlign: 'center',
-    marginTop: 8,
+  breakdownValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
   },
 });

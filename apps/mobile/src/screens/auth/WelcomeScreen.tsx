@@ -1,39 +1,123 @@
 /**
- * Screen: WelcomeScreen
- * Reference: docs/design/01-welcome-signin-signup(1).png
+ * Screen: WelcomeScreen (Mobile Landing Page)
+ * Background: apps/mobile/assets/designs/landing-background.jpg
+ * Reference: docs/design/references/mobile-landing-reference.png
  * Elements:
- * - Screen Name: Welcome
- * - ShelfSafe Title & Tagline ("Know what's on your shelf and when it expires")
- * - Subtitle ("Count stock. Track expiry. Sell first-expired items first")
- * - "Sign in" button
- * - "Create an account" button
+ * - Full-bleed landing background image containing ShelfSafe branding & illustrations
+ * - Functional "Sign In" primary button
+ * - Functional "Create Account" secondary button
  */
 import React from 'react';
-import { View, Text, Button } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
+import { COLORS, FONTS } from '../../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
 export default function WelcomeScreen({ navigation }: Props) {
   return (
-    <View style={{ flex: 1, padding: 24, justifyContent: 'center' }}>
-      <Text style={{ fontSize: 28, fontWeight: 'bold' }}>Welcome</Text>
-      <Text style={{ fontSize: 22, marginTop: 12 }}>ShelfSafe</Text>
-      <Text style={{ fontSize: 18, marginTop: 8 }}>
-        Know what's on your shelf and when it expires
-      </Text>
-      <Text style={{ fontSize: 14, marginTop: 4, color: 'gray' }}>
-        Count stock. Track expiry. Sell first-expired items first
-      </Text>
+    <View style={styles.container}>
+      <StatusBar style="dark" />
+      {/* Full-bleed landing artwork */}
+      <Image
+        source={require('../../../assets/designs/landing-background.jpg')}
+        style={styles.bgImage}
+        resizeMode="cover"
+      />
 
-      <View style={{ marginTop: 32, gap: 12 }}>
-        <Button title="Sign in" onPress={() => navigation.navigate('SignIn')} />
-        <Button
-          title="Create an account"
-          onPress={() => navigation.navigate('CreateAccount')}
-        />
-      </View>
+      {/* Bottom functional buttons positioned in the lower cream section */}
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('SignIn')}
+            accessibilityRole="button"
+            accessibilityLabel="Sign In"
+          >
+            <Text style={styles.primaryButtonText}>Sign In</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('CreateAccount')}
+            accessibilityRole="button"
+            accessibilityLabel="Create Account"
+          >
+            <Text style={styles.secondaryButtonText}>Create Account</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.canvas,
+  },
+  bgImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+  safeArea: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 28,
+    paddingBottom: 6,
+  },
+  buttonContainer: {
+    width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
+    gap: 12,
+    marginBottom: 4,
+  },
+  primaryButton: {
+    backgroundColor: COLORS.primary,
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  primaryButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    letterSpacing: -0.2,
+  },
+  secondaryButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: '#ece3d2',
+    height: 50,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
+    letterSpacing: -0.2,
+  },
+});
