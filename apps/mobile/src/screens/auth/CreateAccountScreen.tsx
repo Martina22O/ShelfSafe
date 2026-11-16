@@ -39,15 +39,16 @@ export default function CreateAccountScreen({ navigation }: Props) {
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
   const bgScale = screenWidth / 402;
-  const waveClearance = Math.max(175, 210 * bgScale);
-  // Position heading around vertical middle (~44-46% of screen height)
-  // Responsively adjusted so the entire form (name, email, password, button, sign-in link)
-  // fits cleanly on screen with zero scrolling required when the keyboard is closed
+  const panelHeight = Math.round(874 * bgScale);
+  const upperArtworkHeight = Math.round(231 * bgScale);
+
+  // Position form content below the wave while keeping heading near vertical middle (~42%)
+  const waveClearance = Math.round(335 * bgScale);
   const formTopPadding = Math.max(
-    waveClearance + 16,
+    waveClearance,
     Math.min(
-      Math.round(screenHeight * 0.44),
-      screenHeight - 340 - insets.bottom - 16
+      Math.round(screenHeight * 0.42),
+      screenHeight - 435 - insets.bottom - 24
     )
   );
 
@@ -103,19 +104,26 @@ export default function CreateAccountScreen({ navigation }: Props) {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Background artwork with ShelfSafe logo & wave */}
-      <Image
-        source={require('../../../assets/designs/signup-background.jpg')}
+      {/* Stationary upper artwork: logo & leaves only, clipped strictly above the wave */}
+      <View
         style={[
-          styles.bgImage,
+          styles.upperArtworkContainer,
           {
             width: screenWidth,
-            height: Math.max(screenHeight, 874 * bgScale),
+            height: upperArtworkHeight,
           },
         ]}
-        resizeMode="cover"
         pointerEvents="none"
-      />
+      >
+        <Image
+          source={require('../../../assets/designs/signup-background.jpg')}
+          style={{
+            width: screenWidth,
+            height: panelHeight,
+          }}
+          resizeMode="contain"
+        />
+      </View>
 
       {/* Top back button */}
       <TouchableOpacity
@@ -130,130 +138,163 @@ export default function CreateAccountScreen({ navigation }: Props) {
 
       <KeyboardAwareScreen
         ref={scrollRef}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: formTopPadding,
-            paddingBottom: Math.max(insets.bottom, 16) + 14,
-          },
-        ]}
+        contentContainerStyle={styles.scrollContent}
         bottomOffset={32}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Create Your Account</Text>
-          <Text style={styles.subtitle}>Start keeping your shelves in check.</Text>
-        </View>
+        <View style={[styles.movingLayer, { minHeight: screenHeight }]}>
+          {/* Proportional edge-to-edge moving panel artwork */}
+          <Image
+            source={require('../../../assets/designs/signup-form-panel.png')}
+            style={[
+              styles.panelImage,
+              {
+                width: screenWidth,
+                height: panelHeight,
+              },
+            ]}
+            resizeMode="contain"
+            pointerEvents="none"
+          />
 
-        {/* Error Banner */}
-        {errorMessage ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        ) : null}
+          {/* Seamless matching cream extension for taller devices and keyboard scroll padding */}
+          <View
+            style={[
+              styles.creamFill,
+              {
+                top: panelHeight - 1,
+                height: Math.max(0, screenHeight - panelHeight) + 600,
+              },
+            ]}
+            pointerEvents="none"
+          />
 
-        {/* Success / Info Banner */}
-        {infoMessage ? (
-          <View style={styles.infoBox}>
-            <CheckCircle2 size={18} color={COLORS.primary} strokeWidth={2} />
-            <Text style={styles.infoText}>{infoMessage}</Text>
-          </View>
-        ) : null}
+          {/* Form content aligned below the wave */}
+          <View
+            style={[
+              styles.formContent,
+              {
+                paddingTop: formTopPadding,
+                paddingBottom: Math.max(insets.bottom, 16) + 24,
+              },
+            ]}
+          >
+            <View style={styles.header}>
+              <Text style={styles.title}>Create Your Account</Text>
+              <Text style={styles.subtitle}>Start keeping your shelves in check.</Text>
+            </View>
 
-        {/* Form Fields */}
-        <View style={styles.formContainer}>
-          {/* Full Name Field */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Juan Dela Cruz"
-              placeholderTextColor={COLORS.textSubtle}
-              value={name}
-              onChangeText={(text) => {
-                setName(text);
-                if (errorMessage) setErrorMessage(null);
-              }}
-              autoCapitalize="words"
-              editable={!loading}
-            />
-          </View>
+            {/* Error Banner */}
+            {errorMessage ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
 
-          {/* Email Field */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="you@example.com"
-              placeholderTextColor={COLORS.textSubtle}
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errorMessage) setErrorMessage(null);
-              }}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              editable={!loading}
-            />
-          </View>
+            {/* Success / Info Banner */}
+            {infoMessage ? (
+              <View style={styles.infoBox}>
+                <CheckCircle2 size={18} color={COLORS.primary} strokeWidth={2} />
+                <Text style={styles.infoText}>{infoMessage}</Text>
+              </View>
+            ) : null}
 
-          {/* Password Field */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="At least 8 characters"
-                placeholderTextColor={COLORS.textSubtle}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (errorMessage) setErrorMessage(null);
-                }}
-                secureTextEntry={!showPassword}
-                editable={!loading}
-              />
+            {/* Form Fields */}
+            <View style={styles.formContainer}>
+              {/* Full Name Field */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Full Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Juan Dela Cruz"
+                  placeholderTextColor={COLORS.textSubtle}
+                  value={name}
+                  onChangeText={(text) => {
+                    setName(text);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  autoCapitalize="words"
+                  editable={!loading}
+                />
+              </View>
+
+              {/* Email Field */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@example.com"
+                  placeholderTextColor={COLORS.textSubtle}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  editable={!loading}
+                />
+              </View>
+
+              {/* Password Field */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="At least 8 characters"
+                    placeholderTextColor={COLORS.textSubtle}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
+                    secureTextEntry={!showPassword}
+                    editable={!loading}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                    activeOpacity={0.7}
+                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                    accessibilityRole="button"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={20} color={COLORS.textMuted} strokeWidth={2} />
+                    ) : (
+                      <Eye size={20} color={COLORS.textMuted} strokeWidth={2} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.helperText}>Must be at least 8 characters</Text>
+              </View>
+
+              {/* Create Account Primary Button */}
               <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-                activeOpacity={0.7}
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                activeOpacity={0.85}
+                onPress={handleSignUp}
+                disabled={loading}
                 accessibilityRole="button"
               >
-                {showPassword ? (
-                  <EyeOff size={20} color={COLORS.textMuted} strokeWidth={2} />
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} size="small" />
                 ) : (
-                  <Eye size={20} color={COLORS.textMuted} strokeWidth={2} />
+                  <Text style={styles.primaryButtonText}>Create Account</Text>
                 )}
               </TouchableOpacity>
+
+              {/* Link to Sign In */}
+              <View style={styles.signInRow}>
+                <Text style={styles.signInPrompt}>Already have an account? </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('SignIn')}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.signInLink}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <Text style={styles.helperText}>Must be at least 8 characters</Text>
-          </View>
-
-          {/* Create Account Primary Button */}
-          <TouchableOpacity
-            style={[styles.primaryButton, loading && styles.buttonDisabled]}
-            activeOpacity={0.85}
-            onPress={handleSignUp}
-            disabled={loading}
-            accessibilityRole="button"
-          >
-            {loading ? (
-              <ActivityIndicator color={COLORS.white} size="small" />
-            ) : (
-              <Text style={styles.primaryButtonText}>Create Account</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Link to Sign In */}
-          <View style={styles.signInRow}>
-            <Text style={styles.signInPrompt}>Already have an account? </Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('SignIn')}
-              accessibilityRole="button"
-            >
-              <Text style={styles.signInLink}>Sign In</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAwareScreen>
@@ -264,13 +305,14 @@ export default function CreateAccountScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.canvas,
+    backgroundColor: '#ffffff',
   },
-  bgImage: {
+  upperArtworkContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    overflow: 'hidden',
   },
   backButton: {
     position: 'absolute',
@@ -286,7 +328,27 @@ const styles = StyleSheet.create({
     borderColor: '#ece3d2',
   },
   scrollContent: {
+    flexGrow: 1,
+  },
+  movingLayer: {
+    width: '100%',
+    position: 'relative',
+  },
+  panelImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  creamFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: '#fef7e5',
+  },
+  formContent: {
     paddingHorizontal: 24,
+    width: '100%',
   },
   header: {
     marginBottom: 14,
