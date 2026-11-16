@@ -7,6 +7,7 @@ import {
   Clock,
   Archive,
   KeyRound,
+  Radio,
 } from 'lucide-react';
 
 export default function HelpPage() {
@@ -16,7 +17,7 @@ export default function HelpPage() {
         <div className="flex items-center gap-2.5">
           <h1 className="text-2xl font-black text-[#181413] tracking-tight">Help &amp; Knowledge Base</h1>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#fef9f0] text-[#7a7469] border border-[#ece3d2]">
-            7 Guides
+            8 Guides
           </span>
         </div>
         <p className="text-xs text-[#7a7469] mt-1">
@@ -117,6 +118,19 @@ export default function HelpPage() {
           </div>
           <p className="text-xs text-[#524c40] leading-relaxed">
             Password reset by email is not available yet. If you know your current password, you can change your password directly in the Profile page while signed in.
+          </p>
+        </section>
+
+        {/* Q8: Live updates across devices */}
+        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+          <div className="flex items-center gap-2 text-[#207429]">
+            <Radio className="w-5 h-5 shrink-0" />
+            <h2 className="text-sm font-bold text-[#181413]">
+              Does ShelfSafe update live when stock changes on another device?
+            </h2>
+          </div>
+          <p className="text-xs text-[#524c40] leading-relaxed">
+            Yes. The web dashboard listens for live changes to products, batches, sales, and store settings made from other devices or the mobile app and updates automatically without a page reload. An active internet connection is required for live updates.
           </p>
         </section>
       </div>

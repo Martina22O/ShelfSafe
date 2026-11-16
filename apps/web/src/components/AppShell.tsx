@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 import { useStoreSettings } from '../context/StoreSettingsContext';
+import { useRealtime } from '../lib/realtime';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -46,6 +47,7 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { store_name, loading: settingsLoading, error: settingsError, reload, clearStoreSettings } = useStoreSettings();
+  const { status: realtimeStatus } = useRealtime();
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -308,8 +310,31 @@ export function AppShell({ children }: AppShellProps) {
             </form>
           </div>
 
-          {/* Right: Notification Bell & User Badge */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Right: Live Status, Notification Bell & User Badge */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Live Realtime Status Indicator */}
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold select-none ${
+                realtimeStatus === 'live'
+                  ? 'border-[#207429]/30 bg-[#f4ffe1]/70 text-[#207429]'
+                  : 'border-[#ece3d2] bg-[#fef9f0] text-[#7a7469]'
+              }`}
+              title={
+                realtimeStatus === 'live'
+                  ? 'Realtime updates are live and active'
+                  : 'Connecting to realtime service...'
+              }
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  realtimeStatus === 'live'
+                    ? 'bg-[#207429]'
+                    : 'bg-amber-500'
+                }`}
+              />
+              <span>{realtimeStatus === 'live' ? 'Live' : 'Reconnecting...'}</span>
+            </div>
+
             <Link
               href="/notifications"
               className="relative p-2 rounded-lg border border-[#e5e7eb] text-[#4a443a] hover:bg-[#f8faf8] hover:text-[#207429] transition-colors"
