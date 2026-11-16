@@ -27,7 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Search, Package, ArrowRight, X } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useFocusEffect, useScrollToTop, useIsFocused } from '@react-navigation/native';
 import { InventoryStackParamList } from '../../navigation/types';
 import {
   getInventory,
@@ -36,6 +36,7 @@ import {
   restoreProduct,
 } from '../../services/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
+import { useRealtime } from '../../services/realtime';
 import { ProductWithBatches, Category, ProductStockStatus, Product } from '../../types/inventory';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
@@ -57,6 +58,9 @@ export default function InventoryListScreen({ navigation }: Props) {
     error: settingsError,
     reload: reloadSettings,
   } = useStoreSettings();
+  const isFocused = useIsFocused();
+  const { dataVersion } = useRealtime();
+  const deferredRefreshRef = useRef(false);
 
   const [allProducts, setAllProducts] = useState<ProductWithBatches[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -129,6 +133,43 @@ export default function InventoryListScreen({ navigation }: Props) {
       };
     }, [near_expiry_days, settingsLoading, settingsError, showArchived])
   );
+
+  // Background silent refresh when data changes on another device
+  useEffect(() => {
+    if (!isFocused) return;
+    if (dataVersion === 0) return;
+
+    if (restoring) {
+      deferredRefreshRef.current = true;
+      return;
+    }
+
+    let isMounted = true;
+    const run = async () => {
+      await loadData(isMounted);
+      if (showArchived && isMounted) {
+        await loadArchivedData(isMounted);
+      }
+    };
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dataVersion, isFocused, restoring, showArchived]);
+
+  // Execute deferred refresh once mutation completes
+  useEffect(() => {
+    if (!restoring && deferredRefreshRef.current) {
+      deferredRefreshRef.current = false;
+      if (isFocused) {
+        void loadData();
+        if (showArchived) {
+          void loadArchivedData();
+        }
+      }
+    }
+  }, [restoring, isFocused, showArchived]);
 
   const loadArchivedData = async (isMounted = true) => {
     setLoadingArchived(true);

@@ -22,11 +22,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AlertCircle, Clock, Bell } from 'lucide-react-native';
-import { useNavigation, useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useScrollToTop, useIsFocused } from '@react-navigation/native';
 import { getInventoryAlerts } from '../../services/inventory';
 import { InventoryAlert } from '../../types/inventory';
 import { formatDisplayDate } from '../../utils/date';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
+import { useRealtime } from '../../services/realtime';
 import {
   getSuggestedAction,
   formatExpirationDaysText,
@@ -49,6 +50,8 @@ export default function NotificationsScreen() {
     error: settingsError,
     reload: reloadSettings,
   } = useStoreSettings();
+  const isFocused = useIsFocused();
+  const { dataVersion, status } = useRealtime();
 
   const [alerts, setAlerts] = useState<InventoryAlert[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<FilterKey>('All');
@@ -99,6 +102,22 @@ export default function NotificationsScreen() {
       loadData(true);
     }
   }, [near_expiry_days, settingsLoading, settingsError]);
+
+  // Background silent refresh when data changes on another device
+  useEffect(() => {
+    if (!isFocused) return;
+    if (dataVersion === 0) return;
+
+    let isMounted = true;
+    const run = async () => {
+      await loadData(isMounted);
+    };
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dataVersion, isFocused]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -223,7 +242,9 @@ export default function NotificationsScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Notifications Center</Text>
             <Text style={styles.subtitle}>
-              Real-time shelf alerts and batch expiry tracking
+              {status === 'live'
+                ? 'Updates automatically when stock changes on another device.'
+                : 'Pull down to refresh.'}
             </Text>
           </View>
 

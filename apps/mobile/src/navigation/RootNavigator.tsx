@@ -14,6 +14,7 @@ import MainTabNavigator from './MainTabNavigator';
 import AuthLoadingScreen from '../screens/auth/AuthLoadingScreen';
 import { StoreSettingsProvider } from '../context/StoreSettingsContext';
 import { SaleCartProvider } from '../context/SaleCartContext';
+import { RealtimeProvider } from '../services/realtime';
 
 export default function RootNavigator() {
   const [session, setSession] = useState<Session | null>(null);
@@ -63,9 +64,11 @@ export default function RootNavigator() {
 
   return session ? (
     <StoreSettingsProvider key={session.user.id}>
-      <SaleCartProvider>
-        <MainTabNavigator />
-      </SaleCartProvider>
+      <RealtimeProvider>
+        <SaleCartProvider>
+          <MainTabNavigator />
+        </SaleCartProvider>
+      </RealtimeProvider>
     </StoreSettingsProvider>
   ) : (
     <AuthNavigator />

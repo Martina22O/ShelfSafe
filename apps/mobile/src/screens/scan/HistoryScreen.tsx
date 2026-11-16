@@ -2,7 +2,7 @@
  * Screen: HistoryScreen
  * Displays sales history deductions using get_sale_history RPC with real-time undo.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,10 +17,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ClipboardList, Undo2 } from 'lucide-react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useIsFocused } from '@react-navigation/native';
 import { getSaleHistory, undoSale } from '../../services/inventory';
 import { SaleHistoryRecord } from '../../types/inventory';
 import { formatManilaDateTime } from '../../utils/date';
+import { useRealtime } from '../../services/realtime';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 const RefreshControlComponent = RefreshControl as any;
@@ -38,6 +39,10 @@ export default function HistoryScreen() {
   const [confirmingSaleId, setConfirmingSaleId] = useState<string | null>(null);
   const [undoingSaleId, setUndoingSaleId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const isFocused = useIsFocused();
+  const { dataVersion } = useRealtime();
+  const deferredRefreshRef = useRef(false);
 
   const loadHistory = async (isMounted = true) => {
     setError(null);
@@ -66,6 +71,37 @@ export default function HistoryScreen() {
       };
     }, [])
   );
+
+  // Background silent refresh when data changes on another device
+  useEffect(() => {
+    if (!isFocused) return;
+    if (dataVersion === 0) return;
+
+    if (undoingSaleId !== null) {
+      deferredRefreshRef.current = true;
+      return;
+    }
+
+    let isMounted = true;
+    const run = async () => {
+      await loadHistory(isMounted);
+    };
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dataVersion, isFocused, undoingSaleId]);
+
+  // Execute deferred refresh once undo action finishes
+  useEffect(() => {
+    if (undoingSaleId === null && deferredRefreshRef.current) {
+      deferredRefreshRef.current = false;
+      if (isFocused) {
+        void loadHistory(true);
+      }
+    }
+  }, [undoingSaleId, isFocused]);
 
   const onRefresh = () => {
     setRefreshing(true);

@@ -9,7 +9,7 @@
  * - Batch dates edit modal
  * - Delete batch & Delete product confirmation modals
  */
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, Edit, Trash2, Plus, Package, ShieldCheck, Layers } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { InventoryStackParamList } from '../../navigation/types';
 import {
   getProductWithBatches,
@@ -40,6 +40,7 @@ import {
   removeProduct,
 } from '../../services/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
+import { useRealtime } from '../../services/realtime';
 import { ProductWithBatches, ProductStockStatus, Batch } from '../../types/inventory';
 import {
   formatDisplayDate,
@@ -103,6 +104,17 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   // Delete Product Modal State
   const [deleteProductModalVisible, setDeleteProductModalVisible] = useState(false);
 
+  const isFocused = useIsFocused();
+  const { dataVersion } = useRealtime();
+  const deferredRefreshRef = useRef(false);
+
+  const isBusy =
+    saving ||
+    qtyModalVisible ||
+    datesModalVisible ||
+    deleteBatchModalVisible ||
+    deleteProductModalVisible;
+
   // Prevent hardware back navigation during active saving
   useEffect(() => {
     const backAction = () => {
@@ -162,6 +174,37 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
       };
     }, [productId, near_expiry_days, settingsLoading, settingsError])
   );
+
+  // Background silent refresh when data changes on another device
+  useEffect(() => {
+    if (!isFocused) return;
+    if (dataVersion === 0) return;
+
+    if (isBusy) {
+      deferredRefreshRef.current = true;
+      return;
+    }
+
+    let isMounted = true;
+    const run = async () => {
+      await loadProduct(isMounted);
+    };
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dataVersion, isFocused, isBusy]);
+
+  // Execute deferred refresh once user closes modal or action finishes
+  useEffect(() => {
+    if (!isBusy && deferredRefreshRef.current) {
+      deferredRefreshRef.current = false;
+      if (isFocused) {
+        void loadProduct();
+      }
+    }
+  }, [isBusy, isFocused]);
 
   const onRefresh = () => {
     setRefreshing(true);
