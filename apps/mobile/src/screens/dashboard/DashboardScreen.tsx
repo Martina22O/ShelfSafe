@@ -32,7 +32,7 @@ import {
   TrendingDown,
   ArrowRight,
 } from 'lucide-react-native';
-import { useNavigation, useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useScrollToTop, useIsFocused } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 import {
   getInventory,
@@ -51,6 +51,7 @@ import {
   LeastSoldProduct,
 } from '../../types/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
+import { useRealtime } from '../../services/realtime';
 import { formatExpirationDaysText } from '../../utils/suggestedActions';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
@@ -70,6 +71,8 @@ export default function DashboardScreen() {
     error: settingsError,
     reload: reloadSettings,
   } = useStoreSettings();
+  const isFocused = useIsFocused();
+  const { dataVersion } = useRealtime();
   const [displayName, setDisplayName] = useState('');
   const [period, setPeriod] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
 
@@ -170,6 +173,23 @@ export default function DashboardScreen() {
       loadData(true);
     }
   }, [near_expiry_days, settingsLoading, settingsError, loadData]);
+
+  // Background silent refresh when data changes on another device
+  useEffect(() => {
+    if (!isFocused) return;
+    if (dataVersion === 0) return;
+
+    let isMounted = true;
+    const run = async () => {
+      if (!isMounted) return;
+      await loadData(true);
+    };
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dataVersion, isFocused, loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
