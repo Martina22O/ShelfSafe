@@ -24,6 +24,7 @@ import { ProfileStackParamList } from '../../navigation/types';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { saveNearExpiryDays } from '../../services/storeSettings';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<
   ProfileStackParamList,
@@ -114,7 +115,10 @@ export default function NotificationPreferencesScreen({ navigation }: Props) {
         style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
         resizeMode="stretch"
       />
-      <View style={styles.content}>
+      <KeyboardAwareScreen
+        contentContainerStyle={[styles.content, { flexGrow: 1 }]}
+        bottomOffset={32}
+      >
         <Text style={styles.screenSub}>
           Configure how many days in advance products are flagged as Near Expiry
         </Text>
@@ -239,7 +243,7 @@ export default function NotificationPreferencesScreen({ navigation }: Props) {
             </View>
           </View>
         </Modal>
-      </View>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }

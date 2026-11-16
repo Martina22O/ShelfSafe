@@ -12,7 +12,7 @@
  * - "Already have an account? Sign In" link
  * - Keyboard-aware scrolling & Supabase registration
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,10 +20,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Keyboard,
-  Platform,
   Image,
   Dimensions,
 } from 'react-native';
@@ -34,8 +30,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
 import { COLORS, FONTS } from '../../theme';
-
-const KeyboardAvoiding = KeyboardAvoidingView as any;
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'CreateAccount'>;
 
@@ -57,20 +52,6 @@ export default function CreateAccountScreen({ navigation }: Props) {
   );
 
   const scrollRef = useRef<any>(null);
-
-  useEffect(() => {
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        scrollRef.current?.scrollTo({ y: 0, animated: true });
-      }
-    );
-    return () => hideSub.remove();
-  }, []);
-
-  const handleInputFocus = (offset: number) => {
-    scrollRef.current?.scrollTo({ y: offset, animated: true });
-  };
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -147,145 +128,135 @@ export default function CreateAccountScreen({ navigation }: Props) {
         <ArrowLeft size={22} color={COLORS.text} strokeWidth={2.2} />
       </TouchableOpacity>
 
-      <KeyboardAvoiding
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <KeyboardAwareScreen
+        ref={scrollRef}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: formTopPadding,
+            paddingBottom: Math.max(insets.bottom, 16) + 14,
+          },
+        ]}
+        bottomOffset={32}
       >
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: formTopPadding,
-              paddingBottom: Math.max(insets.bottom, 16) + 14,
-            },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header Title & Subtitle */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Create Your Account</Text>
-            <Text style={styles.subtitle}>Start keeping your shelves in check.</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Create Your Account</Text>
+          <Text style={styles.subtitle}>Start keeping your shelves in check.</Text>
+        </View>
+
+        {/* Error Banner */}
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Success / Info Banner */}
+        {infoMessage ? (
+          <View style={styles.infoBox}>
+            <CheckCircle2 size={18} color={COLORS.primary} strokeWidth={2} />
+            <Text style={styles.infoText}>{infoMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Form Fields */}
+        <View style={styles.formContainer}>
+          {/* Full Name Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Juan Dela Cruz"
+              placeholderTextColor={COLORS.textSubtle}
+              value={name}
+              onChangeText={(text) => {
+                setName(text);
+                if (errorMessage) setErrorMessage(null);
+              }}
+              autoCapitalize="words"
+              editable={!loading}
+            />
           </View>
 
-          {/* Error Banner */}
-          {errorMessage ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
+          {/* Email Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="you@example.com"
+              placeholderTextColor={COLORS.textSubtle}
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errorMessage) setErrorMessage(null);
+              }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              editable={!loading}
+            />
+          </View>
 
-          {/* Success / Info Banner */}
-          {infoMessage ? (
-            <View style={styles.infoBox}>
-              <CheckCircle2 size={18} color={COLORS.primary} strokeWidth={2} />
-              <Text style={styles.infoText}>{infoMessage}</Text>
-            </View>
-          ) : null}
-
-          {/* Form Fields */}
-          <View style={styles.formContainer}>
-            {/* Full Name Field */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name</Text>
+          {/* Password Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
               <TextInput
-                style={styles.input}
-                placeholder="Juan Dela Cruz"
+                style={styles.passwordInput}
+                placeholder="At least 8 characters"
                 placeholderTextColor={COLORS.textSubtle}
-                value={name}
+                value={password}
                 onChangeText={(text) => {
-                  setName(text);
+                  setPassword(text);
                   if (errorMessage) setErrorMessage(null);
                 }}
-                onFocus={() => handleInputFocus(50)}
-                autoCapitalize="words"
+                secureTextEntry={!showPassword}
                 editable={!loading}
               />
-            </View>
-
-            {/* Email Field */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={COLORS.textSubtle}
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (errorMessage) setErrorMessage(null);
-                }}
-                onFocus={() => handleInputFocus(110)}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoComplete="email"
-                editable={!loading}
-              />
-            </View>
-
-            {/* Password Field */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="At least 8 characters"
-                  placeholderTextColor={COLORS.textSubtle}
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                  onFocus={() => handleInputFocus(170)}
-                  secureTextEntry={!showPassword}
-                  editable={!loading}
-                />
-                <TouchableOpacity
-                  style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                  activeOpacity={0.7}
-                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                  accessibilityRole="button"
-                >
-                  {showPassword ? (
-                    <EyeOff size={20} color={COLORS.textMuted} strokeWidth={2} />
-                  ) : (
-                    <Eye size={20} color={COLORS.textMuted} strokeWidth={2} />
-                  )}
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.helperText}>Must be at least 8 characters</Text>
-            </View>
-
-            {/* Create Account Primary Button */}
-            <TouchableOpacity
-              style={[styles.primaryButton, loading && styles.buttonDisabled]}
-              activeOpacity={0.85}
-              onPress={handleSignUp}
-              disabled={loading}
-              accessibilityRole="button"
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.white} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Link to Sign In */}
-            <View style={styles.signInRow}>
-              <Text style={styles.signInPrompt}>Already have an account? </Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate('SignIn')}
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.7}
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                 accessibilityRole="button"
               >
-                <Text style={styles.signInLink}>Sign In</Text>
+                {showPassword ? (
+                  <EyeOff size={20} color={COLORS.textMuted} strokeWidth={2} />
+                ) : (
+                  <Eye size={20} color={COLORS.textMuted} strokeWidth={2} />
+                )}
               </TouchableOpacity>
             </View>
+            <Text style={styles.helperText}>Must be at least 8 characters</Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoiding>
+
+          {/* Create Account Primary Button */}
+          <TouchableOpacity
+            style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            activeOpacity={0.85}
+            onPress={handleSignUp}
+            disabled={loading}
+            accessibilityRole="button"
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} size="small" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Create Account</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Link to Sign In */}
+          <View style={styles.signInRow}>
+            <Text style={styles.signInPrompt}>Already have an account? </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SignIn')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.signInLink}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAwareScreen>
     </View>
   );
 }

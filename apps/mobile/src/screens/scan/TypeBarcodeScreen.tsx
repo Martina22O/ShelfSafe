@@ -7,7 +7,6 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Modal,
@@ -32,6 +31,7 @@ import { Product } from '../../types/inventory';
 import { useSaleCart } from '../../context/SaleCartContext';
 import { isValidRetailBarcode } from '../../utils/barcode';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'TypeBarcode'>;
 
@@ -228,7 +228,10 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
       edges={['left', 'right']}
     >
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScreen
+        contentContainerStyle={styles.scrollContent}
+        bottomOffset={28}
+      >
         {/* Decorative Wave Background */}
         <Image
           source={require('../../../assets/designs/screen-background.png')}
@@ -399,7 +402,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
             </View>
           </TouchableOpacity>
         )}
-      </ScrollView>
+      </KeyboardAwareScreen>
 
       {/* Restore Confirmation Modal */}
       <Modal

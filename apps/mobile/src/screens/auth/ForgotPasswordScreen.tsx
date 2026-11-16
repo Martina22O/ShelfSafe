@@ -10,9 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,8 +18,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { COLORS, FONTS } from '../../theme';
-
-const KeyboardAvoiding = KeyboardAvoidingView as any;
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
@@ -37,70 +33,65 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <StatusBar style="dark" />
-      <KeyboardAvoiding
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <KeyboardAwareScreen
+        contentContainerStyle={styles.scrollContent}
+        bottomOffset={32}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Image
-              source={require('../../../assets/brand-wordmark.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
+        {/* Header */}
+        <View style={styles.header}>
+          <Image
+            source={require('../../../assets/brand-wordmark.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.subtitle}>
+            Enter your account email to receive instructions.
+          </Text>
+        </View>
+
+        {/* Status Message */}
+        {statusMessage ? (
+          <View style={styles.statusBox}>
+            <Text style={styles.statusText}>{statusMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Form Card */}
+        <View style={styles.card}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Account Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="operator@store.com"
+              placeholderTextColor={COLORS.textSubtle}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
             />
-            <Text style={styles.title}>Reset Password</Text>
-            <Text style={styles.subtitle}>
-              Enter your account email to receive instructions.
-            </Text>
           </View>
 
-          {/* Status Message */}
-          {statusMessage ? (
-            <View style={styles.statusBox}>
-              <Text style={styles.statusText}>{statusMessage}</Text>
-            </View>
-          ) : null}
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.85}
+            onPress={handleReset}
+          >
+            <Text style={styles.primaryButtonText}>Send Reset Link</Text>
+          </TouchableOpacity>
+        </View>
 
-          {/* Form Card */}
-          <View style={styles.card}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Account Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="operator@store.com"
-                placeholderTextColor={COLORS.textSubtle}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.primaryButton}
-              activeOpacity={0.85}
-              onPress={handleReset}
-            >
-              <Text style={styles.primaryButtonText}>Send Reset Link</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Back link */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.backButtonRow}
-              onPress={() => navigation.navigate('SignIn')}
-            >
-              <ArrowLeft size={16} color={COLORS.primary} strokeWidth={2.2} style={{ marginRight: 6 }} />
-              <Text style={styles.footerLink}>Back to Sign In</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoiding>
+        {/* Back link */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.backButtonRow}
+            onPress={() => navigation.navigate('SignIn')}
+          >
+            <ArrowLeft size={16} color={COLORS.primary} strokeWidth={2.2} style={{ marginRight: 6 }} />
+            <Text style={styles.footerLink}>Back to Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }
