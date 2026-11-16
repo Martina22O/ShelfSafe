@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { useRealtime } from '../../../lib/realtime';
 import { getInventory, getCategories, getArchivedProducts, restoreProduct } from '../../../lib/inventory';
 import { ProductWithBatches, Category, ProductStockStatus, Product } from '../../../types/inventory';
 import { ConfirmModal } from '../../../components/ConfirmModal';
@@ -27,6 +28,7 @@ type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 export default function InventoryPage() {
   const { near_expiry_days, loading: settingsLoading, error: settingsError, reload: reloadSettings } = useStoreSettings();
+  const { dataVersion } = useRealtime();
 
   const [products, setProducts] = useState<ProductWithBatches[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -102,6 +104,55 @@ export default function InventoryPage() {
       setArchivedLoadError(res.message);
     }
   }, []);
+
+  const initialDataVersionRef = useRef(dataVersion);
+  const pendingReloadOnActionEnd = useRef(false);
+
+  // Realtime silent refresh on dataVersion change
+  useEffect(() => {
+    let active = true;
+    if (dataVersion === initialDataVersionRef.current) {
+      return;
+    }
+    if (actionRunning) {
+      pendingReloadOnActionEnd.current = true;
+      return;
+    }
+    if (!settingsLoading && !settingsError && near_expiry_days !== null) {
+      const run = async () => {
+        if (!active) return;
+        await loadData();
+        if (showArchived) {
+          await loadArchivedData();
+        }
+      };
+      void run();
+    }
+    return () => {
+      active = false;
+    };
+  }, [dataVersion, actionRunning, settingsLoading, settingsError, near_expiry_days, showArchived, loadData, loadArchivedData]);
+
+  // When actionRunning finishes, execute any pending reload
+  useEffect(() => {
+    let active = true;
+    if (!actionRunning && pendingReloadOnActionEnd.current) {
+      pendingReloadOnActionEnd.current = false;
+      if (!settingsLoading && !settingsError && near_expiry_days !== null) {
+        const run = async () => {
+          if (!active) return;
+          await loadData();
+          if (showArchived) {
+            await loadArchivedData();
+          }
+        };
+        void run();
+      }
+    }
+    return () => {
+      active = false;
+    };
+  }, [actionRunning, settingsLoading, settingsError, near_expiry_days, showArchived, loadData, loadArchivedData]);
 
   // Initial load and reload when near_expiry_days changes
   useEffect(() => {

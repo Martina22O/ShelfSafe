@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStoreSettings } from '../../../../context/StoreSettingsContext';
+import { useRealtime } from '../../../../lib/realtime';
 import {
   getProductWithBatches,
   getBatch,
@@ -44,6 +45,7 @@ interface ProductDetailClientProps {
 
 export function ProductDetailClient({ productId }: ProductDetailClientProps) {
   const { near_expiry_days, loading: settingsLoading, error: settingsError, reload: reloadSettings } = useStoreSettings();
+  const { dataVersion } = useRealtime();
 
   const [product, setProduct] = useState<ProductWithBatches | null>(null);
   const [isArchived, setIsArchived] = useState(false);
@@ -154,6 +156,49 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadData, settingsLoading, settingsError, near_expiry_days, actionRunning]);
+
+  const initialDataVersionRef = useRef(dataVersion);
+  const pendingReloadOnActionEnd = useRef(false);
+
+  // Realtime silent refresh on dataVersion change
+  useEffect(() => {
+    let active = true;
+    if (dataVersion === initialDataVersionRef.current) {
+      return;
+    }
+    if (actionRunning) {
+      pendingReloadOnActionEnd.current = true;
+      return;
+    }
+    if (!settingsLoading && !settingsError && near_expiry_days !== null) {
+      const run = async () => {
+        if (!active) return;
+        await loadData();
+      };
+      void run();
+    }
+    return () => {
+      active = false;
+    };
+  }, [dataVersion, actionRunning, settingsLoading, settingsError, near_expiry_days, loadData]);
+
+  // When actionRunning finishes, execute any pending reload
+  useEffect(() => {
+    let active = true;
+    if (!actionRunning && pendingReloadOnActionEnd.current) {
+      pendingReloadOnActionEnd.current = false;
+      if (!settingsLoading && !settingsError && near_expiry_days !== null) {
+        const run = async () => {
+          if (!active) return;
+          await loadData();
+        };
+        void run();
+      }
+    }
+    return () => {
+      active = false;
+    };
+  }, [actionRunning, settingsLoading, settingsError, near_expiry_days, loadData]);
 
   // --- DELETE PRODUCT HANDLER ---
   const handleConfirmDeleteProduct = async () => {

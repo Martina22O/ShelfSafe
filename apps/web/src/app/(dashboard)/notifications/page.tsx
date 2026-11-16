@@ -11,6 +11,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { useRealtime } from '../../../lib/realtime';
 import { getInventoryAlerts } from '../../../lib/inventory';
 import { InventoryAlert } from '../../../types/inventory';
 import {
@@ -29,6 +30,7 @@ export default function NotificationsPage() {
     error: settingsError,
     reload: reloadSettings,
   } = useStoreSettings();
+  const { dataVersion, status: realtimeStatus } = useRealtime();
 
   const [alerts, setAlerts] = useState<InventoryAlert[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<FilterKey>('All');
@@ -97,6 +99,26 @@ export default function NotificationsPage() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadData, settingsLoading, settingsError, near_expiry_days]);
+
+  const initialDataVersionRef = useRef(dataVersion);
+
+  // Realtime silent refresh on dataVersion change
+  useEffect(() => {
+    let active = true;
+    if (dataVersion === initialDataVersionRef.current) {
+      return;
+    }
+    if (!settingsLoading && !settingsError && near_expiry_days !== null) {
+      const run = async () => {
+        if (!active) return;
+        await loadData();
+      };
+      void run();
+    }
+    return () => {
+      active = false;
+    };
+  }, [dataVersion, settingsLoading, settingsError, near_expiry_days, loadData]);
 
   // Derived alert lists from ONE SOURCE OF TRUTH (alerts state)
   const lowStockAlerts = useMemo(
@@ -232,7 +254,9 @@ export default function NotificationsPage() {
             </span>
           </div>
           <p className="text-xs text-[#7a7469] mt-1">
-            Real-time shelf alerts, stock shortages, and batch expiration tracking.
+            {realtimeStatus === 'live'
+              ? 'Updates automatically when stock changes on another device.'
+              : 'Refresh the page to see changes from other devices.'}
           </p>
         </div>
         <button

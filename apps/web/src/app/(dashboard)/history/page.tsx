@@ -10,6 +10,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getSaleHistory, undoSale } from '../../../lib/inventory';
+import { useRealtime } from '../../../lib/realtime';
 import { SaleHistoryRecord, SaleBatchBreakdownItem } from '../../../types/inventory';
 import { formatManilaDateTime, formatDisplayDate } from '../../../lib/date';
 import { ConfirmModal } from '../../../components/ConfirmModal';
@@ -25,6 +26,7 @@ function formatBatchItem(b: SaleBatchBreakdownItem): string {
 }
 
 export default function HistoryPage() {
+  const { dataVersion } = useRealtime();
   const [sales, setSales] = useState<SaleHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -125,6 +127,45 @@ export default function HistoryPage() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadHistory, limit]);
+
+  const initialDataVersionRef = useRef(dataVersion);
+  const pendingReloadOnActionEnd = useRef(false);
+
+  // Realtime silent refresh on dataVersion change
+  useEffect(() => {
+    let active = true;
+    if (dataVersion === initialDataVersionRef.current) {
+      return;
+    }
+    if (isUndoing || undoingSaleId !== null) {
+      pendingReloadOnActionEnd.current = true;
+      return;
+    }
+    const run = async () => {
+      if (!active) return;
+      await loadHistory(limit, false);
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [dataVersion, isUndoing, undoingSaleId, limit, loadHistory]);
+
+  // When undo action finishes, execute pending reload
+  useEffect(() => {
+    let active = true;
+    if (!isUndoing && undoingSaleId === null && pendingReloadOnActionEnd.current) {
+      pendingReloadOnActionEnd.current = false;
+      const run = async () => {
+        if (!active) return;
+        await loadHistory(limit, false);
+      };
+      void run();
+    }
+    return () => {
+      active = false;
+    };
+  }, [isUndoing, undoingSaleId, limit, loadHistory]);
 
   // Filtered and searched sales list
   const filteredSales = useMemo(() => {

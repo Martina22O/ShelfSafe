@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { useRealtime } from '../../../lib/realtime';
 import { createClient } from '../../../lib/supabase/client';
 import {
   getInventory,
@@ -40,6 +41,7 @@ import { formatExpirationDaysText } from '../../../lib/suggestedActions';
 
 export default function DashboardPage() {
   const { near_expiry_days, loading: settingsLoading, error: settingsError, reload: reloadSettings } = useStoreSettings();
+  const { dataVersion } = useRealtime();
 
   const [displayName, setDisplayName] = useState('');
   const [period, setPeriod] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
@@ -176,6 +178,26 @@ export default function DashboardPage() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadData, settingsLoading, settingsError, near_expiry_days]);
+
+  const initialDataVersionRef = useRef(dataVersion);
+
+  // Realtime silent refresh on dataVersion change
+  useEffect(() => {
+    let active = true;
+    if (dataVersion === initialDataVersionRef.current) {
+      return;
+    }
+    if (!settingsLoading && !settingsError && near_expiry_days !== null) {
+      const run = async () => {
+        if (!active) return;
+        await loadData();
+      };
+      void run();
+    }
+    return () => {
+      active = false;
+    };
+  }, [dataVersion, settingsLoading, settingsError, near_expiry_days, loadData]);
 
   // Stock Overview totals
   const totalProducts = products.length;
