@@ -256,6 +256,8 @@ export default function InventoryListScreen({ navigation }: Props) {
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControlComponent
               refreshing={refreshing}

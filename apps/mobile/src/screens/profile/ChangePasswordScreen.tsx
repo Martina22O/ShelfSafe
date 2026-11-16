@@ -24,6 +24,7 @@ import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
 import { isDatabaseError } from '../../services/inventory';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ChangePassword'>;
 
@@ -155,7 +156,10 @@ export default function ChangePasswordScreen({ navigation }: Props) {
         style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
         resizeMode="stretch"
       />
-      <View style={styles.content}>
+      <KeyboardAwareScreen
+        contentContainerStyle={[styles.content, { flexGrow: 1 }]}
+        bottomOffset={32}
+      >
         <Text style={styles.screenSub}>
           Ensure your account stays protected with a strong password
         </Text>
@@ -267,7 +271,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
             </View>
           </View>
         </Modal>
-      </View>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }

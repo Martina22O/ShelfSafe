@@ -24,6 +24,7 @@ import { ProfileStackParamList } from '../../navigation/types';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { saveStoreDetails } from '../../services/storeSettings';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'EditStore'>;
 
@@ -107,7 +108,10 @@ export default function EditStoreScreen({ navigation }: Props) {
         style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
         resizeMode="stretch"
       />
-      <View style={styles.content}>
+      <KeyboardAwareScreen
+        contentContainerStyle={[styles.content, { flexGrow: 1 }]}
+        bottomOffset={32}
+      >
         <Text style={styles.screenSub}>
           Configure public store name and support contact number
         </Text>
@@ -211,7 +215,7 @@ export default function EditStoreScreen({ navigation }: Props) {
             </View>
           </View>
         </Modal>
-      </View>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }

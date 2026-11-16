@@ -703,151 +703,163 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 
       {/* Correct Quantity Modal */}
       <Modal visible={qtyModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {qtyStep === 'input' ? 'Correct Batch Quantity' : 'Confirm Quantity Correction'}
-            </Text>
+        <View style={styles.inputModalOverlay}>
+          <View style={styles.inputModalCard}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.modalTitle}>
+                {qtyStep === 'input' ? 'Correct Batch Quantity' : 'Confirm Quantity Correction'}
+              </Text>
 
-            {fetchingBatch ? (
-              <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
-            ) : qtyStep === 'input' ? (
-              <>
-                <Text style={styles.modalDesc}>
-                  Enter the physically counted stock units for batch{' '}
-                  {activeBatch && `B-${activeBatch.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}.
-                </Text>
-                <TextInput
-                  style={styles.modalInput}
-                  keyboardType="numeric"
-                  value={newQtyInput}
-                  onChangeText={setNewQtyInput}
-                  placeholder="0"
-                />
-                {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
+              {fetchingBatch ? (
+                <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+              ) : qtyStep === 'input' ? (
+                <>
+                  <Text style={styles.modalDesc}>
+                    Enter the physically counted stock units for batch{' '}
+                    {activeBatch && `B-${activeBatch.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}.
+                  </Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="numeric"
+                    value={newQtyInput}
+                    onChangeText={setNewQtyInput}
+                    placeholder="0"
+                  />
+                  {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
 
-                <View style={styles.modalBtnRow}>
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setQtyModalVisible(false)}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalPrimaryBtn}
-                    onPress={handleQtySubmit}
-                  >
-                    <Text style={styles.modalPrimaryText}>Review</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={styles.modalDesc}>
-                  Change batch units from {activeBatch?.quantity_left} to{' '}
-                  <Text style={{ fontWeight: 'bold' }}>{newQtyInput.trim()}</Text>?
-                </Text>
-                {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
+                  <View style={styles.modalBtnRow}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => setQtyModalVisible(false)}
+                    >
+                      <Text style={styles.modalCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.modalPrimaryBtn}
+                      onPress={handleQtySubmit}
+                    >
+                      <Text style={styles.modalPrimaryText}>Review</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.modalDesc}>
+                    Change batch units from {activeBatch?.quantity_left} to{' '}
+                    <Text style={{ fontWeight: 'bold' }}>{newQtyInput.trim()}</Text>?
+                  </Text>
+                  {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
 
-                <View style={styles.modalBtnRow}>
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setQtyStep('input')}
-                  >
-                    <Text style={styles.modalCancelText}>Back</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalPrimaryBtn}
-                    onPress={confirmQtyCorrection}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color={COLORS.white} size="small" />
-                    ) : (
-                      <Text style={styles.modalPrimaryText}>Confirm</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
+                  <View style={styles.modalBtnRow}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => setQtyStep('input')}
+                    >
+                      <Text style={styles.modalCancelText}>Back</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.modalPrimaryBtn}
+                      onPress={confirmQtyCorrection}
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <ActivityIndicator color={COLORS.white} size="small" />
+                      ) : (
+                        <Text style={styles.modalPrimaryText}>Confirm</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
       {/* Edit Dates Modal */}
       <Modal visible={datesModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {datesStep === 'input' ? 'Edit Batch Dates' : 'Confirm Date Change'}
-            </Text>
+        <View style={styles.inputModalOverlay}>
+          <View style={styles.inputModalCard}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.modalTitle}>
+                {datesStep === 'input' ? 'Edit Batch Dates' : 'Confirm Date Change'}
+              </Text>
 
-            {datesStep === 'input' ? (
-              <>
-                <DateField
-                  label="Purchase Date"
-                  value={purchaseDateInput}
-                  onChange={setPurchaseDateInput}
-                  placeholder="YYYY-MM-DD"
-                />
+              {datesStep === 'input' ? (
+                <>
+                  <DateField
+                    label="Purchase Date"
+                    value={purchaseDateInput}
+                    onChange={setPurchaseDateInput}
+                    placeholder="YYYY-MM-DD"
+                  />
 
-                <DateField
-                  label="Expiration Date"
-                  value={expirationDateInput}
-                  onChange={setExpirationDateInput}
-                  placeholder="YYYY-MM-DD"
-                  warning={
-                    isValidCalendarDate(expirationDateInput) && isDateInPast(expirationDateInput)
-                      ? 'Warning: Expiration date is in the past'
-                      : null
-                  }
-                />
-                {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
+                  <DateField
+                    label="Expiration Date"
+                    value={expirationDateInput}
+                    onChange={setExpirationDateInput}
+                    placeholder="YYYY-MM-DD"
+                    warning={
+                      isValidCalendarDate(expirationDateInput) && isDateInPast(expirationDateInput)
+                        ? 'Warning: Expiration date is in the past'
+                        : null
+                    }
+                  />
+                  {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
 
-                <View style={styles.modalBtnRow}>
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setDatesModalVisible(false)}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalPrimaryBtn}
-                    onPress={handleDatesSubmit}
-                  >
-                    <Text style={styles.modalPrimaryText}>Review</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={styles.modalDesc}>
-                  Expiry Date determines batch deduction sequence. Update expiry to{' '}
-                  <Text style={{ fontWeight: 'bold' }}>{expirationDateInput.trim()}</Text>?
-                </Text>
-                {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
+                  <View style={styles.modalBtnRow}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => setDatesModalVisible(false)}
+                    >
+                      <Text style={styles.modalCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.modalPrimaryBtn}
+                      onPress={handleDatesSubmit}
+                    >
+                      <Text style={styles.modalPrimaryText}>Review</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.modalDesc}>
+                    Expiry Date determines batch deduction sequence. Update expiry to{' '}
+                    <Text style={{ fontWeight: 'bold' }}>{expirationDateInput.trim()}</Text>?
+                  </Text>
+                  {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
 
-                <View style={styles.modalBtnRow}>
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setDatesStep('input')}
-                  >
-                    <Text style={styles.modalCancelText}>Back</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalPrimaryBtn}
-                    onPress={confirmDatesUpdate}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color={COLORS.white} size="small" />
-                    ) : (
-                      <Text style={styles.modalPrimaryText}>Save Dates</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
+                  <View style={styles.modalBtnRow}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => setDatesStep('input')}
+                    >
+                      <Text style={styles.modalCancelText}>Back</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.modalPrimaryBtn}
+                      onPress={confirmDatesUpdate}
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <ActivityIndicator color={COLORS.white} size="small" />
+                      ) : (
+                        <Text style={styles.modalPrimaryText}>Save Dates</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1369,6 +1381,25 @@ const styles = StyleSheet.create({
     padding: 22,
     width: '100%',
     maxWidth: 320,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inputModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 54,
+    paddingBottom: 20,
+  },
+  inputModalCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 22,
+    width: '100%',
+    maxWidth: 320,
+    maxHeight: '85%',
     borderWidth: 1,
     borderColor: COLORS.border,
   },

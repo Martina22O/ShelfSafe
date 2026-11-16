@@ -24,6 +24,7 @@ import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
 import { isDatabaseError } from '../../services/inventory';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'EditProfile'>;
 
@@ -146,7 +147,10 @@ export default function EditProfileScreen({ navigation }: Props) {
         style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
         resizeMode="stretch"
       />
-      <View style={styles.content}>
+      <KeyboardAwareScreen
+        contentContainerStyle={[styles.content, { flexGrow: 1 }]}
+        bottomOffset={32}
+      >
         <Text style={styles.screenSub}>
           Update your store operator name and account details
         </Text>
@@ -244,7 +248,7 @@ export default function EditProfileScreen({ navigation }: Props) {
             </View>
           </View>
         </Modal>
-      </View>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }

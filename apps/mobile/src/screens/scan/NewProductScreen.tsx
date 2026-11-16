@@ -8,7 +8,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   StyleSheet,
   Image,
@@ -28,6 +27,7 @@ import {
   isDateInPast,
 } from '../../utils/date';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
+import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'NewProduct'>;
 
@@ -173,7 +173,10 @@ export default function NewProductScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScreen
+        contentContainerStyle={styles.scrollContent}
+        bottomOffset={28}
+      >
         {/* Background Decorative Wave */}
         <Image
           source={require('../../../assets/designs/screen-background.png')}
@@ -355,7 +358,7 @@ export default function NewProductScreen({ route, navigation }: Props) {
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }
