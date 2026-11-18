@@ -66,65 +66,91 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex overflow-hidden bg-[#FAF8F5]">
-      {/* Full-bleed background image across entire page */}
+    <div className="relative min-h-screen w-full flex overflow-hidden bg-[#FBF9F2]">
+      {/* Full-bleed HD background image across entire page */}
       <div className="fixed inset-0 z-0">
         <Image
-          src="/images/auth-background.jpg"
+          src="/images/web-bg.png?v=hd"
           alt="ShelfSafe Background"
           fill
           priority
-          className="object-cover object-center select-none"
+          unoptimized
+          sizes="100vw"
+          className="object-cover object-left lg:object-center select-none"
         />
       </div>
 
-      {/* Left empty spacer to let background illustration & headline show through */}
-      <div className="hidden lg:block lg:w-[52%] xl:w-[54%] shrink-0 relative z-10" />
+      {/* Left empty spacer to let background logo & branding show through on desktop */}
+      <div className="hidden lg:block lg:w-[48%] xl:w-[50%] shrink-0 relative z-10 pointer-events-none select-none" />
 
-      {/* Right Form Panel aligned transparently over the cream section */}
-      <div className="w-full lg:w-[48%] xl:w-[46%] min-h-screen flex items-center justify-center p-6 sm:p-12 md:p-16 relative z-10 bg-transparent">
-        <div className="w-full max-w-[440px]">
-          {/* Mobile Logo Only (shown on small screens where left artwork is hidden) */}
-          <div className="lg:hidden flex justify-center mb-8">
-            <Image
-              src="/images/shelfsafe-logo.jpg?v=20261116"
-              alt="ShelfSafe"
-              width={72}
-              height={72}
-              className="rounded-2xl shadow-sm object-cover"
-              unoptimized
-            />
-          </div>
+      {/* Right Form Panel matching the exact position and dimensions in the reference */}
+      <div className="w-full lg:w-[52%] xl:w-[50%] min-h-screen flex flex-col lg:flex-row items-center justify-center lg:justify-start lg:pl-[1.5%] xl:pl-[2%] p-4 sm:p-8 md:p-12 relative z-10 bg-transparent">
+        {/* Mobile Logo & Wordmark (shown on small screens where left artwork is off-center) */}
+        <div className="lg:hidden flex justify-center mb-6">
+          <Image
+            src="/shelfsafe-logo.png"
+            alt="ShelfSafe"
+            width={165}
+            height={152}
+            unoptimized
+            className="object-contain"
+            priority
+          />
+        </div>
 
+        {/* Form Card matching webnew-signin-reference.jpg */}
+        <div className="w-full max-w-[445px] lg:w-[43vw] lg:max-w-[540px] bg-[#FAF9F4]/96 rounded-[30px] shadow-[0_14px_44px_rgba(20,45,25,0.07)] border border-white/85 px-7 py-8 sm:px-10 sm:py-10">
           {/* Form Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl sm:text-5xl font-black text-[#181413] tracking-tight">
+          <div className="mb-6">
+            <h1 className="text-[32px] sm:text-[38px] leading-tight font-extrabold text-[#144721] tracking-tight">
               Sign In
             </h1>
-            <p className="text-base sm:text-lg text-[#554e42] mt-2 font-medium">
-              Welcome back to ShelfSafe
+            <p className="text-[15px] sm:text-[17px] text-[#3F453E] mt-1 font-medium">
+              Welcome back to ShelfSafe!
             </p>
+            <svg
+              className="w-24 h-3 mt-1 text-[#2E8B3C]"
+              viewBox="0 0 110 12"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M2 10C34 2.5 74 1.5 108 5.5C74 4.5 34 5.5 2 10Z"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
 
           {/* Alert notifications */}
           {infoMessage && (
-            <div className="mb-5 p-4 bg-amber-50/90 border border-amber-200 text-amber-800 text-sm rounded-xl font-medium backdrop-blur-xs">
+            <div className="mb-5 p-3.5 bg-amber-50/95 border border-amber-200 text-amber-800 text-sm rounded-xl font-medium">
               {infoMessage}
             </div>
           )}
 
           {error && (
-            <div className="mb-5 p-4 bg-red-50/90 border border-red-200 text-red-700 text-sm rounded-xl font-medium backdrop-blur-xs">
+            <div className="mb-5 p-3.5 bg-red-50/95 border border-red-200 text-red-700 text-sm rounded-xl font-medium">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label
-                className="block text-sm sm:text-base font-bold text-[#181413] mb-2"
+                className="flex items-center gap-2.5 text-[15px] font-bold text-[#1B5728] mb-2 pl-1"
                 htmlFor="email"
               >
+                <svg
+                  className="w-[18px] h-[18px] text-[#2B8A38] shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4.25-8 5-8-5V6l8 5 8-5v2.25z" />
+                </svg>
                 Email
               </label>
               <input
@@ -134,7 +160,7 @@ export default function SignInPage() {
                 autoCapitalize="none"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-13 sm:h-14 px-4 bg-white/95 border border-[#dfd7c2] rounded-xl text-base text-[#181413] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#207429] focus:border-transparent transition shadow-xs"
+                className="w-full h-12 sm:h-[50px] px-5 bg-[#FBFBF9] border border-[#D8DDD5] rounded-full text-[15px] text-[#181413] placeholder-[#8C948B] focus:outline-none focus:ring-2 focus:ring-[#2E8B3C] focus:border-transparent transition"
                 placeholder="you@example.com"
                 disabled={loading}
               />
@@ -142,9 +168,17 @@ export default function SignInPage() {
 
             <div>
               <label
-                className="block text-sm sm:text-base font-bold text-[#181413] mb-2"
+                className="flex items-center gap-2.5 text-[15px] font-bold text-[#1B5728] mb-2 pl-1"
                 htmlFor="password"
               >
+                <svg
+                  className="w-[18px] h-[18px] text-[#2B8A38] shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm3 11c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
+                </svg>
                 Password
               </label>
               <div className="relative">
@@ -154,14 +188,14 @@ export default function SignInPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-13 sm:h-14 px-4 pr-12 bg-white/95 border border-[#dfd7c2] rounded-xl text-base text-[#181413] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#207429] focus:border-transparent transition shadow-xs"
+                  className="w-full h-12 sm:h-[50px] px-5 pr-12 bg-[#FBFBF9] border border-[#D8DDD5] rounded-full text-[15px] text-[#181413] placeholder-[#8C948B] focus:outline-none focus:ring-2 focus:ring-[#2E8B3C] focus:border-transparent transition"
                   placeholder="Enter your password"
                   disabled={loading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none p-1 cursor-pointer"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#747B73] hover:text-[#3F453E] focus:outline-none p-1 cursor-pointer"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
@@ -201,38 +235,56 @@ export default function SignInPage() {
                 </button>
               </div>
 
-              <div className="flex justify-end mt-2.5">
+              <div className="flex justify-end mt-2 pr-1">
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-sm font-semibold text-[#207429] hover:underline focus:outline-none cursor-pointer"
+                  className="text-xs sm:text-[13px] font-semibold text-[#2B8A38] hover:underline focus:outline-none cursor-pointer"
                 >
                   Forgot Password?
                 </button>
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-13 sm:h-14 bg-[#207429] hover:bg-[#185e21] text-white font-bold rounded-xl text-base sm:text-lg shadow-sm hover:shadow transition disabled:opacity-50 cursor-pointer"
+                className="w-full h-12 sm:h-[52px] bg-[#2E8B3C] hover:bg-[#236E2E] text-white font-bold rounded-full text-base sm:text-[18px] shadow-[0_6px_16px_rgba(46,139,60,0.28)] hover:shadow-[0_8px_20px_rgba(46,139,60,0.35)] transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2.5"
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                <span>{loading ? 'Signing in...' : 'Sign In'}</span>
+                {!loading && (
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.3}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 12h14m-6-6 6 6-6 6"
+                    />
+                  </svg>
+                )}
               </button>
             </div>
           </form>
 
-          <div className="mt-8 text-center">
-            <p className="text-sm sm:text-base text-[#554e42]">
+          <div className="mt-7 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#E1E3DC]" />
+            <p className="text-xs sm:text-[13px] text-[#3F453E] whitespace-nowrap">
               Don&apos;t have an account?{' '}
               <Link
                 href="/sign-up"
-                className="font-bold text-[#207429] hover:underline ml-1"
+                className="font-bold text-[#2B8A38] hover:underline ml-1"
               >
                 Sign Up
               </Link>
             </p>
+            <div className="h-px flex-1 bg-[#E1E3DC]" />
           </div>
         </div>
       </div>
