@@ -18,10 +18,13 @@ import {
   Store,
   AlertCircle,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { useRealtime } from '../lib/realtime';
+import { SubscriptionOnboardingModal } from './SubscriptionOnboardingModal';
+import { getUserSubscription } from '../lib/subscription';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -39,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'History', href: '/history', icon: History },
+  { name: 'Subscription', href: '/subscription', icon: Sparkles },
   { name: 'Profile', href: '/profile', icon: User },
   { name: 'Help', href: '/help', icon: HelpCircle },
 ];
@@ -55,10 +59,13 @@ export function AppShell({ children }: AppShellProps) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const currentUserIdRef = useRef<string | null>(null);
+  const onboardingCheckedRef = useRef(false);
 
   useEffect(() => {
+    let isMounted = true;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -66,6 +73,22 @@ export function AppShell({ children }: AppShellProps) {
         const name = user.user_metadata?.name || user.email?.split('@')[0] || '';
         setUserName(name);
         setUserEmail(user.email || '');
+
+        if (!onboardingCheckedRef.current) {
+          getUserSubscription()
+            .then((res) => {
+              if (!isMounted) return;
+              if (res.isRpcUnavailable) {
+                setShowOnboarding(false);
+              } else if (res.success && res.data) {
+                setShowOnboarding(!res.data.onboarding_completed);
+              }
+              onboardingCheckedRef.current = true;
+            })
+            .catch(() => {
+              if (isMounted) setShowOnboarding(false);
+            });
+        }
       }
     });
 
@@ -76,6 +99,8 @@ export function AppShell({ children }: AppShellProps) {
         currentUserIdRef.current = null;
         setUserName('');
         setUserEmail('');
+        setShowOnboarding(false);
+        onboardingCheckedRef.current = false;
         return;
       }
       if (session?.user) {
@@ -87,6 +112,7 @@ export function AppShell({ children }: AppShellProps) {
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -134,7 +160,7 @@ export function AppShell({ children }: AppShellProps) {
       {/* Mobile Sidebar Backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-xs transition-opacity"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -149,9 +175,10 @@ export function AppShell({ children }: AppShellProps) {
           backgroundRepeat: 'no-repeat',
         }}
         className={`
-          fixed md:sticky top-0 inset-y-0 left-0 z-40 w-64 h-screen border-r border-[#ece3d2]
-          flex flex-col justify-between transition-transform duration-200 ease-in-out relative
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          fixed top-0 inset-y-0 left-0 z-50 w-64 h-screen border-r border-[#ece3d2]
+          flex flex-col justify-between transition-transform duration-200 ease-in-out
+          lg:sticky lg:top-0 lg:z-30 lg:shrink-0
+          ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full pointer-events-none lg:pointer-events-auto lg:translate-x-0'}
         `}
       >
         <div className="flex flex-col h-full relative z-10 overflow-y-auto">
@@ -159,7 +186,7 @@ export function AppShell({ children }: AppShellProps) {
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="md:hidden absolute top-4 right-4 p-1.5 rounded-lg text-[#7a7469] hover:text-[#181413] hover:bg-white/80 transition-colors z-20"
+            className="lg:hidden absolute top-4 right-4 p-1.5 rounded-lg text-[#7a7469] hover:text-[#181413] hover:bg-white/80 transition-colors z-20"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -285,20 +312,20 @@ export function AppShell({ children }: AppShellProps) {
       {/* Main Layout Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-[#e5e7eb] px-4 md:px-8 py-3.5 flex items-center justify-between gap-4 shadow-2xs">
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-[#e5e7eb] px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 shadow-2xs">
           {/* Left: Mobile hamburger & Global Search */}
-          <div className="flex items-center gap-3 flex-1 max-w-xl">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open navigation menu"
-              className="md:hidden p-2 rounded-lg border border-[#e5e7eb] text-[#4a443a] hover:bg-[#f3f4f6] transition-colors"
+              className="lg:hidden p-2 rounded-lg border border-[#e5e7eb] text-[#4a443a] hover:bg-[#f3f4f6] transition-colors shrink-0"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             {/* Quick search input matching desktop reference */}
-            <form onSubmit={handleSearchSubmit} className="relative w-full">
+            <form onSubmit={handleSearchSubmit} className="relative w-full min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af] pointer-events-none" />
               <input
                 type="text"
@@ -311,7 +338,7 @@ export function AppShell({ children }: AppShellProps) {
           </div>
 
           {/* Right: Live Status, Notification Bell & User Badge */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Live Realtime Status Indicator */}
             <div
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold select-none ${
@@ -359,7 +386,7 @@ export function AppShell({ children }: AppShellProps) {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 md:p-8 w-full overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full overflow-y-auto min-w-0">
           {settingsError ? (
             <div className="border border-red-200 bg-red-50/80 p-4 rounded-xl text-red-900 mb-6 flex items-center justify-between shadow-2xs">
               <div className="flex items-start gap-3">
@@ -428,6 +455,11 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </div>
       )}
+      {/* Subscription Onboarding Modal for New Users */}
+      <SubscriptionOnboardingModal
+        isOpen={showOnboarding}
+        onComplete={() => setShowOnboarding(false)}
+      />
     </div>
   );
 }

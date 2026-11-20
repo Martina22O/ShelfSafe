@@ -19,6 +19,7 @@ import EditStoreScreen from '../screens/profile/EditStoreScreen';
 import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 import NotificationPreferencesScreen from '../screens/profile/NotificationPreferencesScreen';
 import SyncStatusScreen from '../screens/profile/SyncStatusScreen';
+import SubscriptionManagementScreen from '../screens/subscription/SubscriptionManagementScreen';
 import { COLORS, FONTS } from '../theme';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -79,6 +80,14 @@ export default function ProfileNavigator() {
         name="SyncStatus"
         component={SyncStatusScreen}
         options={{ title: 'Sync Status' }}
+      />
+      <Stack.Screen
+        name="Subscription"
+        component={SubscriptionManagementScreen}
+        options={{
+          title: 'Subscription',
+          headerStyle: { backgroundColor: COLORS.canvas },
+        }}
       />
     </Stack.Navigator>
   );

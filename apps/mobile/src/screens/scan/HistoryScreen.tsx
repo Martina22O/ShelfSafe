@@ -16,9 +16,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ClipboardList, Undo2 } from 'lucide-react-native';
+import { ClipboardList, Undo2, Sparkles } from 'lucide-react-native';
 import { useFocusEffect, useNavigation, useIsFocused } from '@react-navigation/native';
 import { getSaleHistory, undoSale } from '../../services/inventory';
+import { getUserSubscription } from '../../services/subscription';
 import { SaleHistoryRecord } from '../../types/inventory';
 import { formatManilaDateTime } from '../../utils/date';
 import { useRealtime } from '../../services/realtime';
@@ -34,6 +35,7 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState<boolean | null>(null);
 
   // Undo confirmation state
   const [confirmingSaleId, setConfirmingSaleId] = useState<string | null>(null);
@@ -46,6 +48,21 @@ export default function HistoryScreen() {
 
   const loadHistory = async (isMounted = true) => {
     setError(null);
+
+    // Fetch subscription entitlement for 7-day limit display
+    getUserSubscription()
+      .then((subRes) => {
+        if (!isMounted) return;
+        if (subRes.success && subRes.data) {
+          setIsPremium(subRes.data.is_premium);
+        } else {
+          setIsPremium(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setIsPremium(false);
+      });
+
     const res = await getSaleHistory(50);
 
     if (!isMounted) return;
@@ -156,6 +173,28 @@ export default function HistoryScreen() {
         <Text style={[styles.screenSub, { marginTop: 4 }]}>
           Audit trail of batch deductions and reversible sales
         </Text>
+
+        {/* Free Plan 7-Day Limit Upgrade Notice */}
+        {isPremium === false && (
+          <View style={styles.historyLimitBanner}>
+            <View style={styles.historyLimitLeft}>
+              <View style={styles.historyLimitBadge}>
+                <Text style={styles.historyLimitBadgeText}>FREE PLAN</Text>
+              </View>
+              <Text style={styles.historyLimitText}>
+                Showing sales from the last 7 days.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.historyUpgradeBtn}
+              onPress={() => navigation.navigate('ProfileTab', { screen: 'Subscription' })}
+              activeOpacity={0.85}
+            >
+              <Sparkles size={12} color="#FFFFFF" />
+              <Text style={styles.historyUpgradeBtnText}>Upgrade</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Action / Success Banner */}
         {actionMessage ? (
@@ -396,6 +435,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.deepGreen,
+  },
+  historyLimitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 12,
+    gap: 8,
+  },
+  historyLimitLeft: {
+    flex: 1,
+  },
+  historyLimitBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  historyLimitBadgeText: {
+    fontFamily: FONTS.bold,
+    fontSize: 9,
+    color: '#FFFFFF',
+  },
+  historyLimitText: {
+    fontFamily: FONTS.medium,
+    fontSize: 11,
+    color: '#92400E',
+    lineHeight: 15,
+  },
+  historyUpgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  historyUpgradeBtnText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    color: '#FFFFFF',
   },
   loadingBox: {
     marginTop: 40,

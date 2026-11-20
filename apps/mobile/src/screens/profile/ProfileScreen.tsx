@@ -21,11 +21,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronRight, ArrowRight, Lock, Bell, RefreshCw } from 'lucide-react-native';
+import { ChevronRight, ArrowRight, Lock, Bell, RefreshCw, Sparkles } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
+import { getUserSubscription, UserSubscription } from '../../services/subscription';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { useSaleCart } from '../../context/SaleCartContext';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
@@ -44,6 +45,8 @@ export default function ProfileScreen({ navigation }: Props) {
   const [userEmail, setUserEmail] = useState('');
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [subLoading, setSubLoading] = useState(false);
 
   const loadUserData = useCallback(async () => {
     const {
@@ -52,6 +55,20 @@ export default function ProfileScreen({ navigation }: Props) {
     if (user) {
       setUserName(user.user_metadata?.name || '');
       setUserEmail(user.email || '');
+    }
+
+    setSubLoading(true);
+    try {
+      const res = await getUserSubscription();
+      if (res.success && res.data) {
+        setSubscription(res.data);
+      } else {
+        setSubscription(null);
+      }
+    } catch {
+      setSubscription(null);
+    } finally {
+      setSubLoading(false);
     }
   }, []);
 
@@ -146,6 +163,53 @@ export default function ProfileScreen({ navigation }: Props) {
             <Text style={styles.storeDetailLabel}>Contact</Text>
             <Text style={styles.storeDetailVal}>{contact_number || 'Not provided'}</Text>
           </View>
+        </View>
+
+        {/* Subscription Plan Card */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionCardHeader}>
+            <Text style={styles.sectionTitle}>Subscription</Text>
+            {subLoading ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <View
+                style={[
+                  styles.planBadge,
+                  subscription?.status === 'trialing'
+                    ? styles.planBadgeTrial
+                    : subscription?.is_premium
+                    ? styles.planBadgePremium
+                    : styles.planBadgeFree,
+                ]}
+              >
+                <Text style={styles.planBadgeText}>
+                  {subscription?.status === 'trialing'
+                    ? '14-Day Trial'
+                    : subscription?.is_premium
+                    ? 'Premium'
+                    : 'Free Plan'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.navRow, { borderBottomWidth: 0, paddingVertical: 8 }]}
+            onPress={() => navigation.navigate('Subscription')}
+            disabled={signingOut}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.navRowLabel}>Subscription & Plans</Text>
+              <Text style={styles.subPlanHint}>
+                {subscription?.status === 'trialing'
+                  ? `${subscription.days_remaining ?? 14} days left in trial`
+                  : subscription?.is_premium
+                  ? 'All features unlocked'
+                  : 'Upgrade or view 14-day trial'}
+              </Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.textTertiary} strokeWidth={2} />
+          </TouchableOpacity>
         </View>
 
         {/* Security & Preferences Card */}
@@ -440,6 +504,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: COLORS.textSubtle,
     fontWeight: '300',
+  },
+  planBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  planBadgeTrial: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  planBadgePremium: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  planBadgeFree: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  planBadgeText: {
+    fontSize: 10,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  subPlanHint: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 1,
   },
   signOutBtn: {
     backgroundColor: COLORS.white,

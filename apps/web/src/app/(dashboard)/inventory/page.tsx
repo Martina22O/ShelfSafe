@@ -578,7 +578,7 @@ export default function InventoryPage() {
 
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto bg-white border border-[#ece3d2] rounded-2xl shadow-2xs">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[680px] text-left text-sm">
                   <thead className="bg-[#fef9f0] border-b border-[#ece3d2] text-[#7a7469] font-bold text-[11px] uppercase tracking-wider">
                     <tr>
                       <th className="py-3 px-5">Product & SKU</th>

@@ -118,13 +118,13 @@ export default function ProductPhotoPicker({
       <Text style={styles.label}>Product Photo (Optional)</Text>
 
       <View style={styles.card}>
-        {/* Preview / Placeholder container (Square container with contain mode) */}
+        {/* Preview / Placeholder container (Square container with cover mode) */}
         <View style={styles.previewContainer}>
           {photoUri ? (
             <Image
               source={{ uri: photoUri }}
               style={styles.previewImage}
-              resizeMode="contain"
+              resizeMode="cover"
             />
           ) : (
             <ProductCategoryIcon

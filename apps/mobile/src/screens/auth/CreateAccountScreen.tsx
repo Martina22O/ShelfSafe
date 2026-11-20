@@ -32,6 +32,7 @@ import { AuthStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
 import { COLORS, FONTS } from '../../theme';
 import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
+import { setIsRegistering } from '../../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'CreateAccount'>;
 
@@ -68,8 +69,14 @@ export default function CreateAccountScreen({ navigation }: Props) {
       setErrorMessage('Please enter your full name.');
       return;
     }
-    if (!email.trim() || !password) {
-      setErrorMessage('Please enter both email and password.');
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      setErrorMessage('Please enter a password.');
       return;
     }
     if (password.length < 8) {
@@ -80,24 +87,54 @@ export default function CreateAccountScreen({ navigation }: Props) {
     setErrorMessage(null);
     setInfoMessage(null);
     setLoading(true);
+    setIsRegistering(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          name: name.trim(),
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: {
+          data: {
+            name: name.trim(),
+          },
         },
-      },
-    });
+      });
 
-    setLoading(false);
-    if (error) {
-      setErrorMessage(error.message);
-    } else if (!data.session) {
-      setInfoMessage(
-        'Check your email to confirm your account before signing in.'
-      );
+      if (error) {
+        setIsRegistering(false);
+        setLoading(false);
+        setErrorMessage(error.message);
+        return;
+      }
+
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setIsRegistering(false);
+        setLoading(false);
+        setErrorMessage('An account with this email already exists. Please sign in instead.');
+        return;
+      }
+
+      // If Supabase created an active session automatically, safely sign out first
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+
+      setIsRegistering(false);
+      setLoading(false);
+
+      // Redirect newly registered user to Sign In with appropriate confirmation message
+      const infoMsg = !data.session
+        ? 'Account created! Please check your email to confirm your account before signing in.'
+        : 'Account created successfully! Please sign in to continue.';
+
+      navigation.navigate('SignIn', {
+        registered: true,
+        infoMessage: infoMsg,
+      });
+    } catch (err: any) {
+      setIsRegistering(false);
+      setLoading(false);
+      setErrorMessage(err?.message || 'An unexpected error occurred during account creation.');
     }
   };
 

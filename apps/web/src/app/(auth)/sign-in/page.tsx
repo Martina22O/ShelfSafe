@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -15,11 +15,27 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [isSuccessMessage, setIsSuccessMessage] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('registered') === 'true') {
+        setIsSuccessMessage(true);
+        if (params.get('confirm') === 'pending') {
+          setInfoMessage('Account created! Please check your email to confirm your account before signing in.');
+        } else {
+          setInfoMessage('Account created successfully! Please sign in to continue.');
+        }
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfoMessage(null);
+    setIsSuccessMessage(false);
     setLoading(true);
 
     try {
@@ -66,9 +82,9 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex overflow-hidden bg-[#FBF9F2]">
+    <div className="relative min-h-screen w-full flex overflow-y-auto bg-[#FBF9F2]">
       {/* Full-bleed HD background image across entire page */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <Image
           src="/images/web-bg.png?v=hd"
           alt="ShelfSafe Background"
@@ -126,8 +142,26 @@ export default function SignInPage() {
 
           {/* Alert notifications */}
           {infoMessage && (
-            <div className="mb-5 p-3.5 bg-amber-50/95 border border-amber-200 text-amber-800 text-sm rounded-xl font-medium">
-              {infoMessage}
+            <div
+              className={`mb-5 p-3.5 border text-sm rounded-xl font-medium flex items-start gap-2.5 ${
+                isSuccessMessage
+                  ? 'bg-green-50/95 border-green-200 text-green-800'
+                  : 'bg-amber-50/95 border-amber-200 text-amber-800'
+              }`}
+            >
+              {isSuccessMessage && (
+                <svg
+                  className="w-5 h-5 text-green-600 shrink-0 mt-0.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              <span>{infoMessage}</span>
             </div>
           )}
 

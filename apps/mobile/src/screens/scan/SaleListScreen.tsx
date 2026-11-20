@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   Alert,
@@ -28,6 +29,60 @@ export default function SaleListScreen({ navigation }: Props) {
   const bgHeight = screenWidth * (856 / 402);
   const { items, updateQuantity, removeItem, clearCart } = useSaleCart();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [editingQuantities, setEditingQuantities] = useState<Record<string, string>>({});
+
+  const handleQuantityChange = (productId: string, text: string, sellableUnits: number) => {
+    // Strip non-numeric characters (prevents negatives, decimals, symbols)
+    const sanitized = text.replace(/[^0-9]/g, '');
+
+    // Allow user to temporarily empty the input while actively typing
+    if (sanitized === '') {
+      setEditingQuantities((prev) => ({ ...prev, [productId]: '' }));
+      return;
+    }
+
+    const parsed = parseInt(sanitized, 10);
+    if (isNaN(parsed) || parsed < 1) {
+      setEditingQuantities((prev) => ({ ...prev, [productId]: sanitized }));
+      return;
+    }
+
+    // Enforce sellable stock limit: clamp immediately to available stock
+    const clamped = Math.min(parsed, sellableUnits);
+    setEditingQuantities((prev) => ({ ...prev, [productId]: String(clamped) }));
+    updateQuantity(productId, clamped);
+  };
+
+  const handleFinishEditing = (productId: string, sellableUnits: number) => {
+    const rawVal = editingQuantities[productId];
+    if (rawVal === undefined) return;
+
+    const parsed = parseInt(rawVal, 10);
+    // If empty, non-numeric, or zero, normalize to 1
+    if (isNaN(parsed) || parsed < 1) {
+      updateQuantity(productId, 1);
+    } else {
+      const clamped = Math.min(parsed, sellableUnits);
+      updateQuantity(productId, clamped);
+    }
+
+    // Clear editing buffer so the input mirrors the finalized numeric quantity
+    setEditingQuantities((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+  };
+
+  const handleStepChange = (productId: string, nextQty: number, sellableUnits: number) => {
+    setEditingQuantities((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+    const clamped = Math.max(1, Math.min(nextQty, sellableUnits));
+    updateQuantity(productId, clamped);
+  };
 
   const handleCancelSale = () => {
     if (items.length === 0) {
@@ -66,7 +121,7 @@ export default function SaleListScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.scanActionBg }]} edges={['left', 'right']}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Background Decorative Wave */}
         <Image
           source={require('../../../assets/designs/screen-background.png')}
@@ -137,14 +192,56 @@ export default function SaleListScreen({ navigation }: Props) {
                             item.quantity <= 1 && styles.stepBtnDisabled,
                           ]}
                           onPress={() =>
-                            updateQuantity(item.productId, item.quantity - 1)
+                            handleStepChange(
+                              item.productId,
+                              item.quantity - 1,
+                              item.sellableUnits
+                            )
                           }
                           disabled={item.quantity <= 1}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Decrease quantity of ${item.name}`}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                         >
                           <Text style={styles.stepBtnText}>−</Text>
                         </TouchableOpacity>
 
-                        <Text style={styles.stepQtyText}>{item.quantity}</Text>
+                        <TextInput
+                          style={[
+                            styles.stepQtyInput,
+                            isOver && styles.stepQtyInputError,
+                          ]}
+                          value={
+                            editingQuantities[item.productId] !== undefined
+                              ? editingQuantities[item.productId]
+                              : String(item.quantity)
+                          }
+                          onChangeText={(text) =>
+                            handleQuantityChange(
+                              item.productId,
+                              text,
+                              item.sellableUnits
+                            )
+                          }
+                          onBlur={() =>
+                            handleFinishEditing(
+                              item.productId,
+                              item.sellableUnits
+                            )
+                          }
+                          onSubmitEditing={() =>
+                            handleFinishEditing(
+                              item.productId,
+                              item.sellableUnits
+                            )
+                          }
+                          keyboardType="number-pad"
+                          returnKeyType="done"
+                          selectTextOnFocus
+                          maxLength={5}
+                          accessibilityRole="spinbutton"
+                          accessibilityLabel={`${item.name} quantity input`}
+                        />
 
                         <TouchableOpacity
                           style={[
@@ -153,9 +250,16 @@ export default function SaleListScreen({ navigation }: Props) {
                               styles.stepBtnDisabled,
                           ]}
                           onPress={() =>
-                            updateQuantity(item.productId, item.quantity + 1)
+                            handleStepChange(
+                              item.productId,
+                              item.quantity + 1,
+                              item.sellableUnits
+                            )
                           }
                           disabled={item.quantity >= item.sellableUnits}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Increase quantity of ${item.name}`}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                         >
                           <Text style={styles.stepBtnText}>+</Text>
                         </TouchableOpacity>
@@ -164,6 +268,8 @@ export default function SaleListScreen({ navigation }: Props) {
                       <TouchableOpacity
                         style={styles.removeBtn}
                         onPress={() => removeItem(item.productId)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${item.name}`}
                       >
                         <Text style={styles.removeBtnText}>Remove</Text>
                       </TouchableOpacity>
@@ -422,13 +528,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.text,
   },
-  stepQtyText: {
-    fontSize: 16,
+  stepQtyInput: {
+    minWidth: 44,
+    height: 34,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    textAlign: 'center',
+    fontSize: 15,
     fontWeight: '800',
     fontFamily: FONTS.bold,
-    minWidth: 26,
-    textAlign: 'center',
     color: COLORS.text,
+  },
+  stepQtyInputError: {
+    borderColor: COLORS.danger,
+    backgroundColor: '#fff8f8',
   },
   removeBtn: {
     paddingVertical: 6,

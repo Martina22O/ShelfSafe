@@ -13,7 +13,7 @@
  * - "Don't have an account? Sign Up" navigation link with divider lines
  * - Keyboard-aware scrolling & full validation
  */
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Eye, EyeOff, ArrowLeft, ArrowRight, Mail, Lock } from 'lucide-react-native';
+import { Eye, EyeOff, ArrowLeft, ArrowRight, Mail, Lock, CheckCircle2 } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
@@ -35,7 +35,7 @@ import KeyboardAwareScreen from '../../components/KeyboardAwareScreen';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SignIn'>;
 
-export default function SignInScreen({ navigation }: Props) {
+export default function SignInScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
@@ -60,6 +60,20 @@ export default function SignInScreen({ navigation }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(
+    route?.params?.infoMessage ||
+      (route?.params?.registered
+        ? 'Account created successfully! Please sign in to continue.'
+        : null)
+  );
+
+  useEffect(() => {
+    if (route?.params?.infoMessage) {
+      setInfoMessage(route.params.infoMessage);
+    } else if (route?.params?.registered) {
+      setInfoMessage('Account created successfully! Please sign in to continue.');
+    }
+  }, [route?.params?.registered, route?.params?.infoMessage]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -67,6 +81,7 @@ export default function SignInScreen({ navigation }: Props) {
       return;
     }
     setErrorMessage(null);
+    setInfoMessage(null);
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -148,6 +163,14 @@ export default function SignInScreen({ navigation }: Props) {
                 <Text style={styles.subtitle}>Welcome back to ShelfSafe!</Text>
                 <View style={styles.swoosh} />
               </View>
+
+              {/* Success / Info Confirmation Banner */}
+              {infoMessage ? (
+                <View style={styles.successBox}>
+                  <CheckCircle2 size={16} color="#15803d" strokeWidth={2.3} style={{ marginTop: 2, marginRight: 8, flexShrink: 0 }} />
+                  <Text style={styles.successText}>{infoMessage}</Text>
+                </View>
+              ) : null}
 
               {/* Error Banner */}
               {errorMessage ? (
@@ -345,6 +368,23 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#2E8B3C',
     transform: [{ rotate: '-2deg' }],
+  },
+  successBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+  },
+  successText: {
+    color: '#15803d',
+    fontSize: 13,
+    fontFamily: FONTS.semiBold,
+    flex: 1,
+    lineHeight: 18,
   },
   errorBox: {
     backgroundColor: COLORS.dangerLight,

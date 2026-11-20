@@ -655,13 +655,13 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-4">
             {/* Square Photo / Category Icon container on left */}
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border border-[#ece3d2] bg-[#f8faf8] overflow-hidden shrink-0 flex items-center justify-center p-1.5 shadow-2xs">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded-2xl border border-[#ece3d2] bg-[#f8faf8] overflow-hidden shrink-0 flex items-center justify-center shadow-2xs">
               {signedPhotoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={signedPhotoUrl}
                   alt={product.name}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover"
                   onError={() => {
                     invalidateSignedUrl(product.image_url);
                     setSignedPhotoUrl(null);
