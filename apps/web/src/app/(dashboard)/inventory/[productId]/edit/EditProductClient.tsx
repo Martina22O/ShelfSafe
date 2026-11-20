@@ -152,6 +152,7 @@ export function EditProductClient({ productId }: EditProductClientProps) {
 
   const isUnchanged = Boolean(
     initialProduct &&
+      !photoChanged &&
       trimmedName === initialProduct.name.trim() &&
       trimmedBarcode === initialBarcode &&
       selectedCategoryId === initialProduct.category_id &&

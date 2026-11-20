@@ -52,9 +52,20 @@ export default function InventoryNavigator() {
       <Stack.Screen
         name="ProductDetail"
         component={ProductDetailScreen}
-        options={{
+        options={({ navigation }: { navigation: NativeStackNavigationProp<InventoryStackParamList> }) => ({
           title: 'Product Details',
-        }}
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('InventoryList')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ paddingRight: 12, paddingVertical: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Inventory"
+            >
+              <ArrowLeft size={22} color={COLORS.text} strokeWidth={2.2} />
+            </TouchableOpacity>
+          ),
+        })}
       />
       <Stack.Screen
         name="EditProduct"

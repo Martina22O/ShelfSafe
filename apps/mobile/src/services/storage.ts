@@ -70,6 +70,23 @@ export function invalidateSignedUrl(path: string | null | undefined) {
 }
 
 /**
+ * Converts a Base64 string into an ArrayBuffer without external dependencies.
+ * Uses the global atob function available in React Native.
+ */
+export function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const cleanB64 = base64.replace(/[\r\n\s]/g, '');
+  const binaryString = atob(cleanB64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024; // 2 MB storage limit
+
+/**
  * Uploads a local photo to the private product-photos storage bucket.
  * Non-destructive: preserves the photo's original aspect ratio.
  */
@@ -87,20 +104,54 @@ export async function uploadProductPhoto(
       return { error: 'Authentication required. Please sign in again.' };
     }
 
-    // Determine extension from URI
-    const isPng = /\.png($|\?)/i.test(imageUri);
-    const ext = isPng ? 'png' : 'jpg';
-    const mimeType = isPng ? 'image/png' : 'image/jpeg';
+    let arrayBuffer: ArrayBuffer;
+    let mimeType = 'image/jpeg';
+    let ext = 'jpg';
+
+    if (imageUri.includes(';base64,')) {
+      const parts = imageUri.split(';base64,');
+      const header = parts[0];
+      const b64Data = parts[1];
+
+      if (/image\/png/i.test(header)) {
+        mimeType = 'image/png';
+        ext = 'png';
+      } else if (/image\/webp/i.test(header)) {
+        mimeType = 'image/webp';
+        ext = 'webp';
+      } else {
+        mimeType = 'image/jpeg';
+        ext = 'jpg';
+      }
+
+      arrayBuffer = base64ToArrayBuffer(b64Data);
+    } else {
+      // Direct URI or fallback
+      const isPng = /\.png($|\?)/i.test(imageUri);
+      const isWebp = /\.webp($|\?)/i.test(imageUri);
+      ext = isPng ? 'png' : isWebp ? 'webp' : 'jpg';
+      mimeType = isPng ? 'image/png' : isWebp ? 'image/webp' : 'image/jpeg';
+
+      const response = await fetch(imageUri);
+      arrayBuffer = await response.arrayBuffer();
+    }
+
+    // Validation: nonempty
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      return { error: 'Photo data is empty or corrupted. Please choose another image.' };
+    }
+
+    // Validation: 2MB limit
+    if (arrayBuffer.byteLength > MAX_PHOTO_BYTES) {
+      return { error: 'Photo exceeds maximum allowed size of 2 MB. Please select a smaller photo.' };
+    }
+
     const filename = `photo_${Date.now()}.${ext}`;
     const storagePath = `${user.id}/${productId}/${filename}`;
 
-    // Convert local URI to blob using standard React Native fetch
-    const response = await fetch(imageUri);
-    const blob = await response.blob();
-
     const { error: uploadError } = await supabase.storage
       .from('product-photos')
-      .upload(storagePath, blob, {
+      .upload(storagePath, arrayBuffer, {
         contentType: mimeType,
         upsert: false,
       });

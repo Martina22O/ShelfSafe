@@ -47,10 +47,19 @@ export default function ProductPhotoPicker({
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        onPhotoSelected(result.assets[0].uri);
+        const asset = result.assets[0];
+        if (asset.base64) {
+          const isPng = /\.png($|\?)/i.test(asset.uri || '');
+          const isWebp = /\.webp($|\?)/i.test(asset.uri || '');
+          const mime = isPng ? 'image/png' : isWebp ? 'image/webp' : 'image/jpeg';
+          onPhotoSelected(`data:${mime};base64,${asset.base64}`);
+        } else {
+          onPhotoSelected(asset.uri);
+        }
       }
     } catch {
       Alert.alert('Error', 'Could not open camera. Please try again.');
@@ -78,10 +87,19 @@ export default function ProductPhotoPicker({
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        onPhotoSelected(result.assets[0].uri);
+        const asset = result.assets[0];
+        if (asset.base64) {
+          const isPng = /\.png($|\?)/i.test(asset.uri || '');
+          const isWebp = /\.webp($|\?)/i.test(asset.uri || '');
+          const mime = isPng ? 'image/png' : isWebp ? 'image/webp' : 'image/jpeg';
+          onPhotoSelected(`data:${mime};base64,${asset.base64}`);
+        } else {
+          onPhotoSelected(asset.uri);
+        }
       }
     } catch {
       Alert.alert('Error', 'Could not open photo gallery. Please try again.');

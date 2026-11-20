@@ -155,6 +155,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
 
   const isUnchanged = Boolean(
     initialProduct &&
+      !photoChanged &&
       trimmedName === initialProduct.name &&
       trimmedBarcode === initialBarcode &&
       selectedCategoryId === initialProduct.category_id &&
@@ -222,18 +223,32 @@ export default function EditProductScreen({ route, navigation }: Props) {
     if (photoChanged && productId) {
       if (!photoUri) {
         // Photo was removed
-        await setProductImage(productId, null);
+        const removeRes = await setProductImage(productId, null);
+        if (!removeRes.success) {
+          setSaving(false);
+          setErrorMessage(`Failed to remove product photo: ${removeRes.error || 'Database error'}.`);
+          return;
+        }
         if (initialStoragePath) {
           await deleteProductPhoto(initialStoragePath);
         }
       } else if (photoUri !== initialStoragePath) {
         // New photo was selected
         const uploadRes = await uploadProductPhoto(photoUri, productId);
-        if ('storagePath' in uploadRes) {
-          const updateImgRes = await setProductImage(productId, uploadRes.storagePath);
-          if (updateImgRes.success && initialStoragePath) {
-            await deleteProductPhoto(initialStoragePath);
-          }
+        if ('error' in uploadRes) {
+          setSaving(false);
+          setErrorMessage(`Photo upload failed: ${uploadRes.error}. Product details were saved, but the new photo could not be stored.`);
+          return;
+        }
+        const updateImgRes = await setProductImage(productId, uploadRes.storagePath);
+        if (!updateImgRes.success) {
+          await deleteProductPhoto(uploadRes.storagePath);
+          setSaving(false);
+          setErrorMessage(`Failed to update product photo: ${updateImgRes.error || 'Database error'}.`);
+          return;
+        }
+        if (initialStoragePath && initialStoragePath !== uploadRes.storagePath) {
+          await deleteProductPhoto(initialStoragePath);
         }
       }
     }

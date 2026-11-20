@@ -118,15 +118,39 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
     deleteBatchModalVisible ||
     deleteProductModalVisible;
 
-  // Prevent hardware back navigation during active saving
+  // Hardware back press handler: dismiss active modals, prevent exit during save, or return to InventoryList
   useEffect(() => {
     const backAction = () => {
       if (saving) return true;
-      return false;
+      if (qtyModalVisible) {
+        setQtyModalVisible(false);
+        return true;
+      }
+      if (datesModalVisible) {
+        setDatesModalVisible(false);
+        return true;
+      }
+      if (deleteBatchModalVisible) {
+        setDeleteBatchModalVisible(false);
+        return true;
+      }
+      if (deleteProductModalVisible) {
+        setDeleteProductModalVisible(false);
+        return true;
+      }
+      navigation.navigate('InventoryList');
+      return true;
     };
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [saving]);
+  }, [
+    navigation,
+    saving,
+    qtyModalVisible,
+    datesModalVisible,
+    deleteBatchModalVisible,
+    deleteProductModalVisible,
+  ]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
