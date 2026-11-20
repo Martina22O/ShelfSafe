@@ -21,12 +21,15 @@ export default function SignInPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('registered') === 'true') {
-        setIsSuccessMessage(true);
-        if (params.get('confirm') === 'pending') {
-          setInfoMessage('Account created! Please check your email to confirm your account before signing in.');
-        } else {
-          setInfoMessage('Account created successfully! Please sign in to continue.');
-        }
+        const timer = setTimeout(() => {
+          setIsSuccessMessage(true);
+          if (params.get('confirm') === 'pending') {
+            setInfoMessage('Account created! Please check your email to confirm your account before signing in.');
+          } else {
+            setInfoMessage('Account created successfully! Please sign in to continue.');
+          }
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
   }, []);
