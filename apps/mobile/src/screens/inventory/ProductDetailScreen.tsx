@@ -534,7 +534,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
                     <Image
                       source={{ uri: signedPhotoUrl }}
                       style={styles.headerPhotoImage}
-                      resizeMode="contain"
+                      resizeMode="cover"
                       onError={() => {
                         invalidateSignedUrl(product.image_url);
                         setSignedPhotoUrl(null);

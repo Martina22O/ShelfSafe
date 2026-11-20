@@ -22,7 +22,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AlertCircle, Clock, Bell } from 'lucide-react-native';
-import { useNavigation, useFocusEffect, useScrollToTop, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, useScrollToTop, useIsFocused, RouteProp } from '@react-navigation/native';
+import { MainTabParamList } from '../../navigation/types';
 import { getInventoryAlerts } from '../../services/inventory';
 import { InventoryAlert } from '../../types/inventory';
 import { formatDisplayDate } from '../../utils/date';
@@ -40,6 +41,7 @@ type FilterKey = 'All' | 'Low Stock' | 'Near Expiry' | 'Expired';
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<MainTabParamList, 'AlertsTab'>>();
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const { width: screenWidth } = useWindowDimensions();
@@ -54,10 +56,19 @@ export default function NotificationsScreen() {
   const { dataVersion, status } = useRealtime();
 
   const [alerts, setAlerts] = useState<InventoryAlert[]>([]);
-  const [selectedFilter, setSelectedFilter] = useState<FilterKey>('All');
+  const [selectedFilter, setSelectedFilter] = useState<FilterKey>(
+    route.params?.initialFilter || 'All'
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync selected filter whenever navigated to from the dashboard with an initialFilter
+  useEffect(() => {
+    if (route.params?.initialFilter) {
+      setSelectedFilter(route.params.initialFilter);
+    }
+  }, [route.params?.initialFilter, route.params?.timestamp]);
 
   const loadData = async (isMounted = true) => {
     if (settingsLoading || settingsError) return;
@@ -88,13 +99,16 @@ export default function NotificationsScreen() {
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
+      if (route.params?.initialFilter) {
+        setSelectedFilter(route.params.initialFilter);
+      }
       if (!settingsLoading && !settingsError) {
         loadData(isMounted);
       }
       return () => {
         isMounted = false;
       };
-    }, [settingsLoading, settingsError, near_expiry_days])
+    }, [route.params?.initialFilter, route.params?.timestamp, settingsLoading, settingsError, near_expiry_days])
   );
 
   useEffect(() => {

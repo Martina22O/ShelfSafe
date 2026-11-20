@@ -1,6 +1,6 @@
 export type AuthStackParamList = {
   Welcome: undefined;
-  SignIn: undefined;
+  SignIn: { registered?: boolean; infoMessage?: string } | undefined;
   CreateAccount: undefined;
   ForgotPassword: undefined;
 };
@@ -37,12 +37,13 @@ export type ProfileStackParamList = {
   ChangePassword: undefined;
   NotificationPreferences: undefined;
   SyncStatus: undefined;
+  Subscription: undefined;
 };
 
 export type MainTabParamList = {
   HomeTab: undefined;
   InventoryTab: { screen?: keyof InventoryStackParamList; params?: { productId?: string; productName?: string } } | undefined;
   ScanTab: { screen?: keyof ScanStackParamList } | undefined;
-  AlertsTab: undefined;
+  AlertsTab: { initialFilter?: 'All' | 'Low Stock' | 'Near Expiry' | 'Expired'; timestamp?: number } | undefined;
   ProfileTab: { screen?: keyof ProfileStackParamList } | undefined;
 };

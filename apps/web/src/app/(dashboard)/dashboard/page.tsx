@@ -365,7 +365,7 @@ export default function DashboardPage() {
       {loading ? (
         /* Shimmer Loading Skeletons */
         <div className="space-y-6 animate-pulse">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3.5">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="h-24 bg-white border border-[#ece3d2] rounded-xl p-4 flex flex-col justify-between">
                 <div className="h-3 w-20 bg-[#ece3d2] rounded" />
@@ -387,17 +387,17 @@ export default function DashboardPage() {
               <span className="text-[11px] text-[#999182]">Live data</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3.5">
               {/* Card 1: Total Products */}
-              <div className="bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs hover:border-[#207429]/40 transition-colors flex items-center gap-3.5">
+              <div className="bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs hover:border-[#207429]/40 transition-colors flex items-center gap-3.5 min-h-[92px]">
                 <div className="w-11 h-11 rounded-xl bg-[#f4ffe1] text-[#207429] border border-[#207429]/20 flex items-center justify-center shrink-0 shadow-2xs">
                   <Boxes className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-bold text-[#7a7469] uppercase tracking-wide block truncate">
+                  <span className="text-[11px] font-bold text-[#7a7469] uppercase tracking-wide block leading-tight">
                     Total Products
                   </span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
+                  <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-black text-[#181413] tracking-tight">
                       {totalProducts}
                     </span>
@@ -407,15 +407,15 @@ export default function DashboardPage() {
               </div>
 
               {/* Card 2: Total Units */}
-              <div className="bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs hover:border-[#207429]/40 transition-colors flex items-center gap-3.5">
+              <div className="bg-white border border-[#ece3d2] rounded-xl p-4 shadow-2xs hover:border-[#207429]/40 transition-colors flex items-center gap-3.5 min-h-[92px]">
                 <div className="w-11 h-11 rounded-xl bg-[#f8faf8] border border-[#ece3d2] text-[#4a443a] flex items-center justify-center shrink-0 shadow-2xs">
                   <Layers className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-bold text-[#7a7469] uppercase tracking-wide block truncate">
+                  <span className="text-[11px] font-bold text-[#7a7469] uppercase tracking-wide block leading-tight">
                     Total Stock
                   </span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
+                  <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-black text-[#181413] tracking-tight">
                       {totalUnits}
                     </span>
@@ -425,22 +425,22 @@ export default function DashboardPage() {
               </div>
 
               {/* Card 3: Expiring Soon (Amber/Yellow Warm Tint) */}
-              <div className="bg-[#fffdf7] border border-[#fde68a] rounded-xl p-4 shadow-2xs hover:border-[#fabe44] transition-colors flex items-center gap-3.5">
+              <div className="bg-[#fffdf7] border border-[#fde68a] rounded-xl p-4 shadow-2xs hover:border-[#fabe44] transition-colors flex items-center gap-3.5 min-h-[92px]">
                 <div className="w-11 h-11 rounded-xl bg-[#fef3c7] text-[#b45309] border border-[#fde68a] flex items-center justify-center shrink-0 shadow-2xs">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-bold text-[#b45309] uppercase tracking-wide truncate">
+                  <div className="flex items-start justify-between gap-1.5 min-w-0">
+                    <span className="text-[11px] font-bold text-[#b45309] uppercase tracking-wide leading-tight">
                       Near Expiry
                     </span>
                     {nearExpiryCount > 0 && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fef3c7] text-[#b45309] border border-[#fde68a] uppercase">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fef3c7] text-[#b45309] border border-[#fde68a] uppercase shrink-0">
                         Urgent
                       </span>
                     )}
                   </div>
-                  <div className="flex items-baseline gap-1 mt-0.5">
+                  <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-black text-[#b45309] tracking-tight">
                       {nearExpiryCount}
                     </span>
@@ -450,22 +450,22 @@ export default function DashboardPage() {
               </div>
 
               {/* Card 4: Expired (Soft Danger Red) */}
-              <div className="bg-[#fffafa] border border-[#fecaca] rounded-xl p-4 shadow-2xs hover:border-[#d32f2f] transition-colors flex items-center gap-3.5">
+              <div className="bg-[#fffafa] border border-[#fecaca] rounded-xl p-4 shadow-2xs hover:border-[#d32f2f] transition-colors flex items-center gap-3.5 min-h-[92px]">
                 <div className="w-11 h-11 rounded-xl bg-[#fee2e2] text-[#d32f2f] border border-[#fca5a5] flex items-center justify-center shrink-0 shadow-2xs">
                   <AlertOctagon className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-bold text-[#d32f2f] uppercase tracking-wide truncate">
+                  <div className="flex items-start justify-between gap-1.5 min-w-0">
+                    <span className="text-[11px] font-bold text-[#d32f2f] uppercase tracking-wide leading-tight">
                       Expired
                     </span>
                     {expiredCount > 0 && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fee2e2] text-[#d32f2f] border border-[#fca5a5] uppercase">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#fee2e2] text-[#d32f2f] border border-[#fca5a5] uppercase shrink-0">
                         Dispose
                       </span>
                     )}
                   </div>
-                  <div className="flex items-baseline gap-1 mt-0.5">
+                  <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-black text-[#d32f2f] tracking-tight">
                       {expiredCount}
                     </span>
@@ -475,22 +475,22 @@ export default function DashboardPage() {
               </div>
 
               {/* Card 5: Low Stock */}
-              <div className="bg-[#fffaf5] border border-[#fed7aa] rounded-xl p-4 shadow-2xs hover:border-[#faab06] transition-colors flex items-center gap-3.5">
+              <div className="bg-[#fffaf5] border border-[#fed7aa] rounded-xl p-4 shadow-2xs hover:border-[#faab06] transition-colors flex items-center gap-3.5 min-h-[92px]">
                 <div className="w-11 h-11 rounded-xl bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] flex items-center justify-center shrink-0 shadow-2xs">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-bold text-[#c2410c] uppercase tracking-wide truncate">
+                  <div className="flex items-start justify-between gap-1.5 min-w-0">
+                    <span className="text-[11px] font-bold text-[#c2410c] uppercase tracking-wide leading-tight">
                       Low Stock
                     </span>
                     {lowStockCount > 0 && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] uppercase">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#ffedd5] text-[#c2410c] border border-[#fed7aa] uppercase shrink-0">
                         Reorder
                       </span>
                     )}
                   </div>
-                  <div className="flex items-baseline gap-1 mt-0.5">
+                  <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-black text-[#c2410c] tracking-tight">
                       {lowStockCount}
                     </span>
@@ -645,7 +645,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Section: Category Deep Dives (Low Stock, Near Expiry, Expired Breakdown) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {/* Low Stock Breakdown */}
             <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
               <div className="flex items-center justify-between border-b border-[#f4f1ea] pb-2.5">
@@ -669,10 +669,10 @@ export default function DashboardPage() {
                       href={`/inventory/${a.product_id}`}
                       className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <span className="font-medium text-[#181413] truncate max-w-[150px]">
+                      <span className="font-medium text-[#181413] truncate flex-1 min-w-0 mr-2">
                         {a.product_name}
                       </span>
-                      <span className="font-bold text-[#c2410c] bg-[#ffedd5] px-2 py-0.5 rounded text-[11px]">
+                      <span className="font-bold text-[#c2410c] bg-[#ffedd5] px-2 py-0.5 rounded text-[11px] shrink-0">
                         {a.current_stock ?? 0} left
                       </span>
                     </Link>
@@ -704,10 +704,10 @@ export default function DashboardPage() {
                       href={`/inventory/${a.product_id}`}
                       className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <span className="font-medium text-[#181413] truncate max-w-[130px]">
+                      <span className="font-medium text-[#181413] truncate flex-1 min-w-0 mr-2">
                         {a.product_name}
                       </span>
-                      <span className="font-bold text-[#b45309] bg-[#fef3c7] px-2 py-0.5 rounded text-[11px]">
+                      <span className="font-bold text-[#b45309] bg-[#fef3c7] px-2 py-0.5 rounded text-[11px] shrink-0">
                         {formatExpirationDaysText(a.days_until_expiration, false)}
                       </span>
                     </Link>
@@ -739,10 +739,10 @@ export default function DashboardPage() {
                       href={`/inventory/${a.product_id}`}
                       className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <span className="font-medium text-[#181413] truncate max-w-[130px]">
+                      <span className="font-medium text-[#181413] truncate flex-1 min-w-0 mr-2">
                         {a.product_name}
                       </span>
-                      <span className="font-bold text-[#d32f2f] bg-[#fee2e2] px-2 py-0.5 rounded text-[11px]">
+                      <span className="font-bold text-[#d32f2f] bg-[#fee2e2] px-2 py-0.5 rounded text-[11px] shrink-0">
                         {formatExpirationDaysText(a.days_until_expiration, true)}
                       </span>
                     </Link>
@@ -753,7 +753,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Section: Product Ranking Lists (Most-Stocked, Most-Sold, Least-Sold) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {/* Most-Stocked */}
             <div className="bg-white border border-[#ece3d2] rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
               <div className="flex items-center gap-2 border-b border-[#f4f1ea] pb-2.5">
@@ -772,11 +772,11 @@ export default function DashboardPage() {
                       href={`/inventory/${item.product_id}`}
                       className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <div className="truncate max-w-[170px]">
+                      <div className="truncate flex-1 min-w-0 mr-2">
                         <span className="font-medium text-[#181413] block truncate">{item.product_name}</span>
-                        <span className="text-[#999182] text-[10px] block">{item.category_name || 'Uncategorized'}</span>
+                        <span className="text-[#999182] text-[10px] block truncate">{item.category_name || 'Uncategorized'}</span>
                       </div>
-                      <span className="font-bold text-[#181413] bg-[#f8faf8] border border-[#ece3d2] px-2 py-0.5 rounded text-[11px]">
+                      <span className="font-bold text-[#181413] bg-[#f8faf8] border border-[#ece3d2] px-2 py-0.5 rounded text-[11px] shrink-0">
                         {item.total_stock} units
                       </span>
                     </Link>
@@ -803,11 +803,11 @@ export default function DashboardPage() {
                       href={`/inventory/${item.product_id}`}
                       className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <div className="truncate max-w-[170px]">
+                      <div className="truncate flex-1 min-w-0 mr-2">
                         <span className="font-medium text-[#181413] block truncate">{item.product_name}</span>
-                        <span className="text-[#999182] text-[10px] block">{item.category_name || 'Uncategorized'}</span>
+                        <span className="text-[#999182] text-[10px] block truncate">{item.category_name || 'Uncategorized'}</span>
                       </div>
-                      <span className="font-bold text-[#207429] bg-[#f4ffe1] px-2 py-0.5 rounded text-[11px] border border-[#207429]/20">
+                      <span className="font-bold text-[#207429] bg-[#f4ffe1] px-2 py-0.5 rounded text-[11px] border border-[#207429]/20 shrink-0">
                         {item.total_sold} sold
                       </span>
                     </Link>
@@ -834,11 +834,11 @@ export default function DashboardPage() {
                       href={`/inventory/${item.product_id}`}
                       className="py-2.5 flex items-center justify-between text-xs hover:bg-[#fef9f0] px-1.5 rounded-lg transition-colors"
                     >
-                      <div className="truncate max-w-[170px]">
+                      <div className="truncate flex-1 min-w-0 mr-2">
                         <span className="font-medium text-[#181413] block truncate">{item.product_name}</span>
-                        <span className="text-[#999182] text-[10px] block">{item.category_name || 'Uncategorized'}</span>
+                        <span className="text-[#999182] text-[10px] block truncate">{item.category_name || 'Uncategorized'}</span>
                       </div>
-                      <span className="font-bold text-[#7a7469] bg-[#f8faf8] border border-[#ece3d2] px-2 py-0.5 rounded text-[11px]">
+                      <span className="font-bold text-[#7a7469] bg-[#f8faf8] border border-[#ece3d2] px-2 py-0.5 rounded text-[11px] shrink-0">
                         {item.total_sold} sold
                       </span>
                     </Link>

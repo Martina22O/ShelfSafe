@@ -26,6 +26,13 @@ export default function SignUpPage() {
       return;
     }
 
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
       return;
@@ -36,7 +43,7 @@ export default function SignUpPage() {
     try {
       const supabase = createClient();
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: trimmedEmail,
         password,
         options: {
           data: {
@@ -51,15 +58,26 @@ export default function SignUpPage() {
         return;
       }
 
-      // If no session is returned, user confirmation email was dispatched
-      if (!data.session) {
-        setInfoMessage('Check your email to confirm your account');
+      // Check if user already exists (identities array is empty in Supabase when account exists and email enumeration protection is on)
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setError('An account with this email already exists. Please sign in instead.');
         setLoading(false);
         return;
       }
 
+      // If no session is returned, user confirmation email was dispatched
+      if (!data.session) {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = '/sign-in?registered=true&confirm=pending';
+        return;
+      }
+
+      // If Supabase issued a session automatically, safely sign out so newly registered user explicitly signs in
+      await supabase.auth.signOut();
+
+      // Redirect to sign-in with registration success query flag
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = '/dashboard';
+      window.location.href = '/sign-in?registered=true';
     } catch (err: unknown) {
       setError(formatErrorMessage(err));
       setLoading(false);
@@ -67,9 +85,9 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex overflow-hidden bg-[#FBF9F2]">
+    <div className="relative min-h-screen w-full flex overflow-y-auto bg-[#FBF9F2]">
       {/* Full-bleed HD background image across entire page */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <Image
           src="/images/web-bg.png?v=hd"
           alt="ShelfSafe Background"

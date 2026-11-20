@@ -71,14 +71,14 @@ export function ProductPhotoUpload({
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-3.5 bg-[#fef9f0] border border-[#ece3d2] rounded-2xl">
-        {/* Uniform square container with contain object fit */}
-        <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-xl border border-[#ece3d2] bg-white overflow-hidden shrink-0 flex items-center justify-center p-1">
+        {/* Uniform square container with cover object fit */}
+        <div className="w-20 h-20 sm:w-22 sm:h-22 aspect-square rounded-xl border border-[#ece3d2] bg-white overflow-hidden shrink-0 flex items-center justify-center relative">
           {previewUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={previewUrl}
               alt="Product preview"
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover"
             />
           ) : (
             <ProductCategoryIcon

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import {
   History,
   RefreshCw,
@@ -8,8 +9,10 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { getSaleHistory, undoSale } from '../../../lib/inventory';
+import { getUserSubscription } from '../../../lib/subscription';
 import { useRealtime } from '../../../lib/realtime';
 import { SaleHistoryRecord, SaleBatchBreakdownItem } from '../../../types/inventory';
 import { formatManilaDateTime, formatDisplayDate } from '../../../lib/date';
@@ -31,6 +34,26 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getUserSubscription()
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) {
+          setIsPremium(res.data.is_premium);
+        } else {
+          setIsPremium(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsPremium(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Pagination limit: starts at 50, increases by 50 up to 500
   const [limit, setLimit] = useState(50);
@@ -291,6 +314,27 @@ export default function HistoryPage() {
         </div>
       </div>
 
+      {/* Free Plan 7-Day Limit Notice */}
+      {isPremium === false && (
+        <div className="p-3.5 bg-[#FEF3C7] border border-[#FDE68A] rounded-xl flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-[#92400E]">
+            <span className="bg-[#F59E0B] text-white font-extrabold text-[10px] px-2 py-0.5 rounded shadow-2xs">
+              FREE PLAN
+            </span>
+            <span>
+              Showing sales recorded in the last 7 days. Upgrade to Premium for full lifetime sales history.
+            </span>
+          </div>
+          <Link
+            href="/subscription"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#207429] text-white text-xs font-bold hover:bg-[#185E21] shadow-2xs shrink-0 transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Upgrade</span>
+          </Link>
+        </div>
+      )}
+
       {/* Success Notification Banner */}
       {successBanner && (
         <div className="p-4 bg-[#f4ffe1] border border-[#207429]/30 rounded-2xl text-[#207429] text-xs font-semibold flex items-center justify-between shadow-2xs">
@@ -428,7 +472,7 @@ export default function HistoryPage() {
         <div className="space-y-4">
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto bg-white border border-[#ece3d2] rounded-2xl shadow-2xs">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-[#fef9f0] border-b border-[#ece3d2] text-[#7a7469] font-bold text-[11px] uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-5">Product &amp; Barcode</th>

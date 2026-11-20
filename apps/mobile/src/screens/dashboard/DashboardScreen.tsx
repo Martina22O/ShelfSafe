@@ -358,31 +358,64 @@ export default function DashboardScreen() {
           {/* Bottom 3 status cards */}
           <View style={styles.statusRow}>
             {/* Near Expiry */}
-            <View style={[styles.statusCard, { borderColor: COLORS.amberBorder, backgroundColor: '#fffdf5' }]}>
+            <TouchableOpacity
+              style={[styles.statusCard, { borderColor: COLORS.amberBorder, backgroundColor: '#fffdf5' }]}
+              activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate('AlertsTab', {
+                  initialFilter: 'Near Expiry',
+                  timestamp: Date.now(),
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Near Expiry: ${nearExpiryCount} batches`}
+            >
               <View style={[styles.statusIconBadge, { backgroundColor: COLORS.amberLight }]}>
                 <Clock size={16} color={COLORS.amberDark} strokeWidth={2.2} />
               </View>
               <Text style={[styles.statusValue, { color: COLORS.amberDark }]}>{nearExpiryCount}</Text>
               <Text style={styles.statusLabel}>Near Expiry</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Expired */}
-            <View style={[styles.statusCard, { borderColor: COLORS.dangerBorder, backgroundColor: '#fff8f8' }]}>
+            <TouchableOpacity
+              style={[styles.statusCard, { borderColor: COLORS.dangerBorder, backgroundColor: '#fff8f8' }]}
+              activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate('AlertsTab', {
+                  initialFilter: 'Expired',
+                  timestamp: Date.now(),
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Expired: ${expiredCount} batches`}
+            >
               <View style={[styles.statusIconBadge, { backgroundColor: COLORS.dangerLight }]}>
                 <AlertCircle size={16} color={COLORS.danger} strokeWidth={2.2} />
               </View>
               <Text style={[styles.statusValue, { color: COLORS.danger }]}>{expiredCount}</Text>
               <Text style={styles.statusLabel}>Expired</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Low Stock */}
-            <View style={[styles.statusCard, { borderColor: COLORS.orangeBorder, backgroundColor: '#fffaf5' }]}>
+            <TouchableOpacity
+              style={[styles.statusCard, { borderColor: COLORS.orangeBorder, backgroundColor: '#fffaf5' }]}
+              activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate('AlertsTab', {
+                  initialFilter: 'Low Stock',
+                  timestamp: Date.now(),
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Low Stock: ${lowStockCount} products`}
+            >
               <View style={[styles.statusIconBadge, { backgroundColor: COLORS.orangeLight }]}>
                 <TrendingDown size={16} color={COLORS.orangeDark} strokeWidth={2.2} />
               </View>
               <Text style={[styles.statusValue, { color: COLORS.orangeDark }]}>{lowStockCount}</Text>
               <Text style={styles.statusLabel}>Low Stock</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
