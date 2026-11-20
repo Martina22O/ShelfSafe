@@ -129,6 +129,7 @@ export async function getInventory(
         low_stock_level,
         is_archived,
         category_id,
+        image_url,
         categories (
           id,
           name
@@ -164,6 +165,7 @@ export async function getInventory(
       low_stock_level: number;
       is_archived: boolean;
       category_id: string | null;
+      image_url?: string | null;
       categories: Category | Category[] | null;
       batches: Batch[];
     }
@@ -213,6 +215,7 @@ export async function getInventory(
         is_archived: item.is_archived,
         category_id: item.category_id,
         category,
+        image_url: item.image_url || null,
         batches,
         total_units: totalUnits,
         sellable_units: sellableUnits,
@@ -241,7 +244,7 @@ export async function getProductWithBatches(
     const supabase = createClient();
     const { data: prodData, error: prodError } = await supabase
       .from('products')
-      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, categories(id, name)')
+      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, image_url, categories(id, name)')
       .eq('id', productId)
       .maybeSingle();
 
@@ -266,6 +269,7 @@ export async function getProductWithBatches(
       is_archived: prodData.is_archived,
       category_id: prodData.category_id,
       category,
+      image_url: prodData.image_url || null,
     };
 
     if (prodData.is_archived) {
@@ -345,7 +349,7 @@ export async function findProductByBarcode(
     const supabase = createClient();
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, categories(id, name)')
+      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, image_url, categories(id, name)')
       .in('barcode', variants)
       .limit(1);
 
@@ -404,7 +408,7 @@ export async function searchProductsByName(
     const supabase = createClient();
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, categories(id, name)')
+      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, image_url, categories(id, name)')
       .ilike('name', `%${escaped}%`)
       .eq('is_archived', false)
       .order('name')
@@ -428,6 +432,7 @@ export async function searchProductsByName(
         is_archived: item.is_archived,
         category_id: item.category_id,
         category,
+        image_url: item.image_url || null,
       };
     });
 
@@ -497,6 +502,7 @@ export async function createProductWithBatch(
       p_barcode: params.p_barcode || null,
       p_low_stock_level: params.p_low_stock_level ?? 5,
       p_purchase_date: params.p_purchase_date || null,
+      p_image_url: params.p_image_url || null,
     });
 
     if (error) {
@@ -894,7 +900,7 @@ export async function getArchivedProducts(): Promise<GetArchivedProductsResult> 
     const supabase = createClient();
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, categories(id, name)')
+      .select('id, name, barcode, price, low_stock_level, is_archived, category_id, image_url, categories(id, name)')
       .eq('is_archived', true)
       .order('name');
 
@@ -916,6 +922,7 @@ export async function getArchivedProducts(): Promise<GetArchivedProductsResult> 
         is_archived: true,
         category_id: item.category_id,
         category,
+        image_url: item.image_url || null,
       };
     });
 

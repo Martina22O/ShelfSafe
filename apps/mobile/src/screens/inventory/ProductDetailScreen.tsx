@@ -51,6 +51,8 @@ import {
   isDateInPast,
 } from '../../utils/date';
 import DateField from '../../components/DateField';
+import ProductCategoryIcon from '../../components/ProductCategoryIcon';
+import { getSignedPhotoUrl, invalidateSignedUrl } from '../../services/storage';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 const RefreshControlComponent = RefreshControl as any;
@@ -73,6 +75,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   const productId = route.params?.productId;
 
   const [product, setProduct] = useState<ProductWithBatches | null>(null);
+  const [signedPhotoUrl, setSignedPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +164,13 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
     }
 
     setProduct(res.data);
+    if (res.data.image_url) {
+      getSignedPhotoUrl(res.data.image_url).then((url) => {
+        if (isMounted) setSignedPhotoUrl(url);
+      });
+    } else {
+      setSignedPhotoUrl(null);
+    }
   };
 
   useFocusEffect(
@@ -490,66 +500,90 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          {/* Product Details Header Section (Clean layout against powdered white canvas) */}
+          {/* Product Details Header Section */}
           {product && (
             <View style={styles.prodHeaderSection}>
-              {/* Product Title and Edit Product in the Same Row */}
-              <View style={styles.productHeadingRow}>
-                <Text style={styles.productTitle}>{product.name}</Text>
-                {!product?.is_archived && (
-                  <TouchableOpacity
-                    style={styles.editProdBtn}
-                    onPress={() =>
-                      product && navigation.navigate('EditProduct', { productId: product.id })
-                    }
-                    disabled={saving}
-                  >
-                    <Edit size={13} color={COLORS.text} strokeWidth={2.2} style={{ marginRight: 5 }} />
-                    <Text style={styles.editProdText}>Edit Product</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {product.barcode ? (
-                <Text style={styles.barcodeLabel}>{product.barcode}</Text>
-              ) : null}
-
-              <View style={styles.metaPillsRow}>
-                <View style={styles.metaPill}>
-                  <Package size={13} color={COLORS.primary} strokeWidth={2} style={{ marginRight: 5 }} />
-                  <Text style={styles.metaPillText}>
-                    {product.category?.name || 'General Category'}
-                  </Text>
+              <View style={styles.headerFlexRow}>
+                {/* Square Photo or Category Icon container on left */}
+                <View style={styles.headerPhotoContainer}>
+                  {signedPhotoUrl ? (
+                    <Image
+                      source={{ uri: signedPhotoUrl }}
+                      style={styles.headerPhotoImage}
+                      resizeMode="contain"
+                      onError={() => {
+                        invalidateSignedUrl(product.image_url);
+                        setSignedPhotoUrl(null);
+                      }}
+                    />
+                  ) : (
+                    <ProductCategoryIcon
+                      categoryName={product.category?.name}
+                      size={44}
+                      style={styles.headerCategoryIcon}
+                    />
+                  )}
                 </View>
 
-                <View style={styles.metaPill}>
-                  <Text style={styles.metaPillPriceText}>
-                    ₱{product.price.toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Status Pills */}
-              {product.statuses.length > 0 && (
-                <View style={styles.statusPillsRow}>
-                  {product.statuses.map((s) => {
-                    const b = getStatusBadge(s);
-                    return (
-                      <View
-                        key={s}
-                        style={[
-                          styles.statusPillBadge,
-                          { backgroundColor: b.bg, borderColor: b.border },
-                        ]}
+                {/* Information on right */}
+                <View style={styles.headerInfoCol}>
+                  <View style={styles.productHeadingRow}>
+                    <Text style={styles.productTitle}>{product.name}</Text>
+                    {!product?.is_archived && (
+                      <TouchableOpacity
+                        style={styles.editProdBtn}
+                        onPress={() =>
+                          product && navigation.navigate('EditProduct', { productId: product.id })
+                        }
+                        disabled={saving}
                       >
-                        <Text style={[styles.statusPillText, { color: b.text }]}>
-                          {b.label}
-                        </Text>
-                      </View>
-                    );
-                  })}
+                        <Edit size={13} color={COLORS.text} strokeWidth={2.2} style={{ marginRight: 5 }} />
+                        <Text style={styles.editProdText}>Edit Product</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {product.barcode ? (
+                    <Text style={styles.barcodeLabel}>{product.barcode}</Text>
+                  ) : null}
+
+                  <View style={styles.metaPillsRow}>
+                    <View style={styles.metaPill}>
+                      <Text style={styles.metaPillText}>
+                        {product.category?.name || 'General Category'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaPill}>
+                      <Text style={styles.metaPillPriceText}>
+                        ₱{product.price.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Status Pills */}
+                  {product.statuses.length > 0 && (
+                    <View style={styles.statusPillsRow}>
+                      {product.statuses.map((s) => {
+                        const b = getStatusBadge(s);
+                        return (
+                          <View
+                            key={s}
+                            style={[
+                              styles.statusPillBadge,
+                              { backgroundColor: b.bg, borderColor: b.border },
+                            ]}
+                          >
+                            <Text style={[styles.statusPillText, { color: b.text }]}>
+                              {b.label}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
-              )}
+              </View>
             </View>
           )}
 
@@ -1139,6 +1173,36 @@ const styles = StyleSheet.create({
   },
   prodHeaderSection: {
     marginBottom: 12,
+  },
+  headerFlexRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  headerPhotoContainer: {
+    width: 92,
+    height: 92,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerPhotoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  headerCategoryIcon: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    borderWidth: 0,
+  },
+  headerInfoCol: {
+    flex: 1,
+    minWidth: 0,
   },
   productTitle: {
     flex: 1,

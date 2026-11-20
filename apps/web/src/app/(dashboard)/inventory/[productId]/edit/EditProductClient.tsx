@@ -14,6 +14,13 @@ import {
   getCategories,
   updateProduct,
 } from '../../../../../lib/inventory';
+import {
+  getSignedPhotoUrl,
+  uploadProductPhotoWeb,
+  deleteProductPhoto,
+  setProductImage,
+} from '../../../../../lib/storage';
+import { ProductPhotoUpload } from '../../../../../components/ProductPhotoUpload';
 import { Category, ProductWithBatches } from '../../../../../types/inventory';
 import { ConfirmModal } from '../../../../../components/ConfirmModal';
 
@@ -38,6 +45,10 @@ export function EditProductClient({ productId }: EditProductClientProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [price, setPrice] = useState('0.00');
   const [lowStockLevel, setLowStockLevel] = useState('5');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [initialStoragePath, setInitialStoragePath] = useState<string | null>(null);
+  const [photoChanged, setPhotoChanged] = useState(false);
 
   // Submit and modal states
   const [formError, setFormError] = useState<string | null>(null);
@@ -91,6 +102,15 @@ export function EditProductClient({ productId }: EditProductClientProps) {
     setBarcode(prod.barcode || '');
     setPrice(prod.price.toFixed(2));
     setLowStockLevel(prod.low_stock_level.toString());
+    setInitialStoragePath(prod.image_url || null);
+    if (prod.image_url) {
+      getSignedPhotoUrl(prod.image_url).then((url) => {
+        setPreviewUrl(url);
+      });
+    } else {
+      setPreviewUrl(null);
+    }
+    setPhotoChanged(false);
 
     if (catRes.kind === 'success') {
       setCategories(catRes.categories);
@@ -195,6 +215,26 @@ export function EditProductClient({ productId }: EditProductClientProps) {
       await loadData();
       setSaving(false);
       return;
+    }
+
+    // Photo management: handle updates only after product metadata is saved
+    if (photoChanged) {
+      if (!previewUrl) {
+        // Photo was removed
+        await setProductImage(productId, null);
+        if (initialStoragePath) {
+          await deleteProductPhoto(initialStoragePath);
+        }
+      } else if (selectedFile) {
+        // New photo was uploaded
+        const uploadRes = await uploadProductPhotoWeb(selectedFile, productId);
+        if ('storagePath' in uploadRes) {
+          const updateImgRes = await setProductImage(productId, uploadRes.storagePath);
+          if (updateImgRes.success && initialStoragePath) {
+            await deleteProductPhoto(initialStoragePath);
+          }
+        }
+      }
     }
 
     // Success
@@ -357,6 +397,22 @@ export function EditProductClient({ productId }: EditProductClientProps) {
               className="w-full border border-gray-300 p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-black"
             />
           </div>
+
+          <ProductPhotoUpload
+            selectedFile={selectedFile}
+            onFileSelected={(file) => {
+              setSelectedFile(file);
+              setPhotoChanged(true);
+              if (file) {
+                setPreviewUrl(URL.createObjectURL(file));
+              } else {
+                setPreviewUrl(null);
+              }
+            }}
+            previewUrl={previewUrl}
+            categoryName={categories.find((c) => c.id === selectedCategoryId)?.name}
+            disabled={saving}
+          />
 
           <div>
             <label htmlFor="product-barcode" className="block text-sm font-medium text-gray-700 mb-1">
