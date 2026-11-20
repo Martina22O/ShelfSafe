@@ -25,6 +25,13 @@ import {
   getCategories,
   updateProduct,
 } from '../../services/inventory';
+import {
+  getSignedPhotoUrl,
+  uploadProductPhoto,
+  deleteProductPhoto,
+  setProductImage,
+} from '../../services/storage';
+import ProductPhotoPicker from '../../components/ProductPhotoPicker';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { Category, ProductWithBatches } from '../../types/inventory';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
@@ -51,6 +58,9 @@ export default function EditProductScreen({ route, navigation }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [price, setPrice] = useState('0.00');
   const [lowStockLevel, setLowStockLevel] = useState('5');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [initialStoragePath, setInitialStoragePath] = useState<string | null>(null);
+  const [photoChanged, setPhotoChanged] = useState(false);
 
   // Submission & Confirmation state
   const [saving, setSaving] = useState(false);
@@ -111,6 +121,15 @@ export default function EditProductScreen({ route, navigation }: Props) {
     setSelectedCategoryId(prod.category_id || (catRes.kind === 'success' && catRes.categories[0]?.id) || null);
     setPrice(prod.price.toFixed(2));
     setLowStockLevel(prod.low_stock_level.toString());
+    setInitialStoragePath(prod.image_url || null);
+    if (prod.image_url) {
+      getSignedPhotoUrl(prod.image_url).then((signed) => {
+        setPhotoUri(signed);
+      });
+    } else {
+      setPhotoUri(null);
+    }
+    setPhotoChanged(false);
 
     if (catRes.kind === 'success') {
       setCategories(catRes.categories);
@@ -136,6 +155,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
 
   const isUnchanged = Boolean(
     initialProduct &&
+      !photoChanged &&
       trimmedName === initialProduct.name &&
       trimmedBarcode === initialBarcode &&
       selectedCategoryId === initialProduct.category_id &&
@@ -187,17 +207,53 @@ export default function EditProductScreen({ route, navigation }: Props) {
       lowStockLevel: lowStockNum,
     });
 
-    setSaving(false);
-
     if (res.kind === 'db_error') {
+      setSaving(false);
       setErrorMessage(res.message);
       return;
     }
 
     if (res.kind === 'network_timeout') {
+      setSaving(false);
       setErrorMessage(res.message);
       return;
     }
+
+    // Handle photo updates only after metadata update succeeds
+    if (photoChanged && productId) {
+      if (!photoUri) {
+        // Photo was removed
+        const removeRes = await setProductImage(productId, null);
+        if (!removeRes.success) {
+          setSaving(false);
+          setErrorMessage(`Failed to remove product photo: ${removeRes.error || 'Database error'}.`);
+          return;
+        }
+        if (initialStoragePath) {
+          await deleteProductPhoto(initialStoragePath);
+        }
+      } else if (photoUri !== initialStoragePath) {
+        // New photo was selected
+        const uploadRes = await uploadProductPhoto(photoUri, productId);
+        if ('error' in uploadRes) {
+          setSaving(false);
+          setErrorMessage(`Photo upload failed: ${uploadRes.error}. Product details were saved, but the new photo could not be stored.`);
+          return;
+        }
+        const updateImgRes = await setProductImage(productId, uploadRes.storagePath);
+        if (!updateImgRes.success) {
+          await deleteProductPhoto(uploadRes.storagePath);
+          setSaving(false);
+          setErrorMessage(`Failed to update product photo: ${updateImgRes.error || 'Database error'}.`);
+          return;
+        }
+        if (initialStoragePath && initialStoragePath !== uploadRes.storagePath) {
+          await deleteProductPhoto(initialStoragePath);
+        }
+      }
+    }
+
+    setSaving(false);
 
     // Success
     setSuccessMessage('Product updated successfully!');
@@ -269,6 +325,16 @@ export default function EditProductScreen({ route, navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             editable={!saving}
+          />
+
+          <ProductPhotoPicker
+            photoUri={photoUri}
+            onPhotoSelected={(uri) => {
+              setPhotoUri(uri);
+              setPhotoChanged(true);
+            }}
+            categoryName={categories.find((c) => c.id === selectedCategoryId)?.name}
+            disabled={saving}
           />
 
           <Text style={styles.label}>Barcode / SKU</Text>

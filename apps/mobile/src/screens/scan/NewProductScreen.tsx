@@ -20,6 +20,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScanStackParamList } from '../../navigation/types';
 import DateField from '../../components/DateField';
 import { getCategories, createProductWithBatch } from '../../services/inventory';
+import { uploadProductPhoto, deleteProductPhoto, generateUUID } from '../../services/storage';
+import ProductPhotoPicker from '../../components/ProductPhotoPicker';
 import { Category } from '../../types/inventory';
 import {
   getTodayInManila,
@@ -43,6 +45,7 @@ export default function NewProductScreen({ route, navigation }: Props) {
 
   // Form fields
   const [name, setName] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [barcode, setBarcode] = useState(initialBarcode);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [price, setPrice] = useState('0.00');
@@ -143,6 +146,19 @@ export default function NewProductScreen({ route, navigation }: Props) {
 
     setSaving(true);
 
+    let uploadedStoragePath: string | null = null;
+    const prospectiveId = generateUUID();
+
+    if (photoUri) {
+      const uploadRes = await uploadProductPhoto(photoUri, prospectiveId);
+      if ('error' in uploadRes) {
+        setErrorMessage(`Photo upload failed: ${uploadRes.error}. Please try again or remove the photo.`);
+        setSaving(false);
+        return;
+      }
+      uploadedStoragePath = uploadRes.storagePath;
+    }
+
     const result = await createProductWithBatch({
       p_name: trimmedName,
       p_barcode: barcode.trim() || null,
@@ -152,14 +168,20 @@ export default function NewProductScreen({ route, navigation }: Props) {
       p_quantity: qtyNum,
       p_purchase_date: pDate,
       p_expiration_date: expDate,
+      p_image_url: uploadedStoragePath,
     });
 
-    setSaving(false);
-
     if (result.kind === 'error') {
+      // If product creation failed, clean up uploaded storage file
+      if (uploadedStoragePath) {
+        await deleteProductPhoto(uploadedStoragePath);
+      }
+      setSaving(false);
       setErrorMessage(result.message);
       return;
     }
+
+    setSaving(false);
 
     // Success -> Navigate to AddStockDone
     navigation.navigate('AddStockDone', {
@@ -210,6 +232,13 @@ export default function NewProductScreen({ route, navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             editable={!saving}
+          />
+
+          <ProductPhotoPicker
+            photoUri={photoUri}
+            onPhotoSelected={setPhotoUri}
+            categoryName={categories.find((c) => c.id === selectedCategoryId)?.name}
+            disabled={saving}
           />
 
           <Text style={styles.label}>Barcode (Optional)</Text>

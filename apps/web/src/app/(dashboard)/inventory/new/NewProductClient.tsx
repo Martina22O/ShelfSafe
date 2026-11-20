@@ -8,6 +8,8 @@ import {
   ScanBarcode,
 } from 'lucide-react';
 import { getCategories, createProductWithBatch } from '../../../../lib/inventory';
+import { uploadProductPhotoWeb, deleteProductPhoto, generateUUID } from '../../../../lib/storage';
+import { ProductPhotoUpload } from '../../../../components/ProductPhotoUpload';
 import { Category } from '../../../../types/inventory';
 import {
   getTodayInManila,
@@ -28,6 +30,8 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
 
   // Form fields
   const [name, setName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [barcode, setBarcode] = useState(initialBarcode);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [price, setPrice] = useState('0.00');
@@ -145,6 +149,19 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
     const pDate = purchaseDate.trim() || today;
     const expDate = expirationDate.trim();
 
+    let uploadedStoragePath: string | null = null;
+    const prospectiveId = generateUUID();
+
+    if (selectedFile) {
+      const uploadRes = await uploadProductPhotoWeb(selectedFile, prospectiveId);
+      if ('error' in uploadRes) {
+        setFormError(`Photo upload failed: ${uploadRes.error}. Please try again or remove photo.`);
+        setSaving(false);
+        return;
+      }
+      uploadedStoragePath = uploadRes.storagePath;
+    }
+
     const res = await createProductWithBatch({
       p_name: trimmedName,
       p_category_id: selectedCategoryId,
@@ -154,20 +171,26 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
       p_barcode: barcode.trim() || null,
       p_low_stock_level: lowStockNum,
       p_purchase_date: pDate,
+      p_image_url: uploadedStoragePath,
     });
 
-    setSaving(false);
-
     if (res.kind === 'db_error') {
+      if (uploadedStoragePath) {
+        await deleteProductPhoto(uploadedStoragePath);
+      }
+      setSaving(false);
       setFormError(res.message);
       return;
     }
 
     if (res.kind === 'network_error') {
+      setSaving(false);
       setFormError(res.message);
       setShowNetworkWarning(true);
       return;
     }
+
+    setSaving(false);
 
     setCreatedProduct({
       productId: res.productId,
@@ -179,6 +202,8 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
 
   const handleResetForm = () => {
     setName('');
+    setSelectedFile(null);
+    setPreviewUrl(null);
     setBarcode('');
     setPrice('0.00');
     setLowStockLevel('5');
@@ -302,6 +327,23 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
                     }}
                     disabled={saving || showNetworkWarning}
                     className="w-full border border-[#ece3d2] p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#207429] bg-[#f8faf8] focus:bg-white transition-all"
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <ProductPhotoUpload
+                    selectedFile={selectedFile}
+                    onFileSelected={(file) => {
+                      setSelectedFile(file);
+                      if (file) {
+                        setPreviewUrl(URL.createObjectURL(file));
+                      } else {
+                        setPreviewUrl(null);
+                      }
+                    }}
+                    previewUrl={previewUrl}
+                    categoryName={categories.find((c) => c.id === selectedCategoryId)?.name}
+                    disabled={saving || showNetworkWarning}
                   />
                 </div>
 

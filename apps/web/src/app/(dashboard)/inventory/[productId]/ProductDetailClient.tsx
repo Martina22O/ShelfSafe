@@ -38,6 +38,8 @@ import {
   isDateInPast,
 } from '../../../../lib/date';
 import { ConfirmModal } from '../../../../components/ConfirmModal';
+import { getSignedPhotoUrl, invalidateSignedUrl } from '../../../../lib/storage';
+import { ProductCategoryIcon } from '../../../../components/ProductCategoryIcon';
 
 interface ProductDetailClientProps {
   productId: string;
@@ -48,6 +50,7 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
   const { dataVersion } = useRealtime();
 
   const [product, setProduct] = useState<ProductWithBatches | null>(null);
+  const [signedPhotoUrl, setSignedPhotoUrl] = useState<string | null>(null);
   const [isArchived, setIsArchived] = useState(false);
   const [isNotFound, setIsNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -129,6 +132,13 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
     setIsNotFound(false);
     setIsArchived(false);
     setProduct(res.data);
+    if (res.data.image_url) {
+      getSignedPhotoUrl(res.data.image_url).then((url) => {
+        setSignedPhotoUrl(url);
+      });
+    } else {
+      setSignedPhotoUrl(null);
+    }
     setLoading(false);
   }, [productId, near_expiry_days, settingsLoading, settingsError]);
 
@@ -643,19 +653,44 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
       {/* Product Header */}
       <div className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black text-[#181413] tracking-tight">{product.name}</h1>
+          <div className="flex items-start gap-4">
+            {/* Square Photo / Category Icon container on left */}
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border border-[#ece3d2] bg-[#f8faf8] overflow-hidden shrink-0 flex items-center justify-center p-1.5 shadow-2xs">
+              {signedPhotoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={signedPhotoUrl}
+                  alt={product.name}
+                  className="w-full h-full object-contain"
+                  onError={() => {
+                    invalidateSignedUrl(product.image_url);
+                    setSignedPhotoUrl(null);
+                  }}
+                />
+              ) : (
+                <ProductCategoryIcon
+                  categoryName={product.category?.name}
+                  size={40}
+                  className="w-full h-full border-0"
+                />
+              )}
             </div>
-            <p className="text-xs text-[#7a7469] mt-1">
-              Barcode: <span className="font-mono text-[#181413]">{product.barcode || 'None'}</span> • Category:{' '}
-              <span className="font-semibold text-[#181413]">{product.category?.name || 'Uncategorized'}</span> • Price:{' '}
-              <span className="font-bold text-[#207429]">₱{product.price.toFixed(2)}</span>
-            </p>
+
+            {/* Information on right */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-black text-[#181413] tracking-tight break-words">{product.name}</h1>
+              </div>
+              <p className="text-xs text-[#7a7469] mt-1">
+                Barcode: <span className="font-mono text-[#181413]">{product.barcode || 'None'}</span> • Category:{' '}
+                <span className="font-semibold text-[#181413]">{product.category?.name || 'Uncategorized'}</span> • Price:{' '}
+                <span className="font-bold text-[#207429]">₱{product.price.toFixed(2)}</span>
+              </p>
+            </div>
           </div>
 
           {/* Action buttons on header */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Link
               href={`/inventory/${productId}/edit`}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#ece3d2] bg-white text-xs font-bold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs ${
@@ -761,7 +796,7 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
           </div>
         ) : (
           <div className="overflow-x-auto bg-white border border-[#ece3d2] rounded-2xl shadow-2xs">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-[#fef9f0] border-b border-[#ece3d2] text-[#7a7469] font-bold text-[11px] uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-5">Batch Code</th>

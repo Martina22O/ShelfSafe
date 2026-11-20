@@ -15,6 +15,7 @@ export interface Product {
   is_archived: boolean;
   created_at?: string;
   category?: Category | null;
+  image_url?: string | null;
 }
 
 export interface Batch {
@@ -63,6 +64,7 @@ export interface CreateProductWithBatchParams {
   p_barcode?: string | null;
   p_low_stock_level?: number;
   p_purchase_date?: string | null;
+  p_image_url?: string | null;
 }
 
 export interface CreateProductWithBatchResult {

@@ -31,6 +31,13 @@
         {
           "cameraPermission": "ShelfSafe needs camera access to scan product barcodes."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ShelfSafe needs access to your photos to optionally select product images.",
+          "cameraPermission": "ShelfSafe needs camera access to optionally capture product photos."
+        }
       ]
     ]
   }
