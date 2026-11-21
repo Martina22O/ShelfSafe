@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -74,6 +75,7 @@ export default function NotificationPreferencesScreen({ navigation }: Props) {
   const isUnchanged = isValidInteger && parsed === near_expiry_days;
 
   const handleOpenConfirm = () => {
+    Keyboard.dismiss();
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -149,6 +151,8 @@ export default function NotificationPreferencesScreen({ navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             keyboardType="number-pad"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
             editable={!saving}
           />
           <Text style={styles.hint}>Valid range: 1 to 60 days</Text>
@@ -163,6 +167,7 @@ export default function NotificationPreferencesScreen({ navigation }: Props) {
                   key={days}
                   style={[styles.chip, isSelected && styles.chipActive]}
                   onPress={() => {
+                    Keyboard.dismiss();
                     setDaysInput(String(days));
                     if (errorMessage) setErrorMessage(null);
                   }}
@@ -294,11 +299,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   screenSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   successBox: {
     backgroundColor: COLORS.primaryLight,
@@ -331,12 +337,12 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -348,19 +354,21 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    minHeight: 48,
     fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
   hint: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
   },
   chipsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 6,
   },
@@ -388,12 +396,13 @@ const styles = StyleSheet.create({
   },
   btnStack: {
     marginTop: 24,
-    gap: 10,
+    gap: 12,
   },
   primaryBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -409,11 +418,12 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -430,8 +440,8 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 22,
     width: '100%',
     maxWidth: 340,
     borderWidth: 1,
@@ -441,14 +451,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
   },
   modalSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
-    color: COLORS.text,
+    color: COLORS.textMuted,
     marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   modalBtnRow: {
     flexDirection: 'row',
@@ -457,26 +467,32 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   modalCancelBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
   },
   modalConfirmBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    borderRadius: 10,
     backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalConfirmText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.white,

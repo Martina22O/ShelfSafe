@@ -213,8 +213,8 @@ export function AppShell({ children }: AppShellProps) {
               </div>
 
               {/* ShelfSafe Title Directly Below Logo */}
-              <span className="font-extrabold text-xl tracking-tight text-[#181413]">
-                Shelf<span className="text-[#207429]">Safe</span>
+              <span className="font-extrabold text-xl tracking-tight text-[#207429]">
+                Shelf<span className="text-[#faab06]">Safe</span>
               </span>
             </Link>
 

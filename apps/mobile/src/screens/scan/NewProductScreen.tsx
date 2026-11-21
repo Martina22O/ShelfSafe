@@ -2,7 +2,7 @@
  * Screen: NewProductScreen
  * Create a new product and its initial batch atomically with real database data.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -56,6 +57,11 @@ export default function NewProductScreen({ route, navigation }: Props) {
   const [purchaseDate, setPurchaseDate] = useState(today);
   const [expirationDate, setExpirationDate] = useState('');
 
+  const barcodeInputRef = useRef<any>(null);
+  const priceInputRef = useRef<any>(null);
+  const lowStockInputRef = useRef<any>(null);
+  const quantityInputRef = useRef<any>(null);
+
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -84,6 +90,7 @@ export default function NewProductScreen({ route, navigation }: Props) {
   const isPastExpiry = isValidCalendarDate(expirationDate) && isDateInPast(expirationDate);
 
   const handleSave = async () => {
+    Keyboard.dismiss();
     setErrorMessage(null);
 
     // Validate name
@@ -221,7 +228,7 @@ export default function NewProductScreen({ route, navigation }: Props) {
         <View style={styles.card}>
           <Text style={styles.cardSectionHeader}>Product Details</Text>
 
-          <Text style={styles.label}>Product Name</Text>
+          <Text style={[styles.label, { marginTop: 0 }]}>Product Name</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g. Fresh Milk 1L"
@@ -232,6 +239,9 @@ export default function NewProductScreen({ route, navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             editable={!saving}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => barcodeInputRef.current?.focus()}
           />
 
           <ProductPhotoPicker
@@ -243,6 +253,7 @@ export default function NewProductScreen({ route, navigation }: Props) {
 
           <Text style={styles.label}>Barcode (Optional)</Text>
           <TextInput
+            ref={barcodeInputRef}
             style={styles.input}
             placeholder="Scan or type barcode number"
             placeholderTextColor={COLORS.textMuted}
@@ -253,6 +264,9 @@ export default function NewProductScreen({ route, navigation }: Props) {
             }}
             keyboardType="numeric"
             editable={!saving}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => priceInputRef.current?.focus()}
           />
           {fromScan ? (
             <Text style={styles.hintText}>
@@ -271,7 +285,10 @@ export default function NewProductScreen({ route, navigation }: Props) {
                   <TouchableOpacity
                     key={cat.id}
                     style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                    onPress={() => setSelectedCategoryId(cat.id)}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setSelectedCategoryId(cat.id);
+                    }}
                     disabled={saving}
                   >
                     <Text
@@ -292,6 +309,7 @@ export default function NewProductScreen({ route, navigation }: Props) {
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={styles.label}>Price (₱)</Text>
               <TextInput
+                ref={priceInputRef}
                 style={styles.input}
                 placeholder="0.00"
                 placeholderTextColor={COLORS.textMuted}
@@ -302,12 +320,16 @@ export default function NewProductScreen({ route, navigation }: Props) {
                 }}
                 keyboardType="numeric"
                 editable={!saving}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => lowStockInputRef.current?.focus()}
               />
             </View>
 
             <View style={{ flex: 1, marginLeft: 8 }}>
               <Text style={styles.label}>Low Stock Level</Text>
               <TextInput
+                ref={lowStockInputRef}
                 style={styles.input}
                 placeholder="5"
                 placeholderTextColor={COLORS.textMuted}
@@ -318,6 +340,9 @@ export default function NewProductScreen({ route, navigation }: Props) {
                 }}
                 keyboardType="numeric"
                 editable={!saving}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => quantityInputRef.current?.focus()}
               />
             </View>
           </View>
@@ -327,9 +352,10 @@ export default function NewProductScreen({ route, navigation }: Props) {
         <View style={styles.card}>
           <Text style={styles.cardSectionHeader}>First Batch Details</Text>
 
-          <Text style={styles.label}>Quantity Received</Text>
+          <Text style={[styles.label, { marginTop: 0 }]}>Quantity Received</Text>
           <TextInput
-            style={styles.input}
+            ref={quantityInputRef}
+            style={[styles.input, { marginBottom: 14 }]}
             placeholder="10"
             placeholderTextColor={COLORS.textMuted}
             value={quantity}
@@ -338,6 +364,8 @@ export default function NewProductScreen({ route, navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             keyboardType="numeric"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
             editable={!saving}
           />
 
@@ -434,11 +462,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   screenSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   errorBox: {
     backgroundColor: COLORS.dangerLight,
@@ -457,25 +486,25 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
   },
   cardSectionHeader: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
     marginBottom: 12,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
     marginBottom: 6,
-    marginTop: 8,
+    marginTop: 14,
   },
   input: {
     backgroundColor: COLORS.canvas,
@@ -483,13 +512,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    minHeight: 48,
     fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
   hintText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
@@ -505,15 +535,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
   categoryChipActive: {
     backgroundColor: COLORS.primaryLight,
     borderColor: COLORS.primaryDark,
   },
   categoryChipText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
@@ -528,7 +558,7 @@ const styles = StyleSheet.create({
   pastExpiryBox: {
     marginTop: 8,
     backgroundColor: COLORS.dangerLight,
-    padding: 8,
+    padding: 10,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
@@ -538,6 +568,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.dangerDark,
+    flex: 1,
   },
   actionSection: {
     marginTop: 8,
@@ -547,6 +578,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },

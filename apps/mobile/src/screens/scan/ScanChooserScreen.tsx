@@ -111,10 +111,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
     letterSpacing: -0.4,
   },
   subtitle: {
@@ -153,6 +153,7 @@ const styles = StyleSheet.create({
   },
   actionTextContainer: {
     flex: 1,
+    marginRight: 8,
   },
   actionTitle: {
     fontSize: 16,
@@ -161,11 +162,11 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   actionSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 3,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   chevron: {
     fontSize: 18,
@@ -177,21 +178,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.canvas,
+    gap: 8,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 14,
     paddingVertical: 14,
-    marginTop: 8,
+    minHeight: 50,
+    marginTop: 4,
   },
   historyEmoji: {
     fontSize: 16,
     marginRight: 8,
   },
   historyBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: FONTS.semiBold,
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.text,
   },
 });

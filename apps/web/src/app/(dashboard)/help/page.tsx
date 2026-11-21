@@ -25,9 +25,9 @@ export default function HelpPage() {
         </p>
       </div>
 
-      <div className="space-y-4 max-w-3xl">
+      <div className="space-y-4 w-full">
         {/* Q1: How to add stock */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <Layers className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">
@@ -40,7 +40,7 @@ export default function HelpPage() {
         </section>
 
         {/* Q2: Batches & Expiry Tracking */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <Boxes className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">
@@ -57,7 +57,7 @@ export default function HelpPage() {
         </section>
 
         {/* Q3: Why barcode scanning & recording sales are in mobile */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <ScanBarcode className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">
@@ -70,7 +70,7 @@ export default function HelpPage() {
         </section>
 
         {/* Q4: How to undo a wrong sale */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <RotateCcw className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">
@@ -83,7 +83,7 @@ export default function HelpPage() {
         </section>
 
         {/* Q5: Near expiry definition & where to change */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <Clock className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">
@@ -96,7 +96,7 @@ export default function HelpPage() {
         </section>
 
         {/* Q6: What archived products are */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <Archive className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">
@@ -109,7 +109,7 @@ export default function HelpPage() {
         </section>
 
         {/* Q7: Password reset by email note */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <KeyRound className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">
@@ -122,7 +122,7 @@ export default function HelpPage() {
         </section>
 
         {/* Q8: Live updates across devices */}
-        <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
+        <section className="w-full bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-2.5">
           <div className="flex items-center gap-2 text-[#207429]">
             <Radio className="w-5 h-5 shrink-0" />
             <h2 className="text-sm font-bold text-[#181413]">

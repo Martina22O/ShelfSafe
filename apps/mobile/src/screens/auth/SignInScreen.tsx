@@ -70,6 +70,7 @@ export default function SignInScreen({ navigation, route }: Props) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const passwordInputRef = useRef<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(
     route?.params?.infoMessage ||
@@ -87,6 +88,7 @@ export default function SignInScreen({ navigation, route }: Props) {
   }, [route?.params?.registered, route?.params?.infoMessage]);
 
   const handleLogin = async () => {
+    Keyboard.dismiss();
     if (!email.trim() || !password) {
       setErrorMessage('Please enter both email and password.');
       return;
@@ -196,6 +198,9 @@ export default function SignInScreen({ navigation, route }: Props) {
                   keyboardType="email-address"
                   autoComplete="email"
                   editable={!loading}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
                 />
               </View>
 
@@ -207,6 +212,7 @@ export default function SignInScreen({ navigation, route }: Props) {
                 </View>
                 <View style={styles.passwordContainer}>
                   <TextInput
+                    ref={passwordInputRef}
                     style={styles.passwordInput}
                     placeholder="Enter your password"
                     placeholderTextColor="#8C948B"
@@ -217,6 +223,8 @@ export default function SignInScreen({ navigation, route }: Props) {
                     }}
                     secureTextEntry={!showPassword}
                     editable={!loading}
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}

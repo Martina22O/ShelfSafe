@@ -14,6 +14,8 @@ import {
   Phone,
   Mail,
   Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
@@ -163,12 +165,12 @@ function EditNameSection({
   const isUnchanged = nameInput.trim() === initialName.trim();
 
   return (
-    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
-      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
-        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-3 border-b border-[#ece3d2]/80 pb-3.5">
+        <div className="w-9 h-9 rounded-xl bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429] shrink-0">
           <User className="w-4 h-4" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
             Account Identity
           </h2>
@@ -178,7 +180,7 @@ function EditNameSection({
 
       {nameSuccess && (
         <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <CheckCircle2 className="w-4 h-4 text-[#207429] shrink-0" />
           <span>{nameSuccess}</span>
         </div>
       )}
@@ -190,11 +192,11 @@ function EditNameSection({
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         <div>
           <label
             htmlFor="profile-email-readonly"
-            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
           >
             Email Address (Read-only)
           </label>
@@ -205,39 +207,48 @@ function EditNameSection({
               type="text"
               readOnly
               value={userEmail || '—'}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-[#f8faf8] border border-[#ece3d2] rounded-xl text-[#7a7469] cursor-not-allowed select-all"
+              className="w-full h-10 pl-9 pr-20 text-sm bg-[#faf8f5] border border-[#ece3d2] rounded-xl text-[#7a7469] cursor-not-allowed select-all"
             />
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#ece3d2]/60 text-[#7a7469] pointer-events-none">
+              Read-only
+            </span>
           </div>
         </div>
 
         <div>
           <label
             htmlFor="profile-name-input"
-            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
           >
             Operator Name
           </label>
-          <input
-            id="profile-name-input"
-            type="text"
-            maxLength={100}
-            value={nameInput}
-            onChange={(e) => {
-              setNameInput(e.target.value);
-              setNameError(null);
-            }}
-            disabled={savingName || isSavingAny}
-            placeholder="e.g. Maria Santos"
-            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
-          />
+          <div className="relative">
+            <User className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="profile-name-input"
+              type="text"
+              maxLength={100}
+              value={nameInput}
+              onChange={(e) => {
+                setNameInput(e.target.value);
+                setNameError(null);
+              }}
+              disabled={savingName || isSavingAny}
+              placeholder="e.g. Maria Santos"
+              className="w-full h-10 pl-9 pr-3.5 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] transition-colors"
+            />
+          </div>
         </div>
 
-        <div className="pt-2">
+        <div className="pt-3 border-t border-[#ece3d2]/60 flex items-center justify-between gap-3">
+          <span className="text-[11px] text-[#7a7469]">
+            Displayed on dashboard greeting &amp; activity logs
+          </span>
           <button
             type="button"
             onClick={handleOpenConfirm}
             disabled={savingName || isSavingAny || isUnchanged || !nameInput.trim()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs shrink-0"
           >
             <Save className="w-3.5 h-3.5" />
             {savingName ? 'Saving...' : 'Save Name'}
@@ -356,12 +367,12 @@ function StoreDetailsSection({
     contactNumberInput.trim() === (contactNumber || '').trim();
 
   return (
-    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
-      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
-        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-3 border-b border-[#ece3d2]/80 pb-3.5">
+        <div className="w-9 h-9 rounded-xl bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429] shrink-0">
           <Store className="w-4 h-4" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
             Store Details
           </h2>
@@ -371,7 +382,7 @@ function StoreDetailsSection({
 
       {storeSuccess && (
         <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <CheckCircle2 className="w-4 h-4 text-[#207429] shrink-0" />
           <span>{storeSuccess}</span>
         </div>
       )}
@@ -396,33 +407,36 @@ function StoreDetailsSection({
       ) : settingsLoading ? (
         <p className="text-xs text-[#7a7469]">Loading store details...</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           <div>
             <label
               htmlFor="store-name-input"
-              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
+              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
             >
               Store Name (Optional)
             </label>
-            <input
-              id="store-name-input"
-              type="text"
-              maxLength={100}
-              value={storeNameInput}
-              onChange={(e) => {
-                setStoreNameInput(e.target.value);
-                setStoreError(null);
-              }}
-              disabled={savingStore || isSavingAny}
-              placeholder="e.g. Aling Nena's Sari-Sari Store"
-              className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
-            />
+            <div className="relative">
+              <Store className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="store-name-input"
+                type="text"
+                maxLength={100}
+                value={storeNameInput}
+                onChange={(e) => {
+                  setStoreNameInput(e.target.value);
+                  setStoreError(null);
+                }}
+                disabled={savingStore || isSavingAny}
+                placeholder="e.g. Aling Nena's Sari-Sari Store"
+                className="w-full h-10 pl-9 pr-3.5 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] transition-colors"
+              />
+            </div>
           </div>
 
           <div>
             <label
               htmlFor="store-contact-input"
-              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
+              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
             >
               Contact Number (Optional)
             </label>
@@ -439,17 +453,20 @@ function StoreDetailsSection({
                 }}
                 disabled={savingStore || isSavingAny}
                 placeholder="e.g. +63 912 345 6789"
-                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
+                className="w-full h-10 pl-9 pr-3.5 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] transition-colors"
               />
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-3 border-t border-[#ece3d2]/60 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-[#7a7469]">
+              Shown in sidebar badge &amp; store header
+            </span>
             <button
               type="button"
               onClick={handleOpenConfirm}
               disabled={savingStore || isSavingAny || isStoreUnchanged}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs shrink-0"
             >
               <Save className="w-3.5 h-3.5" />
               {savingStore ? 'Saving...' : 'Save Store Details'}
@@ -573,26 +590,24 @@ function NotificationPreferencesSection({
   };
 
   return (
-    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
-      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
-        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-3 border-b border-[#ece3d2]/80 pb-3.5">
+        <div className="w-9 h-9 rounded-xl bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429] shrink-0">
           <Bell className="w-4 h-4" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
             Notification Preferences
           </h2>
-          <p className="text-xs text-[#7a7469]">Configurable near-expiry alert window.</p>
+          <p className="text-xs text-[#7a7469]">
+            Batches expiring within this threshold are flagged as near expiry.
+          </p>
         </div>
       </div>
 
-      <p className="text-xs text-[#7a7469]">
-        Batches are marked near expiry when their expiration date falls within this threshold.
-      </p>
-
       {expirySuccess && (
         <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <CheckCircle2 className="w-4 h-4 text-[#207429] shrink-0" />
           <span>{expirySuccess}</span>
         </div>
       )}
@@ -617,66 +632,80 @@ function NotificationPreferencesSection({
       ) : settingsLoading ? (
         <p className="text-xs text-[#7a7469]">Loading near-expiry settings...</p>
       ) : (
-        <div className="space-y-3">
-          <div>
-            <label
-              htmlFor="near-expiry-days-input"
-              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
-            >
-              Near-Expiry Window (1 to 60 Days)
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                id="near-expiry-days-input"
-                type="number"
-                min={1}
-                max={60}
-                value={daysInput}
-                onChange={(e) => setDaysInput(e.target.value)}
-                disabled={savingExpiry || isSavingAny}
-                placeholder="e.g. 7"
-                className="w-32 px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
-              />
-              <span className="text-sm font-semibold text-[#524c40]">days</span>
-            </div>
-            <p className="text-[11px] text-[#999182] mt-1">
-              Current active threshold:{' '}
-              <span className="font-bold text-[#181413]">
-                {nearExpiryDays !== null ? `${nearExpiryDays} days` : 'Not loaded'}
-              </span>
-            </p>
-          </div>
-
-          {/* Quick choices */}
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#999182] block mb-1.5">
-              Quick Choices:
-            </span>
-            <div className="flex items-center gap-1.5">
-              {QUICK_CHOICES.map((choice) => (
-                <button
-                  key={choice}
-                  type="button"
-                  onClick={() => setDaysInput(String(choice))}
-                  disabled={savingExpiry || isSavingAny}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                    daysInput === String(choice)
-                      ? 'bg-[#207429] text-white shadow-2xs'
-                      : 'bg-[#fef9f0] text-[#524c40] border border-[#ece3d2] hover:bg-white'
-                  }`}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Threshold Input Box */}
+            <div className="bg-[#faf8f5] border border-[#ece3d2] rounded-xl p-3.5 flex flex-col justify-between">
+              <div>
+                <label
+                  htmlFor="near-expiry-days-input"
+                  className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
                 >
-                  {choice} days
-                </button>
-              ))}
+                  Near-Expiry Window (1–60)
+                </label>
+                <div className="relative">
+                  <input
+                    id="near-expiry-days-input"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={daysInput}
+                    onChange={(e) => setDaysInput(e.target.value)}
+                    disabled={savingExpiry || isSavingAny}
+                    placeholder="e.g. 7"
+                    className="w-full h-10 pl-3.5 pr-14 text-sm font-bold bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] transition-colors"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7a7469] pointer-events-none">
+                    days
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-[#ece3d2]/70 flex items-center justify-between text-[11px]">
+                <span className="text-[#7a7469] font-medium">Current active threshold:</span>
+                <span className="px-2 py-0.5 rounded-md bg-[#f4ffe1] text-[#207429] border border-[#207429]/20 font-bold">
+                  {nearExpiryDays !== null ? `${nearExpiryDays} days` : 'Not loaded'}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Choices Grid Box */}
+            <div className="bg-[#faf8f5] border border-[#ece3d2] rounded-xl p-3.5 flex flex-col justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-[#524c40] block mb-1.5">
+                Quick Choices
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {QUICK_CHOICES.map((choice) => {
+                  const isSelected = daysInput.trim() === String(choice);
+                  return (
+                    <button
+                      key={choice}
+                      type="button"
+                      onClick={() => setDaysInput(String(choice))}
+                      disabled={savingExpiry || isSavingAny}
+                      className={`h-9 px-3 text-xs font-bold rounded-xl transition-all ${
+                        isSelected
+                          ? 'bg-[#207429] text-white shadow-2xs ring-2 ring-[#207429]/20'
+                          : 'bg-white text-[#524c40] border border-[#ece3d2] hover:border-[#207429]/50 hover:text-[#181413]'
+                      }`}
+                    >
+                      {choice} days
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-3 border-t border-[#ece3d2]/60 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-[#7a7469]">
+              Syncs immediately across web &amp; mobile alerts
+            </span>
             <button
               type="button"
               onClick={handleOpenConfirm}
               disabled={!canSaveExpiry}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs shrink-0"
             >
               <Save className="w-3.5 h-3.5" />
               {savingExpiry ? 'Saving...' : 'Save Notification Window'}
@@ -716,6 +745,9 @@ function ChangePasswordSection({
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -796,12 +828,12 @@ function ChangePasswordSection({
   };
 
   return (
-    <section className="bg-white border border-[#ece3d2] rounded-2xl p-6 shadow-2xs space-y-4">
-      <div className="flex items-center gap-2.5 border-b border-[#ece3d2] pb-3">
-        <div className="w-8 h-8 rounded-lg bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429]">
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-3 border-b border-[#ece3d2]/80 pb-3.5">
+        <div className="w-9 h-9 rounded-xl bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429] shrink-0">
           <KeyRound className="w-4 h-4" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
             Change Password
           </h2>
@@ -811,7 +843,7 @@ function ChangePasswordSection({
 
       {passwordSuccess && (
         <div className="p-3 bg-[#f4ffe1] border border-[#207429]/30 text-[#207429] text-xs font-semibold rounded-xl flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-[#207429]" />
+          <CheckCircle2 className="w-4 h-4 text-[#207429] shrink-0" />
           <span>{passwordSuccess}</span>
         </div>
       )}
@@ -823,65 +855,118 @@ function ChangePasswordSection({
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         <div>
           <label
             htmlFor="current-password-input"
-            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
+            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
           >
             Current Password
           </label>
-          <input
-            id="current-password-input"
-            type="password"
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={savingPassword || isSavingAny}
-            placeholder="Enter current password"
-            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
-          />
+          <div className="relative">
+            <Lock className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="current-password-input"
+              type={showCurrentPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              disabled={savingPassword || isSavingAny}
+              placeholder="Enter current password"
+              className="w-full h-10 pl-9 pr-10 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] transition-colors"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShowCurrentPassword((prev) => !prev)}
+              className="absolute inset-y-0 right-1 w-9 flex items-center justify-center rounded-lg text-[#747B73] hover:text-[#207429] focus:outline-none transition-colors cursor-pointer"
+              aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+            >
+              {showCurrentPassword ? (
+                <EyeOff className="w-4 h-4 shrink-0" strokeWidth={2} />
+              ) : (
+                <Eye className="w-4 h-4 shrink-0" strokeWidth={2} />
+              )}
+            </button>
+          </div>
         </div>
 
-        <div>
-          <label
-            htmlFor="new-password-input"
-            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
-          >
-            New Password (Min 8 Characters)
-          </label>
-          <input
-            id="new-password-input"
-            type="password"
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            disabled={savingPassword || isSavingAny}
-            placeholder="At least 8 characters"
-            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label
+              htmlFor="new-password-input"
+              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
+            >
+              New Password
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="new-password-input"
+                type={showNewPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={savingPassword || isSavingAny}
+                placeholder="Min. 8 characters"
+                className="w-full h-10 pl-9 pr-10 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] transition-colors"
+              />
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowNewPassword((prev) => !prev)}
+                className="absolute inset-y-0 right-1 w-9 flex items-center justify-center rounded-lg text-[#747B73] hover:text-[#207429] focus:outline-none transition-colors cursor-pointer"
+                aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+              >
+                {showNewPassword ? (
+                  <EyeOff className="w-4 h-4 shrink-0" strokeWidth={2} />
+                ) : (
+                  <Eye className="w-4 h-4 shrink-0" strokeWidth={2} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirm-new-password-input"
+              className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1.5"
+            >
+              Confirm New Password
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-[#9ca3af] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="confirm-new-password-input"
+                type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={savingPassword || isSavingAny}
+                placeholder="Confirm new password"
+                className="w-full h-10 pl-9 pr-10 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429] transition-colors"
+              />
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                className="absolute inset-y-0 right-1 w-9 flex items-center justify-center rounded-lg text-[#747B73] hover:text-[#207429] focus:outline-none transition-colors cursor-pointer"
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="w-4 h-4 shrink-0" strokeWidth={2} />
+                ) : (
+                  <Eye className="w-4 h-4 shrink-0" strokeWidth={2} />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label
-            htmlFor="confirm-new-password-input"
-            className="block text-xs font-bold uppercase tracking-wide text-[#524c40] mb-1"
-          >
-            Confirm New Password
-          </label>
-          <input
-            id="confirm-new-password-input"
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={savingPassword || isSavingAny}
-            placeholder="Confirm new password"
-            className="w-full px-3 py-2 text-sm bg-white border border-[#ece3d2] rounded-xl text-[#181413] focus:outline-none focus:ring-2 focus:ring-[#207429]"
-          />
-        </div>
-
-        <div className="pt-2">
+        <div className="pt-3 border-t border-[#ece3d2]/60 flex items-center justify-between gap-3">
+          <span className="text-[11px] text-[#7a7469]">
+            Minimum 8 characters required
+          </span>
           <button
             type="button"
             onClick={handleOpenConfirm}
@@ -892,7 +977,7 @@ function ChangePasswordSection({
               !newPassword ||
               !confirmPassword
             }
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] disabled:opacity-50 transition-colors shadow-2xs shrink-0"
           >
             <Lock className="w-3.5 h-3.5" />
             {savingPassword ? 'Updating password...' : 'Update Password'}
@@ -915,7 +1000,7 @@ function ChangePasswordSection({
 }
 
 // -------------------------------------------------------------
-// SUB-COMPONENT: Sign Out Section
+// SUB-COMPONENT: Sign Out Section (Compact Single-Row Layout)
 // -------------------------------------------------------------
 function SignOutSection({
   isSavingAny,
@@ -943,23 +1028,26 @@ function SignOutSection({
   };
 
   return (
-    <section className="bg-white border border-red-200 rounded-2xl p-6 shadow-2xs space-y-3">
-      <div className="flex items-center gap-2.5 border-b border-red-100 pb-3">
-        <div className="w-8 h-8 rounded-lg bg-red-50 text-[#d32f2f] flex items-center justify-center">
+    <section className="bg-white border border-red-200 rounded-2xl px-5 py-4 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 text-[#d32f2f] flex items-center justify-center shrink-0">
           <LogOut className="w-4 h-4" />
         </div>
-        <h2 className="text-sm font-bold uppercase tracking-wider text-[#d32f2f]">
-          End Session
-        </h2>
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[#d32f2f]">
+            End Session
+          </h2>
+          <p className="text-xs text-[#7a7469]">
+            Sign out of your ShelfSafe retail session on this browser.
+          </p>
+        </div>
       </div>
-      <p className="text-xs text-[#7a7469]">
-        Sign out of your ShelfSafe retail session on this browser.
-      </p>
+
       <button
         type="button"
         onClick={() => setShowConfirm(true)}
         disabled={isSavingAny || signingOut}
-        className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#d32f2f] bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 disabled:opacity-50 transition-colors"
+        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-[#d32f2f] bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 disabled:opacity-50 transition-colors shrink-0 self-start sm:self-auto"
       >
         <LogOut className="w-3.5 h-3.5" />
         {signingOut ? 'Signing out...' : 'Sign Out'}
@@ -1059,8 +1147,8 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <div className="space-y-5">
           {/* SECTION 1: Account Identity */}
           <EditNameSection
             key={userName}
@@ -1087,7 +1175,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           {/* SECTION 3: Notification Preferences */}
           <NotificationPreferencesSection
             key={`${near_expiry_days}-${settingsLoading}`}
@@ -1109,7 +1197,7 @@ export default function ProfilePage() {
             onSaveEnd={handleSaveEnd}
           />
 
-          {/* SECTION 5: Sign Out */}
+          {/* SECTION 5: Sign Out (Compact Horizontal Card) */}
           <SignOutSection
             isSavingAny={isSavingAny}
             onClearStoreSettings={clearStoreSettings}

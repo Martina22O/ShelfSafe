@@ -326,15 +326,15 @@ const styles = StyleSheet.create({
   },
   trialBadgeText: {
     fontFamily: FONTS.bold,
-    fontSize: 11,
+    fontSize: 12,
     color: '#185E21',
     letterSpacing: 0.5,
   },
   title: {
     fontFamily: FONTS.extraBold,
-    fontSize: 22,
+    fontSize: 24,
     color: COLORS.text,
-    lineHeight: 28,
+    lineHeight: 30,
     marginBottom: 6,
   },
   subtitle: {
@@ -359,9 +359,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   featureIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -373,15 +373,15 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.text,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   featureDesc: {
     fontFamily: FONTS.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textSecondary,
-    lineHeight: 16,
+    lineHeight: 18,
     marginTop: 2,
   },
   plansSection: {
@@ -389,13 +389,13 @@ const styles = StyleSheet.create({
   },
   plansHeader: {
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 16,
     color: COLORS.text,
     marginBottom: 2,
   },
   plansSubHeader: {
     fontFamily: FONTS.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textSecondary,
     marginBottom: 12,
   },
@@ -472,6 +472,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
+    minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -489,6 +490,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     paddingVertical: 12,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -502,10 +504,10 @@ const styles = StyleSheet.create({
   },
   reassuranceText: {
     fontFamily: FONTS.regular,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textTertiary,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 18,
     marginTop: 4,
   },
 });

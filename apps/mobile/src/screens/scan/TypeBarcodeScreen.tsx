@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -71,6 +72,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
   const [selectingProductId, setSelectingProductId] = useState<string | null>(null);
 
   const handleFind = async () => {
+    Keyboard.dismiss();
     const trimmed = barcode.trim();
     if (!trimmed) {
       setErrorMessage('Please enter a barcode number');
@@ -154,6 +156,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
   };
 
   const handleSearchByName = async () => {
+    Keyboard.dismiss();
     const query = nameQuery.trim();
     if (!query) {
       setSearchResults([]);
@@ -276,7 +279,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
 
         {/* Barcode Input Card */}
         <View style={styles.card}>
-          <Text style={styles.label}>Barcode number</Text>
+          <Text style={styles.label}>Barcode Number</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g. 4801981118502"
@@ -287,6 +290,8 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             keyboardType="numeric"
+            returnKeyType="done"
+            onSubmitEditing={handleFind}
             editable={!loading}
           />
 
@@ -335,6 +340,7 @@ export default function TypeBarcodeScreen({ route, navigation }: Props) {
                   placeholderTextColor={COLORS.textMuted}
                   value={nameQuery}
                   onChangeText={setNameQuery}
+                  returnKeyType="search"
                   onSubmitEditing={handleSearchByName}
                 />
                 <TouchableOpacity
@@ -516,15 +522,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
     letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   successToast: {
     backgroundColor: COLORS.primaryLight,
@@ -571,17 +578,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   input: {
     backgroundColor: COLORS.canvas,
@@ -589,22 +596,24 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    minHeight: 48,
     fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
     marginBottom: 8,
   },
   warningNote: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.orangeDark,
     marginBottom: 12,
   },
   primaryBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -623,13 +632,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardSectionTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   cardSectionSub: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 2,
@@ -654,18 +663,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.deepGreen,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.white,
   },
   emptySearchText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     fontStyle: 'italic',
@@ -680,7 +690,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.borderLight,
   },
   resultName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -703,12 +713,14 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   secondaryBtn: {
-    backgroundColor: COLORS.canvas,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   addNoBarcodeRow: {
     flexDirection: 'row',
@@ -716,9 +728,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   secondaryBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: FONTS.semiBold,
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   modalOverlay: {

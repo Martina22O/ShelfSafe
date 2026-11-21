@@ -11,7 +11,7 @@
  * - Small demo disclosure
  * - Feature comparison between Free and Premium
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,9 @@ import {
   Modal,
   TextInput,
   Platform,
+  Keyboard,
+  KeyboardAvoidingView,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -62,6 +65,8 @@ import {
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Subscription'>;
 
+const KeyboardAvoidingViewComponent = KeyboardAvoidingView as any;
+
 export default function SubscriptionManagementScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
@@ -82,6 +87,23 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
     cvv: '123',
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  // Input refs for keyboard Next / Done navigation
+  const cardNumberInputRef = useRef<any>(null);
+  const expiryInputRef = useRef<any>(null);
+  const cvvInputRef = useRef<any>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setIsKeyboardOpen(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setIsKeyboardOpen(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const fetchSubscription = useCallback(async () => {
     setLoading(true);
@@ -132,6 +154,7 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
   };
 
   const handleSelectCard = (testCard: typeof TEST_CARDS[0]) => {
+    Keyboard.dismiss();
     setCardDetails({
       cardholderName: testCard.cardholderName,
       cardNumber: testCard.cardNumber,
@@ -139,6 +162,11 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
       cvv: testCard.cvv,
     });
     setFormError(null);
+  };
+
+  const handleCloseCheckout = () => {
+    Keyboard.dismiss();
+    setSelectedPlanForCheckout(null);
   };
 
   const handleFormatCardNumber = (value: string) => {
@@ -157,6 +185,7 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
   };
 
   const handleConfirmSubscription = async () => {
+    Keyboard.dismiss();
     if (!selectedPlanForCheckout || simulatingPayment) return;
 
     const validation = validateTestCard(cardDetails);
@@ -519,9 +548,19 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
         visible={!!selectedPlanForCheckout}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelectedPlanForCheckout(null)}
+        onRequestClose={handleCloseCheckout}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingViewComponent
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Backdrop tap dismisses keyboard if open, preserving entered form data */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
+
           <View style={styles.modalContainer}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
@@ -531,143 +570,177 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                   Payment Details
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => setSelectedPlanForCheckout(null)}
-                style={styles.modalCloseBtn}
-              >
-                <X size={18} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Payment Method Selector */}
-            <View style={styles.testCardSection}>
-              <Text style={styles.testCardSectionLabel}>SELECT CARD</Text>
-              <View style={styles.testCardChipsRow}>
-                {TEST_CARDS.map((tc) => (
+              <View style={styles.modalHeaderActions}>
+                {isKeyboardOpen && (
                   <TouchableOpacity
-                    key={tc.label}
-                    style={styles.testCardChip}
-                    onPress={() => handleSelectCard(tc)}
-                    activeOpacity={0.8}
+                    onPress={Keyboard.dismiss}
+                    style={styles.keyboardDoneChip}
+                    accessibilityRole="button"
+                    accessibilityLabel="Dismiss keyboard"
                   >
-                    <Text style={styles.testCardChipText}>{tc.label}</Text>
+                    <Text style={styles.keyboardDoneChipText}>Done</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Form Error */}
-            {formError && (
-              <View style={styles.modalErrorBox}>
-                <AlertCircle size={14} color="#DC2626" />
-                <Text style={styles.modalErrorText}>{formError}</Text>
-              </View>
-            )}
-
-            {/* Form Inputs */}
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Cardholder Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={cardDetails.cardholderName}
-                onChangeText={(text) => setCardDetails((prev) => ({ ...prev, cardholderName: text }))}
-                placeholder="Juan Dela Cruz"
-                placeholderTextColor={COLORS.textTertiary}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Card Number</Text>
-              <TextInput
-                style={[styles.textInput, styles.fontMono]}
-                value={cardDetails.cardNumber}
-                onChangeText={handleFormatCardNumber}
-                keyboardType="numeric"
-                maxLength={19}
-                placeholder="4242 4242 4242 4242"
-                placeholderTextColor={COLORS.textTertiary}
-              />
-            </View>
-
-            <View style={styles.formRow}>
-              <View style={[styles.formGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>Expiration Date</Text>
-                <TextInput
-                  style={[styles.textInput, styles.fontMono]}
-                  value={cardDetails.expiryDate}
-                  onChangeText={handleFormatExpiry}
-                  keyboardType="numeric"
-                  maxLength={5}
-                  placeholder="MM/YY"
-                  placeholderTextColor={COLORS.textTertiary}
-                />
-              </View>
-
-              <View style={[styles.formGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>CVV</Text>
-                <TextInput
-                  style={[styles.textInput, styles.fontMono]}
-                  value={cardDetails.cvv}
-                  onChangeText={(text) => setCardDetails((prev) => ({ ...prev, cvv: text.slice(0, 4) }))}
-                  keyboardType="numeric"
-                  secureTextEntry
-                  maxLength={4}
-                  placeholder="CVV"
-                  placeholderTextColor={COLORS.textTertiary}
-                />
-              </View>
-            </View>
-
-            {/* Pricing Summary */}
-            {selectedPlanForCheckout && (
-              <View style={styles.orderSummaryBox}>
-                <View style={styles.orderSummaryRow}>
-                  <Text style={styles.orderSummaryLabel}>Plan:</Text>
-                  <Text style={styles.orderSummaryVal}>{selectedPlanForCheckout.name}</Text>
-                </View>
-                <View style={styles.orderSummaryRow}>
-                  <Text style={styles.orderSummaryLabel}>Billing Period:</Text>
-                  <Text style={styles.orderSummaryVal}>{selectedPlanForCheckout.durationDays} Days</Text>
-                </View>
-                <View style={styles.orderSummaryTotalRow}>
-                  <Text style={styles.orderSummaryTotalLabel}>Total Amount:</Text>
-                  <Text style={styles.orderSummaryTotalVal}>₱{selectedPlanForCheckout.pricePhp}.00</Text>
-                </View>
-              </View>
-            )}
-
-            {/* Action Buttons */}
-            <View style={styles.modalActionsRow}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setSelectedPlanForCheckout(null)}
-                disabled={simulatingPayment}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalPayBtn, simulatingPayment && styles.btnDisabled]}
-                onPress={handleConfirmSubscription}
-                disabled={simulatingPayment}
-                activeOpacity={0.85}
-              >
-                {simulatingPayment ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalPayBtnText}>
-                    Confirm Subscription
-                  </Text>
                 )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleCloseCheckout}
+                  style={styles.modalCloseBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close payment details"
+                >
+                  <X size={20} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Small unobtrusive disclosure */}
-            <Text style={styles.demoDisclaimerText}>
-              Demo checkout — no real charges.
-            </Text>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                {/* Payment Method Selector */}
+                <View style={styles.testCardSection}>
+                  <Text style={styles.testCardSectionLabel}>SELECT CARD</Text>
+                  <View style={styles.testCardChipsRow}>
+                    {TEST_CARDS.map((tc) => (
+                      <TouchableOpacity
+                        key={tc.label}
+                        style={styles.testCardChip}
+                        onPress={() => handleSelectCard(tc)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.testCardChipText}>{tc.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Form Error */}
+                {formError && (
+                  <View style={styles.modalErrorBox}>
+                    <AlertCircle size={15} color="#DC2626" />
+                    <Text style={styles.modalErrorText}>{formError}</Text>
+                  </View>
+                )}
+
+                {/* Form Inputs */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>Cardholder Name</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={cardDetails.cardholderName}
+                    onChangeText={(text) => setCardDetails((prev) => ({ ...prev, cardholderName: text }))}
+                    placeholder="Juan Dela Cruz"
+                    placeholderTextColor={COLORS.textTertiary}
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => cardNumberInputRef.current?.focus()}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>Card Number</Text>
+                  <TextInput
+                    ref={cardNumberInputRef}
+                    style={[styles.textInput, styles.fontMono]}
+                    value={cardDetails.cardNumber}
+                    onChangeText={handleFormatCardNumber}
+                    keyboardType="numeric"
+                    maxLength={19}
+                    placeholder="4242 4242 4242 4242"
+                    placeholderTextColor={COLORS.textTertiary}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => expiryInputRef.current?.focus()}
+                  />
+                </View>
+
+                <View style={styles.formRow}>
+                  <View style={[styles.formGroup, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>Expiration Date</Text>
+                    <TextInput
+                      ref={expiryInputRef}
+                      style={[styles.textInput, styles.fontMono]}
+                      value={cardDetails.expiryDate}
+                      onChangeText={handleFormatExpiry}
+                      keyboardType="numeric"
+                      maxLength={5}
+                      placeholder="MM/YY"
+                      placeholderTextColor={COLORS.textTertiary}
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                      onSubmitEditing={() => cvvInputRef.current?.focus()}
+                    />
+                  </View>
+
+                  <View style={[styles.formGroup, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>CVV</Text>
+                    <TextInput
+                      ref={cvvInputRef}
+                      style={[styles.textInput, styles.fontMono]}
+                      value={cardDetails.cvv}
+                      onChangeText={(text) => setCardDetails((prev) => ({ ...prev, cvv: text.slice(0, 4) }))}
+                      keyboardType="numeric"
+                      secureTextEntry
+                      maxLength={4}
+                      placeholder="CVV"
+                      placeholderTextColor={COLORS.textTertiary}
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                  </View>
+                </View>
+
+                {/* Pricing Summary */}
+                {selectedPlanForCheckout && (
+                  <View style={styles.orderSummaryBox}>
+                    <View style={styles.orderSummaryRow}>
+                      <Text style={styles.orderSummaryLabel}>Plan:</Text>
+                      <Text style={styles.orderSummaryVal}>{selectedPlanForCheckout.name}</Text>
+                    </View>
+                    <View style={styles.orderSummaryRow}>
+                      <Text style={styles.orderSummaryLabel}>Billing Period:</Text>
+                      <Text style={styles.orderSummaryVal}>{selectedPlanForCheckout.durationDays} Days</Text>
+                    </View>
+                    <View style={styles.orderSummaryTotalRow}>
+                      <Text style={styles.orderSummaryTotalLabel}>Total Amount:</Text>
+                      <Text style={styles.orderSummaryTotalVal}>₱{selectedPlanForCheckout.pricePhp}.00</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Action Buttons */}
+                <View style={styles.modalActionsRow}>
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    onPress={handleCloseCheckout}
+                    disabled={simulatingPayment}
+                  >
+                    <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalPayBtn, simulatingPayment && styles.btnDisabled]}
+                    onPress={handleConfirmSubscription}
+                    disabled={simulatingPayment}
+                    activeOpacity={0.85}
+                  >
+                    {simulatingPayment ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.modalPayBtnText}>
+                        Confirm Subscription
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingViewComponent>
       </Modal>
     </View>
   );
@@ -693,20 +766,20 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   header: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
   description: {
     fontFamily: FONTS.regular,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   statusCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#EFE7DA',
+    borderColor: COLORS.border,
     shadowColor: '#1B4D25',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -722,9 +795,9 @@ const styles = StyleSheet.create({
   },
   statusSectionLabel: {
     fontFamily: FONTS.bold,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -748,7 +821,7 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: {
     fontFamily: FONTS.bold,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.text,
   },
   trialInfoBox: {
@@ -863,22 +936,23 @@ const styles = StyleSheet.create({
   freeInfoBox: {},
   freeLimitsTitle: {
     fontFamily: FONTS.bold,
-    fontSize: 13,
+    fontSize: 15,
     color: COLORS.text,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   freeLimitsText: {
     fontFamily: FONTS.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textSecondary,
-    lineHeight: 18,
-    marginBottom: 12,
+    lineHeight: 20,
+    marginBottom: 14,
   },
   activateTrialBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     paddingHorizontal: 16,
+    minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -886,7 +960,7 @@ const styles = StyleSheet.create({
   },
   activateTrialBtnText: {
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 15,
     color: '#FFFFFF',
   },
   btnDisabled: {
@@ -896,20 +970,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontFamily: FONTS.bold,
-    fontSize: 15,
+    fontFamily: FONTS.extraBold,
+    fontSize: 17,
     color: COLORS.text,
   },
   plansList: {
-    gap: 10,
+    gap: 12,
     marginBottom: 20,
   },
   planItemCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#EFE7DA',
+    borderColor: COLORS.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -944,7 +1018,7 @@ const styles = StyleSheet.create({
   },
   planItemPopularText: {
     fontFamily: FONTS.bold,
-    fontSize: 9,
+    fontSize: 10,
     color: '#FFFFFF',
   },
   planItemLeft: {
@@ -952,9 +1026,9 @@ const styles = StyleSheet.create({
   },
   planItemName: {
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 16,
     color: COLORS.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   planItemPriceRow: {
     flexDirection: 'row',
@@ -962,45 +1036,45 @@ const styles = StyleSheet.create({
   },
   planItemPrice: {
     fontFamily: FONTS.extraBold,
-    fontSize: 17,
+    fontSize: 18,
     color: COLORS.primary,
   },
   planItemCycle: {
     fontFamily: FONTS.medium,
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textSecondary,
     marginLeft: 2,
   },
   planItemDiscount: {
     fontFamily: FONTS.bold,
-    fontSize: 11,
+    fontSize: 12,
     color: '#D97706',
-    marginTop: 2,
+    marginTop: 4,
   },
   planItemRight: {
     paddingLeft: 12,
   },
   reassuranceCard: {
     backgroundColor: '#FAF7EE',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#EFE7DA',
+    borderColor: COLORS.border,
     flexDirection: 'row',
     gap: 12,
     alignItems: 'flex-start',
   },
   reassuranceTitle: {
     fontFamily: FONTS.bold,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   reassuranceDesc: {
     fontFamily: FONTS.regular,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    lineHeight: 16,
+    lineHeight: 18,
   },
 
   /* Modal Styles */
@@ -1014,8 +1088,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
+    maxHeight: '90%',
     borderWidth: 1,
-    borderColor: '#ECE3D2',
+    borderColor: COLORS.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
@@ -1028,7 +1103,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#ECE3D2',
+    borderBottomColor: COLORS.border,
     marginBottom: 14,
   },
   modalHeaderTitleRow: {
@@ -1036,22 +1111,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  modalTitle: {
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  keyboardDoneChip: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  keyboardDoneChipText: {
     fontFamily: FONTS.bold,
-    fontSize: 16,
+    fontSize: 13,
+    color: COLORS.primary,
+  },
+  modalTitle: {
+    fontFamily: FONTS.extraBold,
+    fontSize: 18,
     color: COLORS.text,
   },
   modalCloseBtn: {
-    padding: 4,
+    padding: 6,
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   testCardSection: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   testCardSectionLabel: {
     fontFamily: FONTS.bold,
-    fontSize: 10,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    marginBottom: 6,
+    marginBottom: 8,
     letterSpacing: 0.5,
   },
   testCardChipsRow: {
@@ -1060,54 +1157,57 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   testCardChip: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: COLORS.canvas,
     borderWidth: 1,
-    borderColor: '#ECE3D2',
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    borderColor: COLORS.border,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 10,
   },
   testCardChipText: {
     fontFamily: FONTS.bold,
-    fontSize: 11,
+    fontSize: 13,
     color: COLORS.text,
   },
   modalErrorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 10,
+    gap: 8,
+    backgroundColor: COLORS.dangerLight,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
   },
   modalErrorText: {
-    fontFamily: FONTS.medium,
-    fontSize: 11,
-    color: '#DC2626',
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    color: COLORS.dangerDark,
     flex: 1,
   },
   formGroup: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   formRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   inputLabel: {
     fontFamily: FONTS.bold,
-    fontSize: 11,
+    fontSize: 14,
     color: COLORS.text,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   textInput: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: COLORS.canvas,
     borderWidth: 1,
-    borderColor: '#ECE3D2',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    minHeight: 48,
+    fontSize: 15,
     color: COLORS.text,
     fontFamily: FONTS.regular,
   },
@@ -1115,45 +1215,47 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   orderSummaryBox: {
-    backgroundColor: '#FAF8F5',
-    borderRadius: 10,
-    padding: 10,
+    backgroundColor: COLORS.canvas,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#ECE3D2',
+    borderColor: COLORS.border,
     marginTop: 4,
-    marginBottom: 14,
-    gap: 4,
+    marginBottom: 16,
+    gap: 6,
   },
   orderSummaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   orderSummaryLabel: {
     fontFamily: FONTS.regular,
-    fontSize: 11,
+    fontSize: 13,
     color: COLORS.textSecondary,
   },
   orderSummaryVal: {
     fontFamily: FONTS.semiBold,
-    fontSize: 11,
+    fontSize: 13,
     color: COLORS.text,
   },
   orderSummaryTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#ECE3D2',
-    paddingTop: 6,
-    marginTop: 2,
+    borderTopColor: COLORS.border,
+    paddingTop: 8,
+    marginTop: 4,
   },
   orderSummaryTotalLabel: {
     fontFamily: FONTS.bold,
-    fontSize: 12,
+    fontSize: 14,
     color: COLORS.text,
   },
   orderSummaryTotalVal: {
     fontFamily: FONTS.extraBold,
-    fontSize: 13,
+    fontSize: 16,
     color: COLORS.primary,
   },
   modalActionsRow: {
@@ -1163,36 +1265,34 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   modalCancelBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minHeight: 48,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ECE3D2',
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelBtnText: {
     fontFamily: FONTS.bold,
-    fontSize: 12,
+    fontSize: 14,
     color: COLORS.textSecondary,
   },
   modalPayBtn: {
     backgroundColor: COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    minHeight: 48,
+    borderRadius: 12,
   },
   modalPayBtnText: {
     fontFamily: FONTS.bold,
-    fontSize: 12,
+    fontSize: 14,
     color: '#FFFFFF',
-  },
-  demoDisclaimerText: {
-    fontFamily: FONTS.regular,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 10,
   },
 });

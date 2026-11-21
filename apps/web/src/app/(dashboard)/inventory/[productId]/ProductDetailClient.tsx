@@ -475,11 +475,11 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
   if (productDeleteResult) {
     return (
       <div className="space-y-4 max-w-lg">
-        <div className="border border-gray-200 bg-white p-6 rounded space-y-4">
-          <h1 className="text-xl font-bold text-gray-900">
+        <div className="border border-[#ece3d2] bg-white p-6 rounded-2xl shadow-2xs space-y-4">
+          <h1 className="text-xl font-bold text-[#181413]">
             Product {productDeleteResult}.
           </h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-xs text-[#7a7469] leading-relaxed">
             {productDeleteResult === 'Deleted'
               ? 'The unused product and all its records have been removed.'
               : 'The product has past sales history and has been archived.'}
@@ -487,7 +487,7 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
           <div>
             <Link
               href="/inventory"
-              className="inline-block bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+              className="inline-flex items-center gap-1.5 bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
             >
               Back to Inventory
             </Link>
@@ -500,17 +500,18 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
   if (isArchived) {
     return (
       <div className="space-y-4 max-w-lg">
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-          ← Back to Inventory
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] inline-flex items-center gap-1.5 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Inventory</span>
         </Link>
-        <div className="border border-gray-200 bg-white p-6 rounded">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">This product is archived</h1>
-          <p className="text-sm text-gray-600 mb-4">
+        <div className="border border-[#ece3d2] bg-white p-6 rounded-2xl shadow-2xs">
+          <h1 className="text-xl font-bold text-[#181413] mb-2">This product is archived</h1>
+          <p className="text-xs text-[#7a7469] mb-4 leading-relaxed">
             Archived products are hidden from the active inventory list.
           </p>
           <Link
             href="/inventory"
-            className="inline-block bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
           >
             Back to Inventory
           </Link>
@@ -522,17 +523,18 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
   if (isNotFound) {
     return (
       <div className="space-y-4 max-w-lg">
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-          ← Back to Inventory
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] inline-flex items-center gap-1.5 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Inventory</span>
         </Link>
-        <div className="border border-gray-200 bg-white p-6 rounded">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">This product no longer exists</h1>
-          <p className="text-sm text-gray-600 mb-4">
+        <div className="border border-[#ece3d2] bg-white p-6 rounded-2xl shadow-2xs">
+          <h1 className="text-xl font-bold text-[#181413] mb-2">This product no longer exists</h1>
+          <p className="text-xs text-[#7a7469] mb-4 leading-relaxed">
             The requested product could not be found in your inventory.
           </p>
           <Link
             href="/inventory"
-            className="inline-block bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
           >
             Back to Inventory
           </Link>
@@ -544,16 +546,17 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
   if (error && !loading) {
     return (
       <div className="space-y-4 max-w-lg">
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-          ← Back to Inventory
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] inline-flex items-center gap-1.5 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Inventory</span>
         </Link>
-        <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800">
+        <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 shadow-2xs">
           <h2 className="font-bold text-base mb-1">Error Loading Product</h2>
-          <p className="text-sm mb-4">{error}</p>
+          <p className="text-xs text-red-700 mb-4 leading-relaxed">{error}</p>
           <button
             type="button"
             onClick={() => loadData()}
-            className="bg-black text-white px-3 py-1.5 rounded text-sm hover:bg-gray-800"
+            className="bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
           >
             Retry
           </button>
@@ -565,11 +568,13 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
   if (loading || !product) {
     return (
       <div className="space-y-4">
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-          ← Back to Inventory
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] inline-flex items-center gap-1.5 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Inventory</span>
         </Link>
-        <div className="py-12 text-center text-gray-500 text-sm">
-          Loading product details...
+        <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+          <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+          <p className="font-medium">Loading product details...</p>
         </div>
       </div>
     );

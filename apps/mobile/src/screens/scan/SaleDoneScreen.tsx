@@ -218,7 +218,7 @@ export default function SaleDoneScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bgWarm,
+    backgroundColor: COLORS.canvas,
   },
   scrollContent: {
     paddingHorizontal: SCREEN_PADDING,
@@ -237,9 +237,9 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   iconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: COLORS.primaryLight,
     borderWidth: 2,
     borderColor: COLORS.primaryBorder,
@@ -253,18 +253,19 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
     letterSpacing: -0.4,
   },
   countText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginTop: 6,
+    textAlign: 'center',
   },
   summaryCard: {
     backgroundColor: COLORS.card,
@@ -421,6 +422,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -436,11 +438,12 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,

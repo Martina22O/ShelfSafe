@@ -222,11 +222,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   screenSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   card: {
     backgroundColor: COLORS.card,
@@ -236,10 +237,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   cardHeader: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
     marginBottom: 12,
   },
   statusStateRow: {
@@ -314,8 +315,8 @@ const styles = StyleSheet.create({
     color: COLORS.amberDark,
   },
   honestNote: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 14,
@@ -345,6 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },

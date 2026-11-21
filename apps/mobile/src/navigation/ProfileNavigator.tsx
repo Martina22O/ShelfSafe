@@ -32,7 +32,7 @@ export default function ProfileNavigator() {
         headerTitleAlign: 'center',
         headerTitleStyle: {
           fontFamily: FONTS.bold,
-          fontSize: 16,
+          fontSize: 17,
           color: COLORS.text,
         },
         headerStyle: { backgroundColor: '#FEF7E6' },
@@ -86,7 +86,6 @@ export default function ProfileNavigator() {
         component={SubscriptionManagementScreen}
         options={{
           title: 'Subscription',
-          headerStyle: { backgroundColor: COLORS.canvas },
         }}
       />
     </Stack.Navigator>

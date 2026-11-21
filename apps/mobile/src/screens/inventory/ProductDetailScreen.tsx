@@ -24,6 +24,9 @@ import {
   StyleSheet,
   Platform,
   useWindowDimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -56,6 +59,7 @@ import { getSignedPhotoUrl, invalidateSignedUrl } from '../../services/storage';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 const RefreshControlComponent = RefreshControl as any;
+const KeyboardAvoidingViewComponent = KeyboardAvoidingView as any;
 
 type Props = NativeStackScreenProps<InventoryStackParamList, 'ProductDetail'>;
 
@@ -265,6 +269,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   };
 
   const handleQtySubmit = () => {
+    Keyboard.dismiss();
     const trimmed = newQtyInput.trim();
     if (!/^\d+$/.test(trimmed)) {
       setQtyModalError('Quantity must be a valid whole number (0 to 100,000)');
@@ -318,6 +323,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   };
 
   const handleDatesSubmit = () => {
+    Keyboard.dismiss();
     setDatesModalError(null);
     if (!purchaseDateInput.trim() || !expirationDateInput.trim()) {
       setDatesModalError('Both purchase date and expiration date are required (YYYY-MM-DD)');
@@ -804,165 +810,194 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 
       {/* Correct Quantity Modal */}
       <Modal visible={qtyModalVisible} transparent animationType="fade">
-        <View style={styles.inputModalOverlay}>
+        <KeyboardAvoidingViewComponent
+          style={styles.inputModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.inputModalCard}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               bounces={false}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.modalTitle}>
-                {qtyStep === 'input' ? 'Correct Batch Quantity' : 'Confirm Quantity Correction'}
-              </Text>
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                <Text style={styles.modalTitle}>
+                  {qtyStep === 'input' ? 'Correct Batch Quantity' : 'Confirm Quantity Correction'}
+                </Text>
 
-              {fetchingBatch ? (
-                <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
-              ) : qtyStep === 'input' ? (
-                <>
-                  <Text style={styles.modalDesc}>
-                    Enter the physically counted stock units for batch{' '}
-                    {activeBatch && `B-${activeBatch.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}.
-                  </Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    keyboardType="numeric"
-                    value={newQtyInput}
-                    onChangeText={setNewQtyInput}
-                    placeholder="0"
-                  />
-                  {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
+                {fetchingBatch ? (
+                  <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+                ) : qtyStep === 'input' ? (
+                  <>
+                    <Text style={styles.modalDesc}>
+                      Enter the physically counted stock units for batch{' '}
+                      {activeBatch && `B-${activeBatch.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`}.
+                    </Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                      value={newQtyInput}
+                      onChangeText={setNewQtyInput}
+                      placeholder="0"
+                      placeholderTextColor={COLORS.textSubtle}
+                    />
+                    {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
 
-                  <View style={styles.modalBtnRow}>
-                    <TouchableOpacity
-                      style={styles.modalCancelBtn}
-                      onPress={() => setQtyModalVisible(false)}
-                    >
-                      <Text style={styles.modalCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.modalPrimaryBtn}
-                      onPress={handleQtySubmit}
-                    >
-                      <Text style={styles.modalPrimaryText}>Review</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.modalDesc}>
-                    Change batch units from {activeBatch?.quantity_left} to{' '}
-                    <Text style={{ fontWeight: 'bold' }}>{newQtyInput.trim()}</Text>?
-                  </Text>
-                  {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
+                    <View style={styles.modalBtnRow}>
+                      <TouchableOpacity
+                        style={styles.modalCancelBtn}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setQtyModalVisible(false);
+                        }}
+                      >
+                        <Text style={styles.modalCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.modalPrimaryBtn}
+                        onPress={handleQtySubmit}
+                      >
+                        <Text style={styles.modalPrimaryText}>Review</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalDesc}>
+                      Change batch units from {activeBatch?.quantity_left} to{' '}
+                      <Text style={{ fontWeight: 'bold' }}>{newQtyInput.trim()}</Text>?
+                    </Text>
+                    {qtyModalError && <Text style={styles.modalError}>{qtyModalError}</Text>}
 
-                  <View style={styles.modalBtnRow}>
-                    <TouchableOpacity
-                      style={styles.modalCancelBtn}
-                      onPress={() => setQtyStep('input')}
-                    >
-                      <Text style={styles.modalCancelText}>Back</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.modalPrimaryBtn}
-                      onPress={confirmQtyCorrection}
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <ActivityIndicator color={COLORS.white} size="small" />
-                      ) : (
-                        <Text style={styles.modalPrimaryText}>Confirm</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
+                    <View style={styles.modalBtnRow}>
+                      <TouchableOpacity
+                        style={styles.modalCancelBtn}
+                        onPress={() => setQtyStep('input')}
+                      >
+                        <Text style={styles.modalCancelText}>Back</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.modalPrimaryBtn}
+                        onPress={confirmQtyCorrection}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <ActivityIndicator color={COLORS.white} size="small" />
+                        ) : (
+                          <Text style={styles.modalPrimaryText}>Confirm</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </Pressable>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingViewComponent>
       </Modal>
 
       {/* Edit Dates Modal */}
       <Modal visible={datesModalVisible} transparent animationType="fade">
-        <View style={styles.inputModalOverlay}>
+        <KeyboardAvoidingViewComponent
+          style={styles.inputModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.inputModalCard}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               bounces={false}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.modalTitle}>
-                {datesStep === 'input' ? 'Edit Batch Dates' : 'Confirm Date Change'}
-              </Text>
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                <Text style={styles.modalTitle}>
+                  {datesStep === 'input' ? 'Edit Batch Dates' : 'Confirm Date Change'}
+                </Text>
 
-              {datesStep === 'input' ? (
-                <>
-                  <DateField
-                    label="Purchase Date"
-                    value={purchaseDateInput}
-                    onChange={setPurchaseDateInput}
-                    placeholder="YYYY-MM-DD"
-                  />
+                {datesStep === 'input' ? (
+                  <>
+                    <DateField
+                      label="Purchase Date"
+                      value={purchaseDateInput}
+                      onChange={setPurchaseDateInput}
+                      placeholder="YYYY-MM-DD"
+                    />
 
-                  <DateField
-                    label="Expiration Date"
-                    value={expirationDateInput}
-                    onChange={setExpirationDateInput}
-                    placeholder="YYYY-MM-DD"
-                    warning={
-                      isValidCalendarDate(expirationDateInput) && isDateInPast(expirationDateInput)
-                        ? 'Warning: Expiration date is in the past'
-                        : null
-                    }
-                  />
-                  {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
+                    <DateField
+                      label="Expiration Date"
+                      value={expirationDateInput}
+                      onChange={setExpirationDateInput}
+                      placeholder="YYYY-MM-DD"
+                      warning={
+                        isValidCalendarDate(expirationDateInput) && isDateInPast(expirationDateInput)
+                          ? 'Warning: Expiration date is in the past'
+                          : null
+                      }
+                    />
+                    {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
 
-                  <View style={styles.modalBtnRow}>
-                    <TouchableOpacity
-                      style={styles.modalCancelBtn}
-                      onPress={() => setDatesModalVisible(false)}
-                    >
-                      <Text style={styles.modalCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.modalPrimaryBtn}
-                      onPress={handleDatesSubmit}
-                    >
-                      <Text style={styles.modalPrimaryText}>Review</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.modalDesc}>
-                    Expiry Date determines batch deduction sequence. Update expiry to{' '}
-                    <Text style={{ fontWeight: 'bold' }}>{expirationDateInput.trim()}</Text>?
-                  </Text>
-                  {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
+                    <View style={styles.modalBtnRow}>
+                      <TouchableOpacity
+                        style={styles.modalCancelBtn}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setDatesModalVisible(false);
+                        }}
+                      >
+                        <Text style={styles.modalCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.modalPrimaryBtn}
+                        onPress={handleDatesSubmit}
+                      >
+                        <Text style={styles.modalPrimaryText}>Review</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalDesc}>
+                      Expiry Date determines batch deduction sequence. Update expiry to{' '}
+                      <Text style={{ fontWeight: 'bold' }}>{expirationDateInput.trim()}</Text>?
+                    </Text>
+                    {datesModalError && <Text style={styles.modalError}>{datesModalError}</Text>}
 
-                  <View style={styles.modalBtnRow}>
-                    <TouchableOpacity
-                      style={styles.modalCancelBtn}
-                      onPress={() => setDatesStep('input')}
-                    >
-                      <Text style={styles.modalCancelText}>Back</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.modalPrimaryBtn}
-                      onPress={confirmDatesUpdate}
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <ActivityIndicator color={COLORS.white} size="small" />
-                      ) : (
-                        <Text style={styles.modalPrimaryText}>Save Dates</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
+                    <View style={styles.modalBtnRow}>
+                      <TouchableOpacity
+                        style={styles.modalCancelBtn}
+                        onPress={() => setDatesStep('input')}
+                      >
+                        <Text style={styles.modalCancelText}>Back</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.modalPrimaryBtn}
+                        onPress={confirmDatesUpdate}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <ActivityIndicator color={COLORS.white} size="small" />
+                        ) : (
+                          <Text style={styles.modalPrimaryText}>Save Dates</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </Pressable>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingViewComponent>
       </Modal>
 
       {/* Delete Batch Confirmation Modal */}
@@ -1329,23 +1364,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   statLabel: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.textMuted,
     textTransform: 'uppercase',
     textAlign: 'center',
   },
   statNumber: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '900',
     fontFamily: FONTS.black,
     color: COLORS.text,
     textAlign: 'center',
-    lineHeight: 23,
+    lineHeight: 24,
   },
   statUnit: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
     textAlign: 'center',
     marginTop: 2,
@@ -1360,26 +1397,28 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   batchesSectionTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
   },
   fefoNote: {
-    fontSize: 10,
+    fontSize: 12,
     color: COLORS.primary,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
   },
   emptyBatchesCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   emptyBatchesText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
   batchCard: {
@@ -1407,6 +1446,7 @@ const styles = StyleSheet.create({
   batchCodeText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   batchStatusBadge: {
@@ -1416,8 +1456,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   batchStatusText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
+    fontFamily: FONTS.extraBold,
     textTransform: 'uppercase',
   },
   batchQtyRow: {
@@ -1427,7 +1468,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   batchQtyLabel: {
-    fontSize: 11,
+    fontSize: 12,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
   batchQtyNumber: {
@@ -1441,17 +1483,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   expiryLabel: {
-    fontSize: 11,
+    fontSize: 12,
+    fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
   expiryDateText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.text,
     marginTop: 2,
   },
   purchaseDateInfo: {
-    fontSize: 11,
+    fontSize: 12,
+    fontFamily: FONTS.regular,
     color: COLORS.textSubtle,
     marginBottom: 12,
   },
@@ -1464,16 +1509,17 @@ const styles = StyleSheet.create({
   },
   actionBtnSmall: {
     flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
+    paddingVertical: 9,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.bgWarm,
     alignItems: 'center',
   },
   actionBtnSmallText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   deleteBtnSmall: {
@@ -1481,8 +1527,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.dangerBorder,
   },
   deleteBtnSmallText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.dangerDark,
   },
   deleteProductBtn: {
@@ -1490,11 +1537,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.dangerBorder,
     backgroundColor: COLORS.white,
     paddingVertical: 14,
+    minHeight: 50,
     borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteProductBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.danger,
@@ -1511,31 +1560,30 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 22,
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 340,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   inputModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 54,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   inputModalCard: {
     backgroundColor: COLORS.white,
     borderRadius: 20,
     padding: 22,
     width: '100%',
-    maxWidth: 320,
-    maxHeight: '85%',
+    maxWidth: 340,
+    maxHeight: '88%',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
@@ -1545,24 +1593,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
-    lineHeight: 18,
+    lineHeight: 19,
     marginBottom: 16,
   },
   modalLabel: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.text,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   modalInput: {
-    backgroundColor: COLORS.bgWarm,
+    backgroundColor: COLORS.canvas,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    minHeight: 48,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
     color: COLORS.text,
     marginBottom: 12,
   },

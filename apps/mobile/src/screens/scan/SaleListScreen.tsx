@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -229,12 +230,13 @@ export default function SaleListScreen({ navigation }: Props) {
                               item.sellableUnits
                             )
                           }
-                          onSubmitEditing={() =>
+                          onSubmitEditing={() => {
+                            Keyboard.dismiss();
                             handleFinishEditing(
                               item.productId,
                               item.sellableUnits
-                            )
-                          }
+                            );
+                          }}
                           keyboardType="number-pad"
                           returnKeyType="done"
                           selectTextOnFocus
@@ -415,11 +417,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   screenSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   emptyCard: {
     backgroundColor: COLORS.card,
@@ -439,18 +442,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
+    marginTop: 8,
   },
   emptySub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 6,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   emptyBtnStack: {
     marginTop: 20,
-    gap: 10,
+    gap: 12,
     width: '100%',
   },
   itemsList: {
@@ -491,7 +495,7 @@ const styles = StyleSheet.create({
     color: COLORS.deepGreen,
   },
   unitPriceText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
@@ -511,9 +515,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   stepBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: COLORS.canvas,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -524,18 +528,18 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   stepBtnText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: COLORS.text,
   },
   stepQtyInput: {
-    minWidth: 44,
-    height: 34,
+    minWidth: 48,
+    height: 36,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: COLORS.white,
     textAlign: 'center',
     fontSize: 15,
@@ -548,11 +552,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff8f8',
   },
   removeBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   removeBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.danger,
@@ -658,13 +664,14 @@ const styles = StyleSheet.create({
   },
   actionButtonsContainer: {
     marginTop: 20,
-    gap: 10,
+    gap: 12,
     marginBottom: 40,
   },
   primaryBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -681,24 +688,27 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   discardBtn: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 10,
+    minHeight: 44,
   },
   discardBtnText: {
-    fontSize: 13,
-    fontFamily: FONTS.medium,
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
   },
 });

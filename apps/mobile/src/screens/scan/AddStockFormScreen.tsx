@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -116,6 +117,7 @@ export default function AddStockFormScreen({ route, navigation }: Props) {
   const isPastExpiry = isValidCalendarDate(expirationDate) && isDateInPast(expirationDate);
 
   const handleSaveBatch = async () => {
+    Keyboard.dismiss();
     if (!productData) {
       setErrorMessage('Product data not loaded');
       return;
@@ -234,9 +236,9 @@ export default function AddStockFormScreen({ route, navigation }: Props) {
         {/* Batch Form Card */}
         <View style={styles.formCard}>
           {/* Quantity */}
-          <Text style={styles.label}>Quantity Received</Text>
+          <Text style={[styles.label, { marginTop: 0 }]}>Quantity Received</Text>
           <TextInput
-            style={[styles.input, { marginBottom: 16 }]}
+            style={[styles.input, { marginBottom: 14 }]}
             placeholder="Enter quantity (at least 1)"
             placeholderTextColor={COLORS.textMuted}
             value={quantity}
@@ -245,6 +247,8 @@ export default function AddStockFormScreen({ route, navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             keyboardType="numeric"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
             editable={!saving}
           />
 
@@ -428,7 +432,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -441,7 +445,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    minHeight: 48,
     fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
@@ -449,7 +454,7 @@ const styles = StyleSheet.create({
   pastExpiryBox: {
     marginTop: 8,
     backgroundColor: COLORS.dangerLight,
-    padding: 8,
+    padding: 10,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
@@ -459,19 +464,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FONTS.semiBold,
     color: COLORS.dangerDark,
+    flex: 1,
   },
   formNote: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     fontStyle: 'italic',
     marginTop: 16,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   saveBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,

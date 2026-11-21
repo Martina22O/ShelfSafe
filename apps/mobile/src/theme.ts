@@ -2,6 +2,36 @@ import { Platform } from 'react-native';
 
 export const SCREEN_PADDING = 20;
 
+export const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+} as const;
+
+export const RADIUS = {
+  sm: 8,
+  md: 12,
+  lg: 14,
+  xl: 16,
+  xxl: 20,
+  pill: 999,
+} as const;
+
+export const TYPOGRAPHY = {
+  pageTitle: 24,
+  sectionHeading: 17,
+  cardHeading: 16,
+  body: 14,
+  inputLabel: 14,
+  inputText: 15,
+  buttonText: 15,
+  helperText: 12,
+} as const;
+
 export const COLORS = {
   // Brand greens
   primary: '#207429',

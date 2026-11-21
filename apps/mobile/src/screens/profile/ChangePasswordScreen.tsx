@@ -3,7 +3,7 @@
  * Verifies current password via signInWithPassword, enforces password constraints,
  * and updates password via updateUser. Never logs or displays passwords.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,10 +15,11 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-// Lucide icons
+import { Eye, EyeOff } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
@@ -34,6 +35,12 @@ export default function ChangePasswordScreen({ navigation }: Props) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const newPasswordRef = useRef<any>(null);
+  const confirmPasswordRef = useRef<any>(null);
 
   const [saving, setSaving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -59,6 +66,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
   }, [navigation, saving]);
 
   const handleOpenConfirm = () => {
+    Keyboard.dismiss();
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -180,37 +188,93 @@ export default function ChangePasswordScreen({ navigation }: Props) {
         {/* Form Card */}
         <View style={styles.card}>
           <Text style={styles.label}>Current Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter current password"
-            placeholderTextColor={COLORS.textMuted}
-            secureTextEntry
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            editable={!saving}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Enter current password"
+              placeholderTextColor={COLORS.textMuted}
+              secureTextEntry={!showCurrentPassword}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              editable={!saving}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => newPasswordRef.current?.focus()}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+            >
+              {showCurrentPassword ? (
+                <EyeOff size={19} color={COLORS.textMuted} strokeWidth={2} />
+              ) : (
+                <Eye size={19} color={COLORS.textMuted} strokeWidth={2} />
+              )}
+            </TouchableOpacity>
+          </View>
 
           <Text style={[styles.label, { marginTop: 14 }]}>New Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="At least 8 characters"
-            placeholderTextColor={COLORS.textMuted}
-            secureTextEntry
-            value={newPassword}
-            onChangeText={setNewPassword}
-            editable={!saving}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              ref={newPasswordRef}
+              style={styles.passwordInput}
+              placeholder="At least 8 characters"
+              placeholderTextColor={COLORS.textMuted}
+              secureTextEntry={!showNewPassword}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              editable={!saving}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowNewPassword(!showNewPassword)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={showNewPassword ? 'Hide new password' : 'Show new password'}
+            >
+              {showNewPassword ? (
+                <EyeOff size={19} color={COLORS.textMuted} strokeWidth={2} />
+              ) : (
+                <Eye size={19} color={COLORS.textMuted} strokeWidth={2} />
+              )}
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.hint}>Must be at least 8 characters</Text>
 
           <Text style={[styles.label, { marginTop: 14 }]}>Confirm New Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Re-enter new password"
-            placeholderTextColor={COLORS.textMuted}
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            editable={!saving}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              ref={confirmPasswordRef}
+              style={styles.passwordInput}
+              placeholder="Re-enter new password"
+              placeholderTextColor={COLORS.textMuted}
+              secureTextEntry={!showConfirmPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              editable={!saving}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+            >
+              {showConfirmPassword ? (
+                <EyeOff size={19} color={COLORS.textMuted} strokeWidth={2} />
+              ) : (
+                <Eye size={19} color={COLORS.textMuted} strokeWidth={2} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -322,11 +386,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   screenSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
-    marginTop: 8,
+    marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   successBox: {
     backgroundColor: COLORS.primaryLight,
@@ -359,12 +424,12 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -376,19 +441,52 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    minHeight: 48,
     fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.canvas,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    minHeight: 48,
+    paddingLeft: 14,
+    paddingRight: 8,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 11,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+  eyeButton: {
+    padding: 8,
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
   btnStack: {
     marginTop: 24,
-    gap: 10,
+    gap: 12,
   },
   primaryBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -404,11 +502,12 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -425,8 +524,8 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 22,
     width: '100%',
     maxWidth: 340,
     borderWidth: 1,
@@ -436,14 +535,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
   },
   modalSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
-    color: COLORS.text,
+    color: COLORS.textMuted,
     marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   modalBtnRow: {
     flexDirection: 'row',
@@ -452,26 +551,32 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   modalCancelBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
   },
   modalConfirmBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    borderRadius: 10,
     backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalConfirmText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.white,

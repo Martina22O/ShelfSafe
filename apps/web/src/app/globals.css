@@ -56,3 +56,9 @@ button, input, select, textarea,
 .font-display, .font-heading {
   font-family: var(--font-family-base);
 }
+
+/* Hide browser-native password reveal/clear controls so custom toggle icon remains clean */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

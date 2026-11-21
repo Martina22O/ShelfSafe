@@ -88,27 +88,29 @@ export function ConfirmModal({
 
   if (!isOpen) return null;
 
+  const isDestructive = /sign out|delete|remove|cancel/i.test(confirmText);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-2xs p-4"
     >
       <div
         ref={modalRef}
-        className="bg-white rounded p-6 max-w-sm w-full border border-gray-300 shadow-lg"
+        className="bg-white rounded-2xl p-6 max-w-sm w-full border border-[#ece3d2] shadow-xl"
       >
-        <h2 id="confirm-modal-title" className="text-lg font-bold text-gray-900 mb-2">
+        <h2 id="confirm-modal-title" className="text-lg font-bold text-[#181413] mb-1.5">
           {title}
         </h2>
-        <p className="text-sm text-gray-600 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
+        <p className="text-xs text-[#524c40] leading-relaxed mb-6">{message}</p>
+        <div className="flex justify-end gap-2.5">
           <button
             type="button"
             onClick={onCancel}
             disabled={isSaving}
-            className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="px-4 py-2 text-xs font-bold border border-[#ece3d2] rounded-xl text-[#524c40] hover:bg-[#faf8f5] transition-colors disabled:opacity-50"
           >
             {cancelText}
           </button>
@@ -116,7 +118,11 @@ export function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isSaving}
-            className="px-4 py-2 text-sm bg-black text-white rounded font-medium hover:bg-gray-800 disabled:opacity-50"
+            className={`px-4 py-2 text-xs font-bold text-white rounded-xl transition-colors shadow-2xs disabled:opacity-50 ${
+              isDestructive
+                ? 'bg-[#d32f2f] hover:bg-red-700'
+                : 'bg-[#207429] hover:bg-[#185e21]'
+            }`}
           >
             {isSaving ? 'Saving...' : confirmText}
           </button>

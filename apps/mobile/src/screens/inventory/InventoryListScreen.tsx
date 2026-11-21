@@ -22,6 +22,7 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -361,6 +362,8 @@ export default function InventoryListScreen({ navigation }: Props) {
             placeholderTextColor={COLORS.textSubtle}
             value={search}
             onChangeText={setSearch}
+            returnKeyType="search"
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -667,21 +670,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.medium,
     color: COLORS.textMuted,
     marginTop: 2,
   },
   archivedToggleBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.white,
   },
   archivedToggleText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.textMuted,
@@ -691,7 +694,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d6f0b4',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -700,7 +703,7 @@ const styles = StyleSheet.create({
   },
   successToastText: {
     color: COLORS.primary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     flex: 1,
@@ -718,7 +721,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    minHeight: 48,
     marginBottom: 12,
   },
   searchIcon: {
@@ -727,8 +731,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 13,
+    paddingVertical: 11,
+    fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
@@ -745,8 +749,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 10,
     backgroundColor: COLORS.white,
     borderWidth: 1,
@@ -757,7 +761,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   filterChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
@@ -767,10 +771,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   categoryChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.75)',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -779,7 +783,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   categoryChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.medium,
     color: COLORS.textMuted,
   },
@@ -788,7 +792,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listSection: {
-    marginTop: 26,
+    marginTop: 20,
     gap: 12,
   },
   emptyContainer: {
@@ -805,13 +809,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
+    marginTop: 8,
   },
   emptySubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 4,
@@ -820,7 +825,7 @@ const styles = StyleSheet.create({
   productCard: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     shadowColor: '#000',
@@ -842,37 +847,37 @@ const styles = StyleSheet.create({
   },
   categoryPill: {
     backgroundColor: COLORS.bgWarm,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   categoryPillText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.textMuted,
   },
   barcodeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.textSubtle,
   },
   statusPill: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
   },
   statusPillText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     textTransform: 'uppercase',
   },
   productName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -884,7 +889,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
-    paddingTop: 8,
+    paddingTop: 10,
   },
   stockInfoWrapper: {
     flexDirection: 'row',
@@ -892,18 +897,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   stockUnitsValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '900',
     fontFamily: FONTS.black,
     color: COLORS.text,
   },
   stockUnitsLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'normal',
     color: COLORS.textMuted,
   },
   batchCountText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.medium,
     color: COLORS.textMuted,
   },
@@ -913,7 +918,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   viewDetailLink: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.primary,

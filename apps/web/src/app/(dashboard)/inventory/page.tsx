@@ -458,9 +458,8 @@ export default function InventoryPage() {
               checked={showArchived}
               onChange={(e) => setShowArchived(e.target.checked)}
               disabled={actionRunning}
-              className="rounded border-[#d1d5db] text-[#207429] focus:ring-[#207429] h-4 w-4"
+              className="rounded border-[#d1d5db] text-[#207429] focus:ring-[#207429] h-4 w-4 shrink-0"
             />
-            <Archive className="w-3.5 h-3.5 text-[#7a7469]" />
             <span>Show archived products</span>
           </label>
         </div>

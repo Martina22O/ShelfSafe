@@ -205,10 +205,11 @@ export default function ProductPhotoPicker({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 14,
+    marginTop: 14,
+    marginBottom: 0,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -217,11 +218,11 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
+    backgroundColor: COLORS.canvas,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 10,
+    padding: 12,
     gap: 12,
   },
   previewContainer: {
@@ -315,7 +316,7 @@ const styles = StyleSheet.create({
     color: COLORS.dangerDark,
   },
   helperText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 2,

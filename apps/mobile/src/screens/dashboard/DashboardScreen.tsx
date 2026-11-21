@@ -460,13 +460,13 @@ export default function DashboardScreen() {
         {/* Section: Urgent Expiry Alerts Preview */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>Urgent Alerts</Text>
+            <Text style={[styles.sectionHeader, { marginBottom: 0 }]}>Urgent Alerts</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('AlertsTab')}
               style={styles.seeAllButton}
             >
               <Text style={styles.seeAllLink}>See all ({alerts.length})</Text>
-              <ArrowRight size={13} color={COLORS.primary} strokeWidth={2.4} style={{ marginLeft: 3 }} />
+              <ArrowRight size={14} color={COLORS.primary} strokeWidth={2.4} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           </View>
 
@@ -554,22 +554,28 @@ export default function DashboardScreen() {
 
           {/* Most Stocked */}
           <View style={styles.breakdownCard}>
-            <Text style={styles.breakdownTitle}>Top Stocked Products</Text>
-            {mostStocked.slice(0, 3).map((item, idx) => (
-              <TouchableOpacity
-                key={item.product_id}
-                style={styles.breakdownRow}
-                onPress={() => navigateToProductDetail(item.product_id, item.product_name)}
-              >
-                <View style={styles.rankBadge}>
-                  <Text style={styles.rankText}>#{idx + 1}</Text>
-                </View>
-                <Text style={styles.breakdownName} numberOfLines={1}>
-                  {item.product_name}
-                </Text>
-                <Text style={styles.breakdownValue}>{item.total_stock} units</Text>
-              </TouchableOpacity>
-            ))}
+            {mostStocked.length === 0 ? (
+              <Text style={styles.emptyAlertsText}>No stocked products yet.</Text>
+            ) : (
+              mostStocked.slice(0, 3).map((item, idx) => (
+                <TouchableOpacity
+                  key={item.product_id}
+                  style={[
+                    styles.breakdownRow,
+                    idx === Math.min(mostStocked.length, 3) - 1 && { borderBottomWidth: 0 },
+                  ]}
+                  onPress={() => navigateToProductDetail(item.product_id, item.product_name)}
+                >
+                  <View style={styles.rankBadge}>
+                    <Text style={styles.rankText}>#{idx + 1}</Text>
+                  </View>
+                  <Text style={styles.breakdownName} numberOfLines={1}>
+                    {item.product_name}
+                  </Text>
+                  <Text style={styles.breakdownValue}>{item.total_stock} units</Text>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </View>
       </ScrollView>
@@ -658,14 +664,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   greetingTitle: {
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
     letterSpacing: -0.4,
   },
   storeSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.medium,
     color: COLORS.textMuted,
     marginTop: 2,
@@ -681,7 +687,7 @@ const styles = StyleSheet.create({
   },
   actionBanner: {
     backgroundColor: COLORS.primary,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -699,8 +705,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionBannerIconWrapper: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
@@ -711,13 +717,13 @@ const styles = StyleSheet.create({
   },
   actionBannerTitle: {
     color: COLORS.white,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
   },
   actionBannerSub: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 11,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12,
     fontFamily: FONTS.medium,
     marginTop: 2,
   },
@@ -736,7 +742,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionHeader: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
@@ -746,11 +752,11 @@ const styles = StyleSheet.create({
   seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
-    paddingVertical: 8,
+    minHeight: 36,
+    paddingVertical: 4,
   },
   seeAllLink: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.primary,
@@ -790,7 +796,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kpiLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.textMuted,
@@ -826,12 +832,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   statusValue: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '900',
     fontFamily: FONTS.black,
   },
   statusLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.textMuted,
@@ -840,7 +846,7 @@ const styles = StyleSheet.create({
   },
   unitsSoldCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -853,13 +859,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   unitsSoldTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
   },
   unitsSoldSub: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 1,
@@ -873,15 +879,15 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   toggleButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
   },
   toggleButtonActive: {
     backgroundColor: COLORS.primary,
   },
   toggleButtonText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
@@ -905,22 +911,23 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   unitsSoldUnitLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.medium,
     color: COLORS.textMuted,
   },
   emptyAlertsBox: {
     backgroundColor: COLORS.white,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     alignItems: 'center',
   },
   emptyAlertsText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.medium,
     color: COLORS.textMuted,
+    textAlign: 'center',
   },
   alertsList: {
     gap: 10,
@@ -944,7 +951,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   alertBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     textTransform: 'uppercase',
@@ -959,7 +966,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   alertProductName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
@@ -971,7 +978,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   alertStockInfo: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
@@ -980,7 +987,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   alertDaysText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: FONTS.bold,
   },
@@ -1003,13 +1010,13 @@ const styles = StyleSheet.create({
   breakdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
   },
   rankBadge: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: 6,
     backgroundColor: COLORS.bgTint,
     alignItems: 'center',
@@ -1017,18 +1024,18 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   rankText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: COLORS.primary,
   },
   breakdownName: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.medium,
     color: COLORS.text,
   },
   breakdownValue: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.textMuted,

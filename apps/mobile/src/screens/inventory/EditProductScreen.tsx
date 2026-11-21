@@ -2,7 +2,7 @@
  * Screen: EditProductScreen
  * Edit an existing product with validation, confirmation, and error handling.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -61,6 +62,10 @@ export default function EditProductScreen({ route, navigation }: Props) {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [initialStoragePath, setInitialStoragePath] = useState<string | null>(null);
   const [photoChanged, setPhotoChanged] = useState(false);
+
+  const barcodeInputRef = useRef<any>(null);
+  const priceInputRef = useRef<any>(null);
+  const lowStockInputRef = useRef<any>(null);
 
   // Submission & Confirmation state
   const [saving, setSaving] = useState(false);
@@ -166,6 +171,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
   );
 
   const handleOpenConfirm = () => {
+    Keyboard.dismiss();
     setErrorMessage(null);
 
     // Validate like NewProduct
@@ -316,7 +322,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
 
         {/* Form Card */}
         <View style={styles.card}>
-          <Text style={styles.label}>Product Name</Text>
+          <Text style={[styles.label, { marginTop: 0 }]}>Product Name</Text>
           <TextInput
             style={styles.input}
             value={name}
@@ -325,6 +331,9 @@ export default function EditProductScreen({ route, navigation }: Props) {
               if (errorMessage) setErrorMessage(null);
             }}
             editable={!saving}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => barcodeInputRef.current?.focus()}
           />
 
           <ProductPhotoPicker
@@ -339,6 +348,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
 
           <Text style={styles.label}>Barcode / SKU</Text>
           <TextInput
+            ref={barcodeInputRef}
             style={styles.input}
             placeholder="No barcode"
             placeholderTextColor={COLORS.textMuted}
@@ -349,6 +359,9 @@ export default function EditProductScreen({ route, navigation }: Props) {
             }}
             keyboardType="numeric"
             editable={!saving}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => priceInputRef.current?.focus()}
           />
 
           {isBarcodeChanged ? (
@@ -371,6 +384,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
                   <TouchableOpacity
                     key={cat.id}
                     onPress={() => {
+                      Keyboard.dismiss();
                       if (!saving) setSelectedCategoryId(cat.id);
                     }}
                     style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
@@ -393,6 +407,7 @@ export default function EditProductScreen({ route, navigation }: Props) {
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={styles.label}>Price (₱)</Text>
               <TextInput
+                ref={priceInputRef}
                 style={styles.input}
                 value={price}
                 onChangeText={(text) => {
@@ -401,12 +416,16 @@ export default function EditProductScreen({ route, navigation }: Props) {
                 }}
                 keyboardType="numeric"
                 editable={!saving}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => lowStockInputRef.current?.focus()}
               />
             </View>
 
             <View style={{ flex: 1, marginLeft: 8 }}>
               <Text style={styles.label}>Low Stock Level</Text>
               <TextInput
+                ref={lowStockInputRef}
                 style={styles.input}
                 value={lowStockLevel}
                 onChangeText={(text) => {
@@ -415,6 +434,8 @@ export default function EditProductScreen({ route, navigation }: Props) {
                 }}
                 keyboardType="numeric"
                 editable={!saving}
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
               />
             </View>
           </View>
@@ -610,18 +631,18 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
     marginBottom: 6,
-    marginTop: 8,
+    marginTop: 14,
   },
   input: {
     backgroundColor: COLORS.canvas,
@@ -629,7 +650,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    minHeight: 48,
     fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
@@ -649,6 +671,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.amberDark,
+    flex: 1,
   },
   categoryChipsRow: {
     flexDirection: 'row',
@@ -661,15 +684,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
   categoryChipActive: {
     backgroundColor: COLORS.primaryLight,
     borderColor: COLORS.primaryDark,
   },
   categoryChipText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
@@ -689,6 +712,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingVertical: 14,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -717,8 +741,8 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 22,
     width: '100%',
     maxWidth: 340,
     borderWidth: 1,
@@ -728,26 +752,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
-    color: COLORS.deepGreen,
+    color: COLORS.text,
   },
   modalSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
-    color: COLORS.text,
+    color: COLORS.textMuted,
     marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   previewBox: {
     marginTop: 12,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: COLORS.canvas,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 4,
   },
   previewRow: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.medium,
     color: COLORS.text,
   },
@@ -758,26 +782,32 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   modalCancelBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
   },
   modalConfirmBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    borderRadius: 10,
     backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalConfirmText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.white,

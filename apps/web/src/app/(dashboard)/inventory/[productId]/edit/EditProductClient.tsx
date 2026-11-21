@@ -249,21 +249,22 @@ export function EditProductClient({ productId }: EditProductClientProps) {
 
   if (settingsLoading || loading) {
     return (
-      <div className="py-8 text-center text-gray-500 text-sm">
-        Loading product details...
+      <div className="py-16 text-center text-[#7a7469] text-sm flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-[#207429] border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium">Loading product details...</p>
       </div>
     );
   }
 
   if (settingsError) {
     return (
-      <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800 max-w-md my-4">
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 shadow-xs">
         <h2 className="font-bold text-base mb-1">Failed to load store settings</h2>
-        <p className="text-sm mb-4">{settingsError}</p>
+        <p className="text-xs text-red-700 mb-4 leading-relaxed">{settingsError}</p>
         <button
           type="button"
           onClick={() => reloadSettings()}
-          className="bg-red-700 text-white px-3 py-1.5 rounded text-sm hover:bg-red-800"
+          className="bg-[#d32f2f] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition-colors shadow-2xs"
         >
           Retry
         </button>
@@ -274,17 +275,18 @@ export function EditProductClient({ productId }: EditProductClientProps) {
   if (isArchived) {
     return (
       <div className="space-y-4 max-w-lg">
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-          ← Back to Inventory
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] inline-flex items-center gap-1.5 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Inventory</span>
         </Link>
-        <div className="border border-gray-200 bg-white p-6 rounded">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">This product is archived</h1>
-          <p className="text-sm text-gray-600 mb-4">
+        <div className="border border-[#ece3d2] bg-white p-6 rounded-2xl shadow-2xs">
+          <h1 className="text-xl font-bold text-[#181413] mb-2">This product is archived</h1>
+          <p className="text-xs text-[#7a7469] mb-4 leading-relaxed">
             Archived products cannot be edited.
           </p>
           <Link
             href="/inventory"
-            className="inline-block bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
           >
             Back to Inventory
           </Link>
@@ -296,17 +298,18 @@ export function EditProductClient({ productId }: EditProductClientProps) {
   if (isNotFound) {
     return (
       <div className="space-y-4 max-w-lg">
-        <Link href="/inventory" className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-          ← Back to Inventory
+        <Link href="/inventory" className="text-xs font-bold text-[#7a7469] hover:text-[#181413] inline-flex items-center gap-1.5 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Inventory</span>
         </Link>
-        <div className="border border-gray-200 bg-white p-6 rounded">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">This product no longer exists</h1>
-          <p className="text-sm text-gray-600 mb-4">
+        <div className="border border-[#ece3d2] bg-white p-6 rounded-2xl shadow-2xs">
+          <h1 className="text-xl font-bold text-[#181413] mb-2">This product no longer exists</h1>
+          <p className="text-xs text-[#7a7469] mb-4 leading-relaxed">
             The requested product could not be found.
           </p>
           <Link
             href="/inventory"
-            className="inline-block bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 bg-[#207429] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#185e21] transition-colors shadow-2xs"
           >
             Back to Inventory
           </Link>
@@ -317,20 +320,20 @@ export function EditProductClient({ productId }: EditProductClientProps) {
 
   if (error) {
     return (
-      <div className="border border-red-300 bg-red-50 p-6 rounded text-red-800 max-w-md my-4">
+      <div className="border border-red-200 bg-red-50 p-6 rounded-2xl text-red-900 max-w-lg my-6 shadow-xs">
         <h2 className="font-bold text-base mb-1">Failed to load product</h2>
-        <p className="text-sm mb-4">{error}</p>
-        <div className="flex gap-2">
+        <p className="text-xs text-red-700 mb-4 leading-relaxed">{error}</p>
+        <div className="flex gap-2.5">
           <button
             type="button"
             onClick={() => loadData()}
-            className="bg-red-700 text-white px-3 py-1.5 rounded text-sm hover:bg-red-800"
+            className="bg-[#d32f2f] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition-colors shadow-2xs"
           >
             Retry
           </button>
           <Link
             href={`/inventory/${productId}`}
-            className="border border-gray-300 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50"
+            className="border border-[#ece3d2] bg-white text-[#524c40] px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#faf8f5] transition-colors shadow-2xs"
           >
             Back to Product
           </Link>
@@ -340,8 +343,8 @@ export function EditProductClient({ productId }: EditProductClientProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center justify-between pb-2 border-b border-[#ece3d2]">
+    <div className="space-y-6 w-full">
+      <div className="flex items-center justify-between pb-2 border-b border-[#ece3d2]/80">
         <div className="flex items-center gap-2.5">
           <Link
             href={`/inventory/${productId}`}

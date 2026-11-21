@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -27,6 +28,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const handleReset = () => {
+    Keyboard.dismiss();
     setStatusMessage('Password reset by email is not available yet.');
   };
 
@@ -69,6 +71,8 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              returnKeyType="done"
+              onSubmitEditing={handleReset}
             />
           </View>
 
@@ -117,19 +121,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     textAlign: 'center',
     marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 20,
     paddingHorizontal: 16,
   },
   statusBox: {
@@ -150,8 +154,8 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
     shadowColor: '#000',
@@ -164,28 +168,28 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: COLORS.bgWarm,
+    backgroundColor: COLORS.canvas,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 14,
+    minHeight: 48,
+    fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
     paddingVertical: 14,
+    minHeight: 50,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -209,7 +213,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   footerLink: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.primary,

@@ -299,19 +299,19 @@ export default function SubscriptionPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-6 w-full">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[#ece3d2]">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-[#ece3d2]/80">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-black text-[#181413] tracking-tight">
-              Subscription & Plans
+              Subscription &amp; Plans
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#f4ffe1] text-[#207429] border border-[#207429]/20">
-              Billing & Entitlement
+              Billing &amp; Entitlement
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[#7a7469] mt-1">
+          <p className="text-xs text-[#7a7469] mt-1">
             Manage your store membership tier, review feature entitlements, and view subscription plans.
           </p>
         </div>
@@ -320,7 +320,7 @@ export default function SubscriptionPage() {
           type="button"
           onClick={handleManualRefresh}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#ece3d2] bg-white text-xs font-semibold text-[#4a443a] hover:bg-[#fef9f0] transition-colors shadow-2xs self-start sm:self-auto disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#ece3d2] bg-white text-xs font-bold text-[#4a443a] hover:bg-[#fef9f0] hover:text-[#181413] transition-colors shadow-2xs self-start md:self-auto disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -827,11 +827,6 @@ export default function SubscriptionPage() {
                   )}
                 </button>
               </div>
-
-              {/* Small unobtrusive disclosure */}
-              <p className="text-[11px] text-[#7a7469] text-center mt-2.5">
-                Demo checkout — no real charges.
-              </p>
             </div>
           </div>
         </div>

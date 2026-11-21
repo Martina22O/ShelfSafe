@@ -39,7 +39,7 @@ export default function ScanNavigator() {
         headerTitleAlign: 'center',
         headerTitleStyle: {
           fontFamily: FONTS.bold,
-          fontSize: 16,
+          fontSize: 17,
           color: COLORS.text,
         },
         headerStyle: { backgroundColor: '#FEF7E6' },

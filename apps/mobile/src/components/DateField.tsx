@@ -7,6 +7,7 @@ import {
   Platform,
   Modal,
   StyleSheet,
+  Keyboard,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -62,6 +63,7 @@ export default function DateField({
 
   const openPicker = () => {
     if (isInteractionDisabled) return;
+    Keyboard.dismiss();
     const initialDate = parseYMD(value);
 
     if (Platform.OS === 'android') {
@@ -98,6 +100,8 @@ export default function DateField({
           placeholderTextColor={COLORS.textSubtle}
           editable={!isInteractionDisabled}
           maxLength={10}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
         <TouchableOpacity
           style={styles.calendarButton}
@@ -158,30 +162,29 @@ export default function DateField({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.text,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.bgWarm,
+    backgroundColor: COLORS.canvas,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
+    minHeight: 48,
   },
   input: {
     flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
@@ -191,20 +194,20 @@ const styles = StyleSheet.create({
   calendarButton: {
     paddingHorizontal: 14,
     paddingVertical: 12,
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: 48,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
   errorText: {
     color: COLORS.dangerDark,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.medium,
     marginTop: 4,
   },
   warningText: {
     color: COLORS.amberDark,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONTS.medium,
     marginTop: 4,
   },

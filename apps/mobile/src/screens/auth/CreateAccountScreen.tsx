@@ -72,10 +72,13 @@ export default function CreateAccountScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const emailInputRef = useRef<any>(null);
+  const passwordInputRef = useRef<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const handleSignUp = async () => {
+    Keyboard.dismiss();
     if (!name.trim()) {
       setErrorMessage('Please enter your full name.');
       return;
@@ -235,6 +238,9 @@ export default function CreateAccountScreen({ navigation }: Props) {
                   }}
                   autoCapitalize="words"
                   editable={!loading}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => emailInputRef.current?.focus()}
                 />
               </View>
 
@@ -245,6 +251,7 @@ export default function CreateAccountScreen({ navigation }: Props) {
                   <Text style={styles.label}>Email</Text>
                 </View>
                 <TextInput
+                  ref={emailInputRef}
                   style={styles.input}
                   placeholder="you@example.com"
                   placeholderTextColor="#8C948B"
@@ -257,6 +264,9 @@ export default function CreateAccountScreen({ navigation }: Props) {
                   keyboardType="email-address"
                   autoComplete="email"
                   editable={!loading}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
                 />
               </View>
 
@@ -268,6 +278,7 @@ export default function CreateAccountScreen({ navigation }: Props) {
                 </View>
                 <View style={styles.passwordContainer}>
                   <TextInput
+                    ref={passwordInputRef}
                     style={styles.passwordInput}
                     placeholder="At least 8 characters"
                     placeholderTextColor="#8C948B"
@@ -278,6 +289,8 @@ export default function CreateAccountScreen({ navigation }: Props) {
                     }}
                     secureTextEntry={!showPassword}
                     editable={!loading}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSignUp}
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}

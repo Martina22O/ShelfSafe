@@ -523,13 +523,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgTint,
     borderWidth: 1,
     borderColor: '#d6f0b4',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   modeBadgeText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.primary,
   },
   screenTitle: {
@@ -540,11 +541,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   screenSubtitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
-    marginTop: 2,
+    marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   statusToast: {
     backgroundColor: COLORS.bgTint,
@@ -695,8 +697,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 13,
+    minHeight: 50,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -707,8 +710,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.amber,
   },
   torchText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   torchTextActive: {
@@ -717,6 +721,7 @@ const styles = StyleSheet.create({
   manualButton: {
     backgroundColor: COLORS.primary,
     paddingVertical: 14,
+    minHeight: 50,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -724,7 +729,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   manualButtonText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: FONTS.bold,
     color: COLORS.white,

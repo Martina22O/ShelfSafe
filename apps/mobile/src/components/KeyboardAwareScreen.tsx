@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect } from 'react';
-import { StyleSheet, ViewStyle, StyleProp, Keyboard } from 'react-native';
+import { StyleSheet, ViewStyle, StyleProp, Keyboard, Pressable } from 'react-native';
 import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewProps,
@@ -44,7 +44,13 @@ export const KeyboardAwareScreen = forwardRef<any, KeyboardAwareScreenProps>(
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
         {...rest}
       >
-        {children}
+        <Pressable
+          style={styles.pressableContent}
+          onPress={Keyboard.dismiss}
+          accessible={false}
+        >
+          {children}
+        </Pressable>
       </KeyboardAwareScrollView>
     );
   }
@@ -57,5 +63,8 @@ export default KeyboardAwareScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  pressableContent: {
+    flexGrow: 1,
   },
 });
