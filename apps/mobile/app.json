@@ -1,35 +1,48 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "ShelfSafe",
+    "slug": "shelfsafe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.shelfsafe.inventory",
       "infoPlist": {
         "NSCameraUsageDescription": "ShelfSafe needs camera access to scan product barcodes."
       }
     },
     "android": {
+      "package": "com.shelfsafe.inventory",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F4FFE1",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "ShelfSafe",
+      "shortName": "ShelfSafe",
+      "themeColor": "#254E06",
+      "backgroundColor": "#FEF9F0",
+      "display": "standalone",
+      "orientation": "portrait",
+      "output": "single"
     },
     "plugins": [
       [
         "expo-camera",
         {
-          "cameraPermission": "ShelfSafe needs camera access to scan product barcodes."
+          "cameraPermission": "ShelfSafe needs camera access to scan product barcodes.",
+          "barcodeScannerEnabled": true
         }
       ],
       [
@@ -38,7 +51,13 @@
           "photosPermission": "ShelfSafe needs access to your photos to optionally select product images.",
           "cameraPermission": "ShelfSafe needs camera access to optionally capture product photos."
         }
-      ]
-    ]
+      ],
+      "./plugins/withBarcodeScannerFix.js"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bb8dafc3-f38f-4154-b9b9-5d68f466d034"
+      }
+    }
   }
 }

@@ -23,6 +23,7 @@ import {
   Image,
   useWindowDimensions,
   Keyboard,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -299,7 +300,7 @@ export default function InventoryListScreen({ navigation }: Props) {
           ref={scrollRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
           refreshControl={
             <RefreshControlComponent
               refreshing={refreshing}

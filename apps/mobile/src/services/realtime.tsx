@@ -179,7 +179,40 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           {
             event: '*',
             schema: 'public',
+            table: 'categories',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'deductions',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
             table: 'sales_scans',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'inventory_edits',
           },
           () => {
             triggerChange.current(false);
@@ -195,6 +228,28 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           () => {
             // Signal store settings change
             triggerChange.current(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_subscriptions',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'subscription_events',
+          },
+          () => {
+            triggerChange.current(false);
           }
         )
         .subscribe((subStatus) => {
@@ -274,6 +329,30 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     }
 
+    // Web / iPhone PWA network recovery listeners
+    const handleOnline = () => {
+      if (isCancelled) return;
+      wasOfflineRef.current = false;
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (isCancelled) return;
+        if (user) {
+          setupChannel(user.id);
+        }
+      });
+      triggerChange.current(true);
+    };
+
+    const handleOffline = () => {
+      if (isCancelled) return;
+      wasOfflineRef.current = true;
+      setStatus('offline');
+    };
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
+
     // Handle auth state changes
     const {
       data: { subscription: authSubscription },
@@ -297,6 +376,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       isCancelled = true;
       appStateSubscription.remove();
       authSubscription.unsubscribe();
+      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
       cleanupChannel();
 
       // Clear all timers on unmount

@@ -53,7 +53,7 @@ export default function HistoryPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dataVersion]);
 
   // Pagination limit: starts at 50, increases by 50 up to 500
   const [limit, setLimit] = useState(50);

@@ -33,8 +33,10 @@ import {
   SubscriptionPlan,
   TestCardDetails,
 } from '../../../lib/subscription';
+import { useRealtime } from '../../../lib/realtime';
 
 export default function SubscriptionPage() {
+  const { dataVersion } = useRealtime();
   const [loading, setLoading] = useState(true);
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [simulatingPayment, setSimulatingPayment] = useState(false);
@@ -79,6 +81,29 @@ export default function SubscriptionPage() {
       cancelled = true;
     };
   }, []);
+
+  // Silent background refresh when subscription or store data changes on another device
+  useEffect(() => {
+    if (dataVersion === 0) return;
+    if (activatingTrial || simulatingPayment || processingAction) return;
+
+    let cancelled = false;
+    async function silentRefreshSubscription() {
+      try {
+        const res = await getUserSubscription();
+        if (!cancelled && res.success && res.data) {
+          setSubscription(res.data);
+        }
+      } catch {
+        // Silently ignore background refresh error
+      }
+    }
+
+    void silentRefreshSubscription();
+    return () => {
+      cancelled = true;
+    };
+  }, [dataVersion, activatingTrial, simulatingPayment, processingAction]);
 
   const handleManualRefresh = async () => {
     setLoading(true);

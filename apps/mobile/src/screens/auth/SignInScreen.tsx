@@ -140,7 +140,7 @@ export default function SignInScreen({ navigation, route }: Props) {
         ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
         bottomOffset={24}
-        scrollEnabled={isKeyboardVisible}
+        scrollEnabled={Platform.OS === 'web' ? true : isKeyboardVisible}
         bounces={false}
         alwaysBounceVertical={false}
         overScrollMode="never"

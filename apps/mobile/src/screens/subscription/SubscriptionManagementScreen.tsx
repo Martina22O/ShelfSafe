@@ -46,8 +46,10 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useIsFocused } from '@react-navigation/native';
 import { ProfileStackParamList } from '../../navigation/types';
 import { COLORS, FONTS } from '../../theme';
+import { useRealtime } from '../../services/realtime';
 import {
   getUserSubscription,
   startFreeTrial,
@@ -69,6 +71,8 @@ const KeyboardAvoidingViewComponent = KeyboardAvoidingView as any;
 
 export default function SubscriptionManagementScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const { dataVersion } = useRealtime();
   const screenWidth = Dimensions.get('window').width;
   const bgHeight = Math.round(screenWidth * (440 / 390));
 
@@ -122,6 +126,27 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
   useEffect(() => {
     fetchSubscription();
   }, [fetchSubscription]);
+
+  // Silent background refresh when subscription changes on another device
+  useEffect(() => {
+    if (!isFocused || dataVersion === 0) return;
+    if (activatingTrial || simulatingPayment || processingAction) return;
+
+    let cancelled = false;
+    getUserSubscription()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) {
+          setSubscription(res.data);
+        }
+      })
+      .catch(() => {
+        // Ignore silent background error
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataVersion, isFocused, activatingTrial, simulatingPayment, processingAction]);
 
   const handleActivateTrial = async () => {
     if (activatingTrial) return;
@@ -594,11 +619,15 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
 
             <ScrollView
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+              keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
-              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+              <Pressable
+                onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}
+                disabled={Platform.OS === 'web'}
+                accessible={false}
+              >
                 {/* Payment Method Selector */}
                 <View style={styles.testCardSection}>
                   <Text style={styles.testCardSectionLabel}>SELECT CARD</Text>

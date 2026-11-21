@@ -7,7 +7,7 @@
  * - Settings menu rows with chevrons
  * - Sign out confirmation modal clearing cart and store settings
  */
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,12 +23,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronRight, ArrowRight, Lock, Bell, RefreshCw, Sparkles } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useFocusEffect, useScrollToTop, useIsFocused } from '@react-navigation/native';
 import { ProfileStackParamList } from '../../navigation/types';
 import { supabase } from '../../services/supabase';
 import { getUserSubscription, UserSubscription } from '../../services/subscription';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { useSaleCart } from '../../context/SaleCartContext';
+import { useRealtime } from '../../services/realtime';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Profile'>;
@@ -40,6 +41,8 @@ export default function ProfileScreen({ navigation }: Props) {
   const bgHeight = screenWidth * (856 / 402);
   const { store_name, contact_number, clearStoreSettings } = useStoreSettings();
   const { clearCart } = useSaleCart();
+  const isFocused = useIsFocused();
+  const { dataVersion } = useRealtime();
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -77,6 +80,12 @@ export default function ProfileScreen({ navigation }: Props) {
       loadUserData();
     }, [loadUserData])
   );
+
+  // Silent background refresh when subscription or profile changes on another device
+  useEffect(() => {
+    if (!isFocused || dataVersion === 0) return;
+    void loadUserData();
+  }, [dataVersion, isFocused, loadUserData]);
 
   const handleConfirmSignOut = async () => {
     setSigningOut(true);

@@ -120,7 +120,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     }, DEBOUNCE_MS);
   });
 
-  // Tab visibility management: coalesced refresh when returning to visible tab
+  // Tab visibility and browser network connectivity management:
+  // coalesced refresh when returning to visible tab or recovering network connectivity
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && pendingRefreshRef.current) {
@@ -128,9 +129,23 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const handleOnline = () => {
+      wasOfflineRef.current = false;
+      triggerChange.current(true);
+    };
+
+    const handleOffline = () => {
+      wasOfflineRef.current = true;
+      setStatus('offline');
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -186,7 +201,40 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           {
             event: '*',
             schema: 'public',
+            table: 'categories',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'deductions',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
             table: 'sales_scans',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'inventory_edits',
           },
           () => {
             triggerChange.current(false);
@@ -202,6 +250,28 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           () => {
             // Signal store settings change
             triggerChange.current(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_subscriptions',
+          },
+          () => {
+            triggerChange.current(false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'subscription_events',
+          },
+          () => {
+            triggerChange.current(false);
           }
         )
         .subscribe((subStatus) => {

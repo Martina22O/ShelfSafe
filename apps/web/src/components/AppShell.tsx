@@ -51,7 +51,7 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { store_name, loading: settingsLoading, error: settingsError, reload, clearStoreSettings } = useStoreSettings();
-  const { status: realtimeStatus } = useRealtime();
+  const { status: realtimeStatus, dataVersion } = useRealtime();
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -116,6 +116,25 @@ export function AppShell({ children }: AppShellProps) {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Re-check onboarding status if subscription changes on another device while modal is open
+  useEffect(() => {
+    if (!showOnboarding || dataVersion === 0) return;
+    let isMounted = true;
+    getUserSubscription()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && res.data && res.data.onboarding_completed) {
+          setShowOnboarding(false);
+        }
+      })
+      .catch(() => {
+        // Ignore silent background error
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [dataVersion, showOnboarding]);
 
   // Keyboard accessibility: Escape closes the sign-out confirmation modal or mobile sidebar
   useEffect(() => {

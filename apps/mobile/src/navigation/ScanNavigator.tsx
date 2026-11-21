@@ -13,7 +13,7 @@
  * - History
  */
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, Platform } from 'react-native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft } from 'lucide-react-native';
 import { ScanStackParamList } from './types';
@@ -42,14 +42,23 @@ export default function ScanNavigator() {
           fontSize: 17,
           color: COLORS.text,
         },
-        headerStyle: { backgroundColor: '#FEF7E6' },
+        headerStyle: {
+          backgroundColor: '#FDF7E3',
+          ...(Platform.OS === 'web'
+            ? { height: 'calc(44px + env(safe-area-inset-top, 0px))' as any }
+            : {}),
+        },
+        headerStatusBarHeight:
+          Platform.OS === 'web'
+            ? ('env(safe-area-inset-top, 0px)' as any)
+            : undefined,
         headerShadowVisible: false,
         headerTintColor: COLORS.text,
         headerLeft: () => (
           <TouchableOpacity
             onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ScanChooser'))}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ paddingRight: 12, paddingVertical: 4 }}
+            style={{ paddingRight: 12, paddingVertical: 4, justifyContent: 'center' }}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
@@ -61,7 +70,16 @@ export default function ScanNavigator() {
       <Stack.Screen
         name="ScanChooser"
         component={ScanChooserScreen}
-        options={{ title: 'Scan', headerLeft: () => null }}
+        options={{
+          title: 'Scan',
+          headerLeft: () => null,
+          headerStyle: {
+            backgroundColor: '#FEF7E6',
+            ...(Platform.OS === 'web'
+              ? { height: 'calc(44px + env(safe-area-inset-top, 0px))' as any }
+              : {}),
+          },
+        }}
       />
       <Stack.Screen
         name="ScanBarcode"
@@ -72,10 +90,10 @@ export default function ScanNavigator() {
               ? 'Scan Barcode (Add Stock)'
               : 'Scan Barcode (Sell)',
           headerStyle: {
-            backgroundColor:
-              route.params?.mode === 'add' || route.params?.mode === 'sell'
-                ? '#FDF7E3'
-                : '#FEF7E6',
+            backgroundColor: '#FDF7E3',
+            ...(Platform.OS === 'web'
+              ? { height: 'calc(44px + env(safe-area-inset-top, 0px))' as any }
+              : {}),
           },
         })}
       />
@@ -88,10 +106,10 @@ export default function ScanNavigator() {
               ? 'Type Barcode (Add Stock)'
               : 'Type Barcode (Sell)',
           headerStyle: {
-            backgroundColor:
-              route.params?.mode === 'add' || route.params?.mode === 'sell'
-                ? '#FDF7E3'
-                : '#FEF7E6',
+            backgroundColor: '#FDF7E3',
+            ...(Platform.OS === 'web'
+              ? { height: 'calc(44px + env(safe-area-inset-top, 0px))' as any }
+              : {}),
           },
         })}
       />

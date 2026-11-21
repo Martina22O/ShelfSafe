@@ -126,13 +126,13 @@ export async function uploadProductPhoto(
 
       arrayBuffer = base64ToArrayBuffer(b64Data);
     } else {
-      // Direct URI or fallback
-      const isPng = /\.png($|\?)/i.test(imageUri);
-      const isWebp = /\.webp($|\?)/i.test(imageUri);
+      // Direct URI or blob: URL fallback
+      const response = await fetch(imageUri);
+      const headerType = response.headers?.get?.('content-type') || '';
+      const isPng = /image\/png/i.test(headerType) || /\.png($|\?)/i.test(imageUri);
+      const isWebp = /image\/webp/i.test(headerType) || /\.webp($|\?)/i.test(imageUri);
       ext = isPng ? 'png' : isWebp ? 'webp' : 'jpg';
       mimeType = isPng ? 'image/png' : isWebp ? 'image/webp' : 'image/jpeg';
-
-      const response = await fetch(imageUri);
       arrayBuffer = await response.arrayBuffer();
     }
 

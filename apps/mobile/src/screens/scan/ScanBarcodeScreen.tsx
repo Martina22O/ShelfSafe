@@ -13,34 +13,49 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   Linking,
   Modal,
   BackHandler,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-import { ArrowRight, Lightbulb, Flashlight, FlashlightOff } from 'lucide-react-native';
+import {
+  useCameraPermissions,
+  BarcodeScanningResult,
+  BarcodeType,
+  CameraMountError,
+} from 'expo-camera';
+import { ArrowRight, Flashlight, FlashlightOff } from 'lucide-react-native';
 import { ScanStackParamList } from '../../navigation/types';
 import { findProductByBarcode, getProductWithBatches, restoreProduct } from '../../services/inventory';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { useSaleCart } from '../../context/SaleCartContext';
 import { Product } from '../../types/inventory';
-import { isValidRetailBarcode } from '../../utils/barcode';
+import { extractScannedBarcode, isPlausibleScannedBarcode } from '../../utils/barcode';
+import CameraScannerView from '../../components/CameraScannerView';
 import { COLORS, FONTS, SCREEN_PADDING } from '../../theme';
 
-export const SCAN_BARCODE_TYPES = ['ean13', 'ean8', 'upc_a'] as const;
+export const SCAN_BARCODE_TYPES: BarcodeType[] = [
+  'ean13',
+  'ean8',
+  'upc_a',
+  'upc_e',
+  'code128',
+  'code39',
+  'code93',
+  'itf14',
+  'codabar',
+  'qr',
+];
 
-const SCAN_CONFIRMATION_READS = 2;
-const SCAN_CONFIRMATION_WINDOW_MS = 1200;
-const SCAN_HINT_AFTER_MS = 4000;
-
-const Camera = CameraView as unknown as React.ComponentType<any>;
+const DUPLICATE_SCAN_COOLDOWN_MS = 1500;
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'ScanBarcode'>;
 
@@ -52,10 +67,12 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
   const { addItem } = useSaleCart();
 
   const [torch, setTorch] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraMountError, setCameraMountError] = useState<string | null>(null);
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFoundBarcode, setNotFoundBarcode] = useState<string | null>(null);
-  const [showScanHint, setShowScanHint] = useState(false);
 
   // Archived product restore state
   const [archivedProduct, setArchivedProduct] = useState<Product | null>(null);
@@ -73,89 +90,131 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     return () => backHandler.remove();
   }, [restoring]);
 
-  // Stability tracking
+  // Synchronous scan lock & controlled cooldown timer
   const isScanningLocked = useRef(false);
-  const lastScannedBarcode = useRef<string | null>(null);
-  const lastCandidateRef = useRef<{ code: string; count: number; lastSeenAt: number } | null>(null);
-  const firstIgnoredAtRef = useRef<number | null>(null);
+  const lastScannedRef = useRef<{ code: string; timestamp: number } | null>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const resetScanStability = useCallback(() => {
-    lastCandidateRef.current = null;
-    firstIgnoredAtRef.current = null;
-    setShowScanHint(false);
+  const clearTimers = useCallback(() => {
+    if (cooldownTimerRef.current) {
+      clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
+    }
   }, []);
+
+  const unlockScannerWithCooldown = useCallback(
+    (code?: string, delayMs = DUPLICATE_SCAN_COOLDOWN_MS) => {
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
+      if (code) {
+        lastScannedRef.current = { code, timestamp: Date.now() };
+      }
+      cooldownTimerRef.current = setTimeout(() => {
+        isScanningLocked.current = false;
+        setIsProcessingScan(false);
+        cooldownTimerRef.current = null;
+      }, delayMs);
+    },
+    []
+  );
+
+  const resetScannerImmediately = useCallback(() => {
+    clearTimers();
+    isScanningLocked.current = false;
+    lastScannedRef.current = null;
+    setIsProcessingScan(false);
+  }, [clearTimers]);
 
   useFocusEffect(
     useCallback(() => {
-      isScanningLocked.current = false;
-      lastScannedBarcode.current = null;
-      resetScanStability();
+      resetScannerImmediately();
+      setCameraReady(false);
+      setCameraMountError(null);
       setErrorMessage(null);
       setStatusMessage(null);
       setNotFoundBarcode(null);
       setArchivedProduct(null);
       setRestoreSuccessMessage(null);
-    }, [resetScanStability])
+
+      return () => {
+        clearTimers();
+        isScanningLocked.current = false;
+      };
+    }, [resetScannerImmediately, clearTimers])
   );
 
+  const handleCameraReady = useCallback(() => {
+    setCameraReady(true);
+    setCameraMountError(null);
+    console.log('[ShelfSafe Scanner] Camera ready event (mode:', mode, ', barcodeTypes:', SCAN_BARCODE_TYPES.length, ')');
+  }, [mode]);
+
+  const handleCameraMountError = useCallback((event: CameraMountError) => {
+    const msg = event?.message || 'Camera preview could not be started.';
+    setCameraReady(false);
+    setCameraMountError(msg);
+    setErrorMessage(msg);
+    console.warn('[ShelfSafe Scanner] Camera mount error:', msg);
+  }, []);
+
   const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
-    const rawCode = (result.data || '').trim();
-    if (isScanningLocked.current) return;
+    if (!isFocused || isScanningLocked.current || showRestoreModal) {
+      return;
+    }
+
+    const barcode = extractScannedBarcode(result);
+    const barcodeType = result?.type || 'unknown';
+
+    if (!barcode || !isPlausibleScannedBarcode(barcode)) {
+      console.log('[ShelfSafe Scanner] Ignored empty/invalid scan payload:', {
+        type: barcodeType,
+        hasData: Boolean(result?.data),
+      });
+      return;
+    }
 
     const now = Date.now();
-    const recordIgnoredRead = () => {
-      if (firstIgnoredAtRef.current === null) {
-        firstIgnoredAtRef.current = now;
-      } else if (now - firstIgnoredAtRef.current >= SCAN_HINT_AFTER_MS) {
-        setShowScanHint(true);
-      }
-    };
-
-    if (!rawCode || !isValidRetailBarcode(rawCode)) {
-      recordIgnoredRead();
-      return;
-    }
-
-    const currentCandidate = lastCandidateRef.current;
     if (
-      currentCandidate &&
-      currentCandidate.code === rawCode &&
-      now - currentCandidate.lastSeenAt <= SCAN_CONFIRMATION_WINDOW_MS
+      lastScannedRef.current &&
+      lastScannedRef.current.code === barcode &&
+      now - lastScannedRef.current.timestamp < DUPLICATE_SCAN_COOLDOWN_MS
     ) {
-      currentCandidate.count += 1;
-      currentCandidate.lastSeenAt = now;
-    } else {
-      lastCandidateRef.current = { code: rawCode, count: 1, lastSeenAt: now };
-    }
-
-    if ((lastCandidateRef.current?.count ?? 0) < SCAN_CONFIRMATION_READS) {
+      console.log('[ShelfSafe Scanner] Ignored duplicate barcode within cooldown period');
       return;
     }
 
-    const barcode = rawCode;
-    lastCandidateRef.current = null;
-    firstIgnoredAtRef.current = null;
-    setShowScanHint(false);
-
-    if (lastScannedBarcode.current === barcode) return;
-
+    // Lock synchronously to prevent duplicate concurrent database lookups
     isScanningLocked.current = true;
-    lastScannedBarcode.current = barcode;
+    lastScannedRef.current = { code: barcode, timestamp: now };
+    setIsProcessingScan(true);
+    setNotFoundBarcode(null);
     setErrorMessage(null);
     setStatusMessage(`Scanned ${barcode}...`);
+
+    console.log('[ShelfSafe Scanner] Barcode accepted, starting product lookup:', {
+      type: barcodeType,
+      barcodeLength: barcode.length,
+      mode,
+    });
 
     try {
       const productRes = await findProductByBarcode(barcode);
 
       if (productRes.kind === 'error') {
+        if (__DEV__) {
+          console.warn('[ShelfSafe Scanner] Lookup error:', productRes.message);
+        }
         setErrorMessage(productRes.message);
-        isScanningLocked.current = false;
-        lastScannedBarcode.current = null;
         setStatusMessage(null);
+        unlockScannerWithCooldown(barcode);
         return;
       }
 
       if (productRes.kind === 'archived') {
+        if (__DEV__) {
+          console.log('[ShelfSafe Scanner] Lookup result: Archived product', productRes.product.id);
+        }
         setStatusMessage(null);
         setArchivedProduct(productRes.product);
         setShowRestoreModal(true);
@@ -163,17 +222,28 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
       }
 
       if (productRes.kind === 'not_found') {
+        if (__DEV__) {
+          console.log('[ShelfSafe Scanner] Lookup result: Not found for barcode', barcode);
+        }
         setStatusMessage(null);
         if (mode === 'add') {
           navigation.navigate('NewProduct', { barcode, fromScan: true });
         } else {
           setNotFoundBarcode(barcode);
+          // Release lock after short cooldown so user can scan another product immediately
+          unlockScannerWithCooldown(barcode);
         }
         return;
       }
 
       // Product found active
       const product = productRes.product;
+      if (__DEV__) {
+        console.log('[ShelfSafe Scanner] Lookup result: Active product found', {
+          id: product.id,
+          name: product.name,
+        });
+      }
 
       if (mode === 'add') {
         setStatusMessage(null);
@@ -187,37 +257,44 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
         const detailRes = await getProductWithBatches(product.id, near_expiry_days);
         if (detailRes.kind === 'error' || detailRes.kind === 'not_found') {
           setErrorMessage('Failed to load active batch details.');
-          isScanningLocked.current = false;
-          lastScannedBarcode.current = null;
           setStatusMessage(null);
+          unlockScannerWithCooldown(barcode);
           return;
         }
 
         const sellableUnits = detailRes.data.sellable_units;
         if (sellableUnits <= 0) {
           setErrorMessage(`"${product.name}" has 0 sellable units available (expired or out of stock).`);
-          isScanningLocked.current = false;
-          lastScannedBarcode.current = null;
           setStatusMessage(null);
+          unlockScannerWithCooldown(barcode);
           return;
         }
 
-        addItem({
+        const addRes = addItem({
           id: product.id,
           name: product.name,
-          barcode: product.barcode,
+          barcode: product.barcode || barcode,
           price: product.price,
           sellable_units: sellableUnits,
         });
 
+        if (!addRes.success) {
+          setErrorMessage(addRes.message);
+          setStatusMessage(null);
+          unlockScannerWithCooldown(barcode);
+          return;
+        }
+
         setStatusMessage(null);
         navigation.navigate('SaleList');
       }
-    } catch {
+    } catch (err: any) {
+      if (__DEV__) {
+        console.warn('[ShelfSafe Scanner] Unexpected error:', err?.message);
+      }
       setErrorMessage('Unexpected scanner error.');
-      isScanningLocked.current = false;
-      lastScannedBarcode.current = null;
       setStatusMessage(null);
+      unlockScannerWithCooldown(barcode);
     }
   };
 
@@ -225,9 +302,25 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
   handleBarcodeScannedRef.current = handleBarcodeScanned;
 
   const onBarcodeScanned = useCallback((result: BarcodeScanningResult) => {
-    if (isScanningLocked.current) return;
-    handleBarcodeScannedRef.current(result);
-  }, []);
+    const rawType = result?.type || 'unknown';
+    const rawBarcode = extractScannedBarcode(result);
+
+    console.log('[ShelfSafe Scanner] Native barcode callback received:', {
+      type: rawType,
+      barcode: rawBarcode,
+      hasData: Boolean(result?.data),
+      rawLen: result?.data?.length || 0,
+      isLocked: isScanningLocked.current,
+      isFocused,
+    });
+
+    if (!isFocused || isScanningLocked.current || showRestoreModal) {
+      console.log('[ShelfSafe Scanner] Callback bypassed due to scanner lock / unfocused');
+      return;
+    }
+
+    void handleBarcodeScannedRef.current(result);
+  }, [isFocused, showRestoreModal]);
 
   const handleConfirmRestoreArchived = async () => {
     if (!archivedProduct) return;
@@ -240,8 +333,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     if (res.kind !== 'success') {
       setErrorMessage(res.message);
       setShowRestoreModal(false);
-      isScanningLocked.current = false;
-      lastScannedBarcode.current = null;
+      resetScannerImmediately();
       return;
     }
 
@@ -259,22 +351,20 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
       setRestoreSuccessMessage(
         `"${restoredProd.name}" restored to inventory! Scan again or type barcode to add it to your sale.`
       );
-      isScanningLocked.current = false;
-      lastScannedBarcode.current = null;
+      resetScannerImmediately();
     }
   };
 
   const handleCancelRestore = () => {
     setShowRestoreModal(false);
     setArchivedProduct(null);
-    isScanningLocked.current = false;
-    lastScannedBarcode.current = null;
-    resetScanStability();
+    resetScannerImmediately();
   };
 
   const isScanAction = mode === 'add' || mode === 'sell';
+  const isWeb = Platform.OS === 'web';
 
-  if (!permission) {
+  if (!isWeb && !permission) {
     return (
       <SafeAreaView
         style={[styles.centerContainer, isScanAction && { backgroundColor: COLORS.scanActionBg }]}
@@ -285,7 +375,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
     );
   }
 
-  if (!permission.granted) {
+  if (!isWeb && permission && !permission.granted) {
     return (
       <SafeAreaView
         style={[styles.centerContainer, isScanAction && { backgroundColor: COLORS.scanActionBg }]}
@@ -315,7 +405,12 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
       edges={['left', 'right']}
     >
       <StatusBar style="dark" />
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: 32 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Mode Badge Indicator (Native navigation bar provides single Back button) */}
         <View style={styles.header}>
           <View style={styles.modeBadge}>
@@ -371,9 +466,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
                 style={[styles.notFoundBtn, { backgroundColor: COLORS.bgWarm }]}
                 onPress={() => {
                   setNotFoundBarcode(null);
-                  isScanningLocked.current = false;
-                  lastScannedBarcode.current = null;
-                  resetScanStability();
+                  resetScannerImmediately();
                 }}
               >
                 <Text style={[styles.notFoundBtnText, { color: COLORS.text }]}>Resume Scan</Text>
@@ -385,13 +478,11 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
         {/* Camera Viewfinder Card with Targeting Frame */}
         <View style={styles.viewfinderCard}>
           {isFocused ? (
-            <Camera
-              style={StyleSheet.absoluteFill}
-              facing="back"
+            <CameraScannerView
               enableTorch={torch}
-              barcodeScannerSettings={{
-                barcodeTypes: SCAN_BARCODE_TYPES,
-              }}
+              barcodeTypes={SCAN_BARCODE_TYPES}
+              onCameraReady={handleCameraReady}
+              onMountError={handleCameraMountError}
               onBarcodeScanned={onBarcodeScanned}
             />
           ) : (
@@ -407,15 +498,6 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
             <View style={styles.laserGuide} />
           </View>
         </View>
-
-        {showScanHint ? (
-          <View style={styles.hintContainer}>
-            <Lightbulb size={16} color={COLORS.amberDark} strokeWidth={2} />
-            <Text style={styles.hintText}>
-              Hold steady and fill the frame with the barcode. Turn on flash if dim.
-            </Text>
-          </View>
-        ) : null}
 
         {/* Controls (Flashlight & Manual Entry) */}
         <View style={styles.controlsRow}>
@@ -444,7 +526,7 @@ export default function ScanBarcodeScreen({ route, navigation }: Props) {
             <ArrowRight size={16} color={COLORS.white} strokeWidth={2} />
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Restore Archived Product Modal */}
       <Modal visible={showRestoreModal} transparent animationType="fade">
@@ -500,16 +582,15 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   content: {
-    flex: 1,
     paddingHorizontal: SCREEN_PADDING,
-    paddingTop: 16,
+    paddingTop: 10,
     paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   backBtn: {
     paddingVertical: 6,
@@ -534,19 +615,19 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   screenTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     fontFamily: FONTS.extraBold,
     color: COLORS.text,
     letterSpacing: -0.4,
   },
   screenSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
-    marginTop: 4,
-    marginBottom: 16,
-    lineHeight: 20,
+    marginTop: 2,
+    marginBottom: 10,
+    lineHeight: 18,
   },
   statusToast: {
     backgroundColor: COLORS.bgTint,
@@ -675,19 +756,6 @@ const styles = StyleSheet.create({
     height: 1.5,
     backgroundColor: COLORS.amber,
     opacity: 0.8,
-  },
-  hintContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  hintText: {
-    fontSize: 11,
-    fontFamily: FONTS.regular,
-    color: COLORS.amberDark,
-    textAlign: 'center',
   },
   controlsRow: {
     gap: 10,

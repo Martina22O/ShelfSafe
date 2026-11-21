@@ -8,6 +8,7 @@ import {
   ScanBarcode,
 } from 'lucide-react';
 import { getCategories, createProductWithBatch } from '../../../../lib/inventory';
+import { useRealtime } from '../../../../lib/realtime';
 import { uploadProductPhotoWeb, deleteProductPhoto, generateUUID } from '../../../../lib/storage';
 import { ProductPhotoUpload } from '../../../../components/ProductPhotoUpload';
 import { Category } from '../../../../types/inventory';
@@ -24,6 +25,7 @@ interface NewProductClientProps {
 
 export default function NewProductClient({ initialBarcode = '' }: NewProductClientProps) {
   const today = getTodayInManila();
+  const { dataVersion } = useRealtime();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -57,19 +59,24 @@ export default function NewProductClient({ initialBarcode = '' }: NewProductClie
 
   // Load categories
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       const res = await getCategories();
+      if (cancelled) return;
       setLoadingCategories(false);
 
       if (res.kind === 'success' && res.categories.length > 0) {
         setCategories(res.categories);
-        setSelectedCategoryId(res.categories[0].id);
+        setSelectedCategoryId((prev) => prev || res.categories[0].id);
       } else if (res.kind === 'error') {
         setFormError(res.message);
       }
     }
-    load();
-  }, []);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [dataVersion]);
 
   const isPastExpiry = isValidCalendarDate(expirationDate) && isDateInPast(expirationDate);
 

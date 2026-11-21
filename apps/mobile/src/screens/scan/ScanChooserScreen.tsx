@@ -6,8 +6,8 @@
  * - Brand cards for "Add stock" and "Record sold items"
  * - Quick link to "View History"
  */
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, useWindowDimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, useWindowDimensions, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Package, ShoppingCart, ClipboardList, ArrowRight } from 'lucide-react-native';
@@ -21,6 +21,17 @@ export default function ScanChooserScreen({ navigation }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const bgHeight = screenWidth * (856 / 402);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      console.log('[ShelfSafe PWA Diagnostic] 4. Target screen (ScanChooserScreen) MOUNTED');
+    }
+    return () => {
+      if (Platform.OS === 'web') {
+        console.log('[ShelfSafe PWA Diagnostic] 5. Target screen (ScanChooserScreen) UNMOUNTED');
+      }
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar style="dark" />
@@ -29,7 +40,10 @@ export default function ScanChooserScreen({ navigation }: Props) {
         style={[styles.bgImage, { width: screenWidth, height: bgHeight }]}
         resizeMode="stretch"
       />
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: 32 }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header (Stack header says Scan; body provides clear instructional context) */}
         <View style={styles.header}>
           <Text style={styles.title}>Inventory Actions</Text>
@@ -86,7 +100,7 @@ export default function ScanChooserScreen({ navigation }: Props) {
             <Text style={styles.historyBtnText}>View Scan & Sales History</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -103,7 +117,6 @@ const styles = StyleSheet.create({
     right: 0,
   },
   content: {
-    flex: 1,
     paddingHorizontal: SCREEN_PADDING,
     paddingTop: 16,
   },

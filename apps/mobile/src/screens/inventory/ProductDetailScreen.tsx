@@ -825,7 +825,11 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
               bounces={false}
               showsVerticalScrollIndicator={false}
             >
-              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+              <Pressable
+                onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}
+                disabled={Platform.OS === 'web'}
+                accessible={false}
+              >
                 <Text style={styles.modalTitle}>
                   {qtyStep === 'input' ? 'Correct Batch Quantity' : 'Confirm Quantity Correction'}
                 </Text>
@@ -920,7 +924,11 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
               bounces={false}
               showsVerticalScrollIndicator={false}
             >
-              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+              <Pressable
+                onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}
+                disabled={Platform.OS === 'web'}
+                accessible={false}
+              >
                 <Text style={styles.modalTitle}>
                   {datesStep === 'input' ? 'Edit Batch Dates' : 'Confirm Date Change'}
                 </Text>

@@ -301,6 +301,14 @@ function StoreDetailsSection({
   const [savingStore, setSavingStore] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // Sync local inputs when remote store_settings update via Realtime
+  useEffect(() => {
+    if (!savingStore && !showConfirm) {
+      setStoreNameInput(storeName || '');
+      setContactNumberInput(contactNumber || '');
+    }
+  }, [storeName, contactNumber, savingStore, showConfirm]);
+
   const handleOpenConfirm = () => {
     setStoreError(null);
     setStoreSuccess(null);

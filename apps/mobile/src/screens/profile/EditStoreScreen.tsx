@@ -43,6 +43,14 @@ export default function EditStoreScreen({ navigation }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Sync local inputs when remote store_settings update via Realtime
+  useEffect(() => {
+    if (!saving && !showConfirmModal) {
+      setStoreName(store_name || '');
+      setContactNumber(contact_number || '');
+    }
+  }, [store_name, contact_number, saving, showConfirmModal]);
+
   // Block back navigation while saving
   useEffect(() => {
     const backAction = () => {
