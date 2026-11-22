@@ -38,6 +38,10 @@ export type ProfileStackParamList = {
   NotificationPreferences: undefined;
   SyncStatus: undefined;
   Subscription: undefined;
+  HelpSupportHub: undefined;
+  NewSupportTicket: undefined;
+  SupportTicketList: undefined;
+  SupportTicketDetail: { ticketId: string; ticketNumber?: string };
 };
 
 export type MainTabParamList = {

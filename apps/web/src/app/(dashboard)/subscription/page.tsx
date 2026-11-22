@@ -27,7 +27,10 @@ import {
   renewSubscription,
   setSubscriptionAutoRenew,
   validateTestCard,
-  TEST_CARDS,
+  formatCardNumber,
+  formatExpiryDate,
+  detectCardNetwork,
+  getMaxCvvLength,
   SUBSCRIPTION_PLANS,
   UserSubscription,
   SubscriptionPlan,
@@ -48,12 +51,13 @@ export default function SubscriptionPage() {
 
   // Card Form State
   const [cardDetails, setCardDetails] = useState<TestCardDetails>({
-    cardholderName: 'Juan Dela Cruz',
-    cardNumber: '4242 4242 4242 4242',
-    expiryDate: '12/28',
-    cvv: '123',
+    cardholderName: '',
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +134,7 @@ export default function SubscriptionPage() {
       if (res.success) {
         setStatusMessage({
           type: 'success',
-          text: '14-Day Free Trial activated successfully! Enjoy unlimited products and full analytics.',
+          text: '30-Day Free Trial activated successfully! Enjoy unlimited products and full analytics.',
         });
         await handleManualRefresh();
       } else {
@@ -153,38 +157,38 @@ export default function SubscriptionPage() {
   const handleOpenCheckout = (plan: SubscriptionPlan) => {
     setSelectedPlanForCheckout(plan);
     setFormError(null);
+    setTouched({});
     setCardDetails({
-      cardholderName: TEST_CARDS[0].cardholderName,
-      cardNumber: TEST_CARDS[0].cardNumber,
-      expiryDate: TEST_CARDS[0].expiryDate,
-      cvv: TEST_CARDS[0].cvv,
+      cardholderName: '',
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
     });
-  };
-
-  const handleSelectCard = (testCard: typeof TEST_CARDS[0]) => {
-    setCardDetails({
-      cardholderName: testCard.cardholderName,
-      cardNumber: testCard.cardNumber,
-      expiryDate: testCard.expiryDate,
-      cvv: testCard.cvv,
-    });
-    setFormError(null);
   };
 
   const handleFormatCardNumber = (value: string) => {
-    const raw = value.replace(/\D/g, '').slice(0, 16);
-    const parts = raw.match(/[\s\S]{1,4}/g) || [];
-    setCardDetails((prev) => ({ ...prev, cardNumber: parts.join(' ') }));
+    const { formatted } = formatCardNumber(value);
+    setCardDetails((prev) => ({ ...prev, cardNumber: formatted }));
   };
 
   const handleFormatExpiry = (value: string) => {
-    const raw = value.replace(/\D/g, '').slice(0, 4);
-    if (raw.length >= 3) {
-      setCardDetails((prev) => ({ ...prev, expiryDate: `${raw.slice(0, 2)}/${raw.slice(2)}` }));
-    } else {
-      setCardDetails((prev) => ({ ...prev, expiryDate: raw }));
-    }
+    const formatted = formatExpiryDate(value);
+    setCardDetails((prev) => ({ ...prev, expiryDate: formatted }));
   };
+
+  const handleFormatCvv = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    const network = detectCardNetwork(cardDetails.cardNumber.replace(/\D/g, ''));
+    const maxLen = getMaxCvvLength(network);
+    setCardDetails((prev) => ({ ...prev, cvv: digits.slice(0, maxLen) }));
+  };
+
+  const handleBlurField = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const validation = validateTestCard(cardDetails);
+  const detectedNetwork = detectCardNetwork(cardDetails.cardNumber.replace(/\D/g, ''));
 
   const handleConfirmSubscription = async () => {
     if (!selectedPlanForCheckout || simulatingPayment) return;
@@ -379,7 +383,7 @@ export default function SubscriptionPage() {
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-black text-[#181413]">
                 {isTrial
-                  ? '14-Day Premium Free Trial'
+                  ? '30-Day Premium Free Trial'
                   : isPremium
                   ? subscription?.plan_name || 'Active Premium Membership'
                   : subscription?.status === 'expired'
@@ -434,7 +438,7 @@ export default function SubscriptionPage() {
               <div className="flex items-center gap-2 bg-[#F3F9EE] border border-[#D4ECC6] px-4 py-2 rounded-xl text-[#207429]">
                 <Clock className="w-4 h-4 shrink-0" />
                 <div className="text-xs">
-                  <span className="font-extrabold">{subscription?.days_remaining ?? 14} days</span> remaining
+                  <span className="font-extrabold">{subscription?.days_remaining ?? 30} days</span> remaining
                   <span className="block text-[11px] text-[#524C40]">Ends on {formatDate(subscription?.trial_ends_at)}</span>
                 </div>
               </div>
@@ -481,7 +485,7 @@ export default function SubscriptionPage() {
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#207429] text-white text-xs font-bold hover:bg-[#185e21] shadow-xs transition-colors disabled:opacity-60"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{activatingTrial ? 'Activating...' : 'Start 14-Day Free Trial'}</span>
+                <span>{activatingTrial ? 'Activating...' : 'Start 30-Day Free Trial'}</span>
               </button>
             ) : (
               <span className="text-xs text-[#7a7469] font-medium bg-[#FAF8F5] px-3 py-1.5 rounded-lg border border-[#ece3d2]">
@@ -691,7 +695,7 @@ export default function SubscriptionPage() {
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-[#181413]">Safe Downgrading Guaranteed</h3>
           <p className="text-xs text-[#524C40] mt-1 leading-relaxed">
-            If your 14-day trial concludes or you choose not to renew a subscription, all your existing products, uploaded photos, and sales records remain 100% safe, readable, and sellable. ShelfSafe never deletes your store data upon plan transitions.
+            If your 30-day trial concludes or you choose not to renew a subscription, all your existing products, uploaded photos, and sales records remain 100% safe, readable, and sellable. ShelfSafe never deletes your store data upon plan transitions.
           </p>
         </div>
       </div>
@@ -721,25 +725,6 @@ export default function SubscriptionPage() {
               </button>
             </div>
 
-            {/* Payment Method Selector */}
-            <div>
-              <label className="block text-[11px] font-bold text-[#7a7469] uppercase tracking-wider mb-1.5">
-                Select Card
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {TEST_CARDS.map((tc) => (
-                  <button
-                    key={tc.label}
-                    type="button"
-                    onClick={() => handleSelectCard(tc)}
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg border border-[#ece3d2] bg-[#FAF8F5] text-[#181413] hover:border-[#207429] hover:bg-[#F3F9EE] transition-colors"
-                  >
-                    {tc.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Error Message */}
             {formError && (
               <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
@@ -749,61 +734,118 @@ export default function SubscriptionPage() {
             )}
 
             {/* Card Form */}
-            <div className="space-y-3 pt-1">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-[#181413] mb-1">
+                <label htmlFor="cardholder-name" className="block text-xs font-bold text-[#181413] mb-1">
                   Cardholder Name
                 </label>
                 <input
+                  id="cardholder-name"
                   type="text"
                   value={cardDetails.cardholderName}
-                  onChange={(e) => setCardDetails({ ...cardDetails, cardholderName: e.target.value })}
-                  placeholder="Juan Dela Cruz"
-                  className="w-full text-xs px-3 py-2 border border-[#ece3d2] rounded-xl focus:outline-none focus:border-[#207429] bg-[#FAF8F5]"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCardDetails((prev) => ({ ...prev, cardholderName: val }));
+                  }}
+                  onBlur={() => handleBlurField('cardholderName')}
+                  placeholder="Name on card"
+                  className={`w-full text-xs px-3 py-2 border rounded-xl focus:outline-none bg-[#FAF8F5] transition-colors ${
+                    touched.cardholderName && validation.errors.cardholderName
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-[#ece3d2] focus:border-[#207429]'
+                  }`}
                 />
+                {touched.cardholderName && validation.errors.cardholderName ? (
+                  <p className="text-[11px] text-red-600 mt-1 font-medium">{validation.errors.cardholderName}</p>
+                ) : (
+                  <p className="text-[11px] text-[#7a7469] mt-1">Letters, spaces, hyphens, and apostrophes allowed</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#181413] mb-1">
-                  Card Number
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="card-number" className="block text-xs font-bold text-[#181413]">
+                    Card Number
+                  </label>
+                  {detectedNetwork !== 'unknown' && (
+                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-[#FAF8F5] border border-[#ece3d2] text-[#207429]">
+                      {detectedNetwork}
+                    </span>
+                  )}
+                </div>
                 <input
+                  id="card-number"
                   type="text"
+                  inputMode="numeric"
                   value={cardDetails.cardNumber}
                   onChange={(e) => handleFormatCardNumber(e.target.value)}
-                  placeholder="4242 4242 4242 4242"
+                  onBlur={() => handleBlurField('cardNumber')}
+                  placeholder="1234 5678 9012 3456"
                   maxLength={19}
-                  className="w-full text-xs font-mono px-3 py-2 border border-[#ece3d2] rounded-xl focus:outline-none focus:border-[#207429] bg-[#FAF8F5]"
+                  className={`w-full text-xs font-mono px-3 py-2 border rounded-xl focus:outline-none bg-[#FAF8F5] transition-colors ${
+                    touched.cardNumber && validation.errors.cardNumber
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-[#ece3d2] focus:border-[#207429]'
+                  }`}
                 />
+                {touched.cardNumber && validation.errors.cardNumber ? (
+                  <p className="text-[11px] text-red-600 mt-1 font-medium">{validation.errors.cardNumber}</p>
+                ) : (
+                  <p className="text-[11px] text-[#7a7469] mt-1">Accepts digits only, spaces added automatically (e.g. 4242 4242 4242 4242)</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#181413] mb-1">
+                  <label htmlFor="card-expiry" className="block text-xs font-bold text-[#181413] mb-1">
                     Expiration Date
                   </label>
                   <input
+                    id="card-expiry"
                     type="text"
+                    inputMode="numeric"
                     value={cardDetails.expiryDate}
                     onChange={(e) => handleFormatExpiry(e.target.value)}
+                    onBlur={() => handleBlurField('expiryDate')}
                     placeholder="MM/YY"
                     maxLength={5}
-                    className="w-full text-xs font-mono px-3 py-2 border border-[#ece3d2] rounded-xl focus:outline-none focus:border-[#207429] bg-[#FAF8F5]"
+                    className={`w-full text-xs font-mono px-3 py-2 border rounded-xl focus:outline-none bg-[#FAF8F5] transition-colors ${
+                      touched.expiryDate && validation.errors.expiryDate
+                        ? 'border-red-400 focus:border-red-500'
+                        : 'border-[#ece3d2] focus:border-[#207429]'
+                    }`}
                   />
+                  {touched.expiryDate && validation.errors.expiryDate ? (
+                    <p className="text-[11px] text-red-600 mt-1 font-medium">{validation.errors.expiryDate}</p>
+                  ) : (
+                    <p className="text-[11px] text-[#7a7469] mt-1">MM/YY format (future date)</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#181413] mb-1">
-                    CVV
+                  <label htmlFor="card-cvv" className="block text-xs font-bold text-[#181413] mb-1">
+                    CVV / CVC
                   </label>
                   <input
+                    id="card-cvv"
                     type="password"
+                    inputMode="numeric"
                     value={cardDetails.cvv}
-                    onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value.slice(0, 4) })}
-                    placeholder="CVV"
+                    onChange={(e) => handleFormatCvv(e.target.value)}
+                    onBlur={() => handleBlurField('cvv')}
+                    placeholder="3 or 4 digits"
                     maxLength={4}
-                    className="w-full text-xs font-mono px-3 py-2 border border-[#ece3d2] rounded-xl focus:outline-none focus:border-[#207429] bg-[#FAF8F5]"
+                    className={`w-full text-xs font-mono px-3 py-2 border rounded-xl focus:outline-none bg-[#FAF8F5] transition-colors ${
+                      touched.cvv && validation.errors.cvv
+                        ? 'border-red-400 focus:border-red-500'
+                        : 'border-[#ece3d2] focus:border-[#207429]'
+                    }`}
                   />
+                  {touched.cvv && validation.errors.cvv ? (
+                    <p className="text-[11px] text-red-600 mt-1 font-medium">{validation.errors.cvv}</p>
+                  ) : (
+                    <p className="text-[11px] text-[#7a7469] mt-1">3 digits on back (4 for Amex)</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -839,8 +881,8 @@ export default function SubscriptionPage() {
                 <button
                   type="button"
                   onClick={handleConfirmSubscription}
-                  disabled={simulatingPayment}
-                  className="px-5 py-2.5 rounded-xl bg-[#207429] text-white text-xs font-bold hover:bg-[#185e21] shadow-2xs transition-colors disabled:opacity-60 flex items-center gap-2"
+                  disabled={!validation.isValid || simulatingPayment}
+                  className="px-5 py-2.5 rounded-xl bg-[#207429] text-white text-xs font-bold hover:bg-[#185e21] shadow-2xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {simulatingPayment ? (
                     <>

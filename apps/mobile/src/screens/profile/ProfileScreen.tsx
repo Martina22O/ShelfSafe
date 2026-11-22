@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronRight, ArrowRight, Lock, Bell, RefreshCw, Sparkles } from 'lucide-react-native';
+import { ChevronRight, ArrowRight, Lock, Bell, RefreshCw, Sparkles, LifeBuoy } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect, useScrollToTop, useIsFocused } from '@react-navigation/native';
 import { ProfileStackParamList } from '../../navigation/types';
@@ -193,7 +193,7 @@ export default function ProfileScreen({ navigation }: Props) {
               >
                 <Text style={styles.planBadgeText}>
                   {subscription?.status === 'trialing'
-                    ? '14-Day Trial'
+                    ? '30-Day Trial'
                     : subscription?.is_premium
                     ? 'Premium'
                     : 'Free Plan'}
@@ -211,10 +211,10 @@ export default function ProfileScreen({ navigation }: Props) {
               <Text style={styles.navRowLabel}>Subscription & Plans</Text>
               <Text style={styles.subPlanHint}>
                 {subscription?.status === 'trialing'
-                  ? `${subscription.days_remaining ?? 14} days left in trial`
+                  ? `${subscription.days_remaining ?? 30} days left in trial`
                   : subscription?.is_premium
                   ? 'All features unlocked'
-                  : 'Upgrade or view 14-day trial'}
+                  : 'Upgrade or view 30-day trial'}
               </Text>
             </View>
             <ChevronRight size={18} color={COLORS.textTertiary} strokeWidth={2} />
@@ -257,6 +257,26 @@ export default function ProfileScreen({ navigation }: Props) {
             <View style={styles.navRowLeft}>
               <RefreshCw size={16} color={COLORS.textSecondary} strokeWidth={2} />
               <Text style={styles.navRowLabel}>Sync & Connectivity Status</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.textTertiary} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Support & Inquiries Card */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Support & Inquiries</Text>
+
+          <TouchableOpacity
+            style={[styles.navRow, { borderBottomWidth: 0, paddingVertical: 8 }]}
+            onPress={() => navigation.navigate('HelpSupportHub')}
+            disabled={signingOut}
+          >
+            <View style={styles.navRowLeft}>
+              <LifeBuoy size={18} color={COLORS.primary} strokeWidth={2} />
+              <View style={{ marginLeft: 4 }}>
+                <Text style={styles.navRowLabel}>Help & Support</Text>
+                <Text style={styles.subPlanHint}>Submit requests, track tickets & support hours</Text>
+              </View>
             </View>
             <ChevronRight size={18} color={COLORS.textTertiary} strokeWidth={2} />
           </TouchableOpacity>

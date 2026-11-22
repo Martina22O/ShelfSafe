@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   User,
@@ -16,6 +17,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  LifeBuoy,
 } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
@@ -1081,6 +1083,55 @@ function SignOutSection({
 }
 
 // -------------------------------------------------------------
+// SUB-COMPONENT: Help & Support Section
+// -------------------------------------------------------------
+function HelpSupportSection() {
+  return (
+    <section className="bg-white border border-[#ece3d2] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+      <div className="flex items-center gap-3 border-b border-[#ece3d2]/80 pb-3.5">
+        <div className="w-9 h-9 rounded-xl bg-[#fef9f0] border border-[#ece3d2] flex items-center justify-center text-[#207429] shrink-0">
+          <LifeBuoy className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[#181413]">
+            Help &amp; Support
+          </h2>
+          <p className="text-xs text-[#7a7469]">
+            Submit support requests and communicate directly with ShelfSafe personnel.
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-[#faf8f5] border border-[#ece3d2] rounded-xl p-3.5 text-xs space-y-1.5 text-[#524c40]">
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-[#181413]">Support Hours:</span>
+          <span>Mon–Fri, 8:00 AM – 5:00 PM PHT</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-[#181413]">Initial Response Target:</span>
+          <span className="text-[#207429] font-bold">Within 1 business day</span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2.5 pt-1">
+        <Link
+          href="/profile/support?tab=new"
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#207429] text-white text-xs font-bold rounded-xl hover:bg-[#185e21] shadow-2xs transition-colors"
+        >
+          Submit a Request
+        </Link>
+        <Link
+          href="/profile/support?tab=tickets"
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-[#ece3d2] text-[#181413] text-xs font-bold rounded-xl hover:bg-[#faf8f5] transition-colors"
+        >
+          View My Tickets
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+// -------------------------------------------------------------
 // MAIN PROFILE PAGE
 // -------------------------------------------------------------
 export default function ProfilePage() {
@@ -1186,6 +1237,9 @@ export default function ProfilePage() {
             onRefreshSettings={refreshSettings}
             onReloadSettings={reloadSettings}
           />
+
+          {/* SECTION 3: Help & Support */}
+          <HelpSupportSection />
         </div>
 
         <div className="space-y-5">

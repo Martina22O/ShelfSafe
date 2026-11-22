@@ -20,6 +20,10 @@ import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 import NotificationPreferencesScreen from '../screens/profile/NotificationPreferencesScreen';
 import SyncStatusScreen from '../screens/profile/SyncStatusScreen';
 import SubscriptionManagementScreen from '../screens/subscription/SubscriptionManagementScreen';
+import HelpSupportHubScreen from '../screens/support/HelpSupportHubScreen';
+import NewSupportTicketScreen from '../screens/support/NewSupportTicketScreen';
+import SupportTicketListScreen from '../screens/support/SupportTicketListScreen';
+import SupportTicketDetailScreen from '../screens/support/SupportTicketDetailScreen';
 import { COLORS, FONTS } from '../theme';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -86,6 +90,34 @@ export default function ProfileNavigator() {
         component={SubscriptionManagementScreen}
         options={{
           title: 'Subscription',
+        }}
+      />
+      <Stack.Screen
+        name="HelpSupportHub"
+        component={HelpSupportHubScreen}
+        options={{
+          title: 'Help & Support',
+        }}
+      />
+      <Stack.Screen
+        name="NewSupportTicket"
+        component={NewSupportTicketScreen}
+        options={{
+          title: 'New Support Request',
+        }}
+      />
+      <Stack.Screen
+        name="SupportTicketList"
+        component={SupportTicketListScreen}
+        options={{
+          title: 'My Support Tickets',
+        }}
+      />
+      <Stack.Screen
+        name="SupportTicketDetail"
+        component={SupportTicketDetailScreen}
+        options={{
+          title: 'Ticket Details',
         }}
       />
     </Stack.Navigator>

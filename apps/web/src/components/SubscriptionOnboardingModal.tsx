@@ -139,7 +139,7 @@ export function SubscriptionOnboardingModal({
           {/* Trial Badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8F5E9] border border-[#C8E6C9] text-xs font-bold text-[#185E21] mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>14-DAY PREMIUM FREE TRIAL</span>
+            <span>30-DAY PREMIUM FREE TRIAL</span>
           </div>
 
           {/* Heading & Subtitle */}
@@ -217,7 +217,7 @@ export function SubscriptionOnboardingModal({
               <span className="text-xs font-bold text-[#181413] uppercase tracking-wider">
                 Available Subscription Plans
               </span>
-              <span className="text-[11px] font-medium text-[#7a7469]">After 14-day trial</span>
+              <span className="text-[11px] font-medium text-[#7a7469]">After 30-day trial</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -263,7 +263,7 @@ export function SubscriptionOnboardingModal({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Start 14-Day Free Trial</span>
+                  <span>Start 30-Day Free Trial</span>
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </>
               )}
@@ -279,7 +279,7 @@ export function SubscriptionOnboardingModal({
             </button>
 
             <p className="text-[11px] text-[#999182] text-center font-normal leading-tight pt-1">
-              No credit card required. Cancel anytime or continue on the Free plan after 14 days.
+              No credit card required. Cancel anytime or continue on the Free plan after 30 days.
             </p>
           </div>
         </div>

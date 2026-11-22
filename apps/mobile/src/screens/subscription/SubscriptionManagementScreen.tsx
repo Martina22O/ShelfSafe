@@ -3,7 +3,7 @@
  * Accessible from Profile -> Subscription Plan.
  * Background: apps/mobile/assets/designs/screen-background.png
  * Features:
- * - Current subscription status (Free / 14-Day Trial / Premium)
+ * - Current subscription status (Free / 30-Day Trial / Premium)
  * - Days remaining countdown and expiration date
  * - Auto-renewal setting and cancellation controls
  * - Full list of subscription plans (₱99, ₱189, ₱289, ₱499)
@@ -58,7 +58,10 @@ import {
   renewSubscription,
   setSubscriptionAutoRenew,
   validateTestCard,
-  TEST_CARDS,
+  formatCardNumber,
+  formatExpiryDate,
+  detectCardNetwork,
+  getMaxCvvLength,
   SUBSCRIPTION_PLANS,
   UserSubscription,
   SubscriptionPlan,
@@ -85,12 +88,13 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
   // Checkout Modal State
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<SubscriptionPlan | null>(null);
   const [cardDetails, setCardDetails] = useState<TestCardDetails>({
-    cardholderName: 'Juan Dela Cruz',
-    cardNumber: '4242 4242 4242 4242',
-    expiryDate: '12/28',
-    cvv: '123',
+    cardholderName: '',
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Input refs for keyboard Next / Done navigation
@@ -155,7 +159,7 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
     try {
       const res = await startFreeTrial();
       if (res.success) {
-        Alert.alert('Trial Activated!', 'Your 14-day Premium trial is now active.');
+        Alert.alert('Trial Activated!', 'Your 30-day Premium trial is now active.');
         await fetchSubscription();
       } else {
         Alert.alert('Notice', res.error || 'Failed to activate trial.');
@@ -170,23 +174,13 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
   const handleOpenCheckout = (plan: SubscriptionPlan) => {
     setSelectedPlanForCheckout(plan);
     setFormError(null);
+    setTouched({});
     setCardDetails({
-      cardholderName: TEST_CARDS[0].cardholderName,
-      cardNumber: TEST_CARDS[0].cardNumber,
-      expiryDate: TEST_CARDS[0].expiryDate,
-      cvv: TEST_CARDS[0].cvv,
+      cardholderName: '',
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
     });
-  };
-
-  const handleSelectCard = (testCard: typeof TEST_CARDS[0]) => {
-    Keyboard.dismiss();
-    setCardDetails({
-      cardholderName: testCard.cardholderName,
-      cardNumber: testCard.cardNumber,
-      expiryDate: testCard.expiryDate,
-      cvv: testCard.cvv,
-    });
-    setFormError(null);
   };
 
   const handleCloseCheckout = () => {
@@ -195,19 +189,28 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
   };
 
   const handleFormatCardNumber = (value: string) => {
-    const raw = value.replace(/\D/g, '').slice(0, 16);
-    const parts = raw.match(/[\s\S]{1,4}/g) || [];
-    setCardDetails((prev) => ({ ...prev, cardNumber: parts.join(' ') }));
+    const { formatted } = formatCardNumber(value);
+    setCardDetails((prev) => ({ ...prev, cardNumber: formatted }));
   };
 
   const handleFormatExpiry = (value: string) => {
-    const raw = value.replace(/\D/g, '').slice(0, 4);
-    if (raw.length >= 3) {
-      setCardDetails((prev) => ({ ...prev, expiryDate: `${raw.slice(0, 2)}/${raw.slice(2)}` }));
-    } else {
-      setCardDetails((prev) => ({ ...prev, expiryDate: raw }));
-    }
+    const formatted = formatExpiryDate(value);
+    setCardDetails((prev) => ({ ...prev, expiryDate: formatted }));
   };
+
+  const handleFormatCvv = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    const network = detectCardNetwork(cardDetails.cardNumber.replace(/\D/g, ''));
+    const maxLen = getMaxCvvLength(network);
+    setCardDetails((prev) => ({ ...prev, cvv: digits.slice(0, maxLen) }));
+  };
+
+  const handleBlurField = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const validation = validateTestCard(cardDetails);
+  const detectedNetwork = detectCardNetwork(cardDetails.cardNumber.replace(/\D/g, ''));
 
   const handleConfirmSubscription = async () => {
     Keyboard.dismiss();
@@ -381,7 +384,7 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                 >
                   <Text style={styles.statusBadgeText}>
                     {isTrial
-                      ? '14-Day Free Trial'
+                      ? '30-Day Free Trial'
                       : isPremium
                       ? 'Premium Active'
                       : subscription?.status === 'expired'
@@ -397,7 +400,7 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                 <View style={styles.trialInfoRow}>
                   <Clock size={16} color={COLORS.primary} />
                   <Text style={styles.trialCountdown}>
-                    {subscription?.days_remaining ?? 14} days remaining
+                    {subscription?.days_remaining ?? 30} days remaining
                   </Text>
                 </View>
                 <Text style={styles.trialExpiresText}>
@@ -494,7 +497,7 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                     ) : (
                       <>
                         <Sparkles size={16} color="#FFFFFF" />
-                        <Text style={styles.activateTrialBtnText}>Start 14-Day Free Trial</Text>
+                        <Text style={styles.activateTrialBtnText}>Start 30-Day Free Trial</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -628,23 +631,6 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                 disabled={Platform.OS === 'web'}
                 accessible={false}
               >
-                {/* Payment Method Selector */}
-                <View style={styles.testCardSection}>
-                  <Text style={styles.testCardSectionLabel}>SELECT CARD</Text>
-                  <View style={styles.testCardChipsRow}>
-                    {TEST_CARDS.map((tc) => (
-                      <TouchableOpacity
-                        key={tc.label}
-                        style={styles.testCardChip}
-                        onPress={() => handleSelectCard(tc)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.testCardChipText}>{tc.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
                 {/* Form Error */}
                 {formError && (
                   <View style={styles.modalErrorBox}>
@@ -657,33 +643,59 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                 <View style={styles.formGroup}>
                   <Text style={styles.inputLabel}>Cardholder Name</Text>
                   <TextInput
-                    style={styles.textInput}
+                    style={[
+                      styles.textInput,
+                      touched.cardholderName && validation.errors.cardholderName ? styles.inputError : null,
+                    ]}
                     value={cardDetails.cardholderName}
                     onChangeText={(text) => setCardDetails((prev) => ({ ...prev, cardholderName: text }))}
-                    placeholder="Juan Dela Cruz"
+                    onBlur={() => handleBlurField('cardholderName')}
+                    placeholder="Name on card"
                     placeholderTextColor={COLORS.textTertiary}
                     autoCapitalize="words"
                     returnKeyType="next"
                     blurOnSubmit={false}
                     onSubmitEditing={() => cardNumberInputRef.current?.focus()}
                   />
+                  {touched.cardholderName && validation.errors.cardholderName ? (
+                    <Text style={styles.fieldErrorText}>{validation.errors.cardholderName}</Text>
+                  ) : (
+                    <Text style={styles.fieldHelperText}>Letters, spaces, hyphens and apostrophes allowed</Text>
+                  )}
                 </View>
 
                 <View style={styles.formGroup}>
-                  <Text style={styles.inputLabel}>Card Number</Text>
+                  <View style={styles.labelWithBadgeRow}>
+                    <Text style={styles.inputLabel}>Card Number</Text>
+                    {detectedNetwork !== 'unknown' && (
+                      <View style={styles.networkBadge}>
+                        <Text style={styles.networkBadgeText}>{detectedNetwork}</Text>
+                      </View>
+                    )}
+                  </View>
                   <TextInput
                     ref={cardNumberInputRef}
-                    style={[styles.textInput, styles.fontMono]}
+                    style={[
+                      styles.textInput,
+                      styles.fontMono,
+                      touched.cardNumber && validation.errors.cardNumber ? styles.inputError : null,
+                    ]}
                     value={cardDetails.cardNumber}
                     onChangeText={handleFormatCardNumber}
-                    keyboardType="numeric"
+                    onBlur={() => handleBlurField('cardNumber')}
+                    keyboardType="number-pad"
                     maxLength={19}
-                    placeholder="4242 4242 4242 4242"
+                    placeholder="1234 5678 9012 3456"
                     placeholderTextColor={COLORS.textTertiary}
                     returnKeyType="next"
                     blurOnSubmit={false}
                     onSubmitEditing={() => expiryInputRef.current?.focus()}
                   />
+                  {touched.cardNumber && validation.errors.cardNumber ? (
+                    <Text style={styles.fieldErrorText}>{validation.errors.cardNumber}</Text>
+                  ) : (
+                    <Text style={styles.fieldHelperText}>Digits only, spaces added automatically (e.g. 4242 4242 4242 4242)</Text>
+                  )}
                 </View>
 
                 <View style={styles.formRow}>
@@ -691,10 +703,15 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                     <Text style={styles.inputLabel}>Expiration Date</Text>
                     <TextInput
                       ref={expiryInputRef}
-                      style={[styles.textInput, styles.fontMono]}
+                      style={[
+                        styles.textInput,
+                        styles.fontMono,
+                        touched.expiryDate && validation.errors.expiryDate ? styles.inputError : null,
+                      ]}
                       value={cardDetails.expiryDate}
                       onChangeText={handleFormatExpiry}
-                      keyboardType="numeric"
+                      onBlur={() => handleBlurField('expiryDate')}
+                      keyboardType="number-pad"
                       maxLength={5}
                       placeholder="MM/YY"
                       placeholderTextColor={COLORS.textTertiary}
@@ -702,24 +719,39 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                       blurOnSubmit={false}
                       onSubmitEditing={() => cvvInputRef.current?.focus()}
                     />
+                    {touched.expiryDate && validation.errors.expiryDate ? (
+                      <Text style={styles.fieldErrorText}>{validation.errors.expiryDate}</Text>
+                    ) : (
+                      <Text style={styles.fieldHelperText}>MM/YY</Text>
+                    )}
                   </View>
 
                   <View style={[styles.formGroup, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>CVV</Text>
+                    <Text style={styles.inputLabel}>CVV / CVC</Text>
                     <TextInput
                       ref={cvvInputRef}
-                      style={[styles.textInput, styles.fontMono]}
+                      style={[
+                        styles.textInput,
+                        styles.fontMono,
+                        touched.cvv && validation.errors.cvv ? styles.inputError : null,
+                      ]}
                       value={cardDetails.cvv}
-                      onChangeText={(text) => setCardDetails((prev) => ({ ...prev, cvv: text.slice(0, 4) }))}
-                      keyboardType="numeric"
+                      onChangeText={handleFormatCvv}
+                      onBlur={() => handleBlurField('cvv')}
+                      keyboardType="number-pad"
                       secureTextEntry
                       maxLength={4}
-                      placeholder="CVV"
+                      placeholder="3 or 4 digits"
                       placeholderTextColor={COLORS.textTertiary}
                       returnKeyType="done"
                       blurOnSubmit={true}
                       onSubmitEditing={Keyboard.dismiss}
                     />
+                    {touched.cvv && validation.errors.cvv ? (
+                      <Text style={styles.fieldErrorText}>{validation.errors.cvv}</Text>
+                    ) : (
+                      <Text style={styles.fieldHelperText}>3 or 4 digits</Text>
+                    )}
                   </View>
                 </View>
 
@@ -752,9 +784,9 @@ export default function SubscriptionManagementScreen({ navigation }: Props) {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.modalPayBtn, simulatingPayment && styles.btnDisabled]}
+                    style={[styles.modalPayBtn, (!validation.isValid || simulatingPayment) && styles.btnDisabled]}
                     onPress={handleConfirmSubscription}
-                    disabled={simulatingPayment}
+                    disabled={!validation.isValid || simulatingPayment}
                     activeOpacity={0.85}
                   >
                     {simulatingPayment ? (
@@ -1170,33 +1202,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  testCardSection: {
-    marginBottom: 14,
-  },
-  testCardSectionLabel: {
-    fontFamily: FONTS.bold,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  testCardChipsRow: {
+  labelWithBadgeRow: {
     flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
-  testCardChip: {
+  networkBadge: {
     backgroundColor: COLORS.canvas,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  testCardChipText: {
+  networkBadgeText: {
     fontFamily: FONTS.bold,
-    fontSize: 13,
-    color: COLORS.text,
+    fontSize: 10,
+    color: COLORS.primary,
+    letterSpacing: 0.5,
+  },
+  inputError: {
+    borderColor: COLORS.dangerBorder,
+    backgroundColor: '#FEF2F2',
+  },
+  fieldHelperText: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  fieldErrorText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    color: COLORS.dangerDark,
+    marginTop: 4,
   },
   modalErrorBox: {
     flexDirection: 'row',

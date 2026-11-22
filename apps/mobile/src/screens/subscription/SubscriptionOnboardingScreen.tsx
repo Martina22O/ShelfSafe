@@ -3,9 +3,9 @@
  * Displays after first sign-in for newly registered accounts.
  * Background: apps/mobile/assets/designs/mobile-bg.png (consistent with auth screens)
  * Features:
- * - 14-Day Free Trial value highlights (unlimited inventory, photos, analytics)
+ * - 30-Day Free Trial value highlights (unlimited inventory, photos, analytics)
  * - 4 available subscription plans preview
- * - Primary Action: "Start 14-Day Free Trial" (no payment method required)
+ * - Primary Action: "Start 30-Day Free Trial" (no payment method required)
  * - Secondary Action: "Continue with Free / Skip for Now" (preserves trial eligibility)
  */
 import React, { useState } from 'react';
@@ -80,8 +80,8 @@ export default function SubscriptionOnboardingScreen({ onComplete }: Props) {
 
       // Success
       Alert.alert(
-        '14-Day Trial Activated!',
-        'Welcome to ShelfSafe Premium! Enjoy unlimited products, photos, and full analytics for 14 days.',
+        '30-Day Trial Activated!',
+        'Welcome to ShelfSafe Premium! Enjoy unlimited products, photos, and full analytics for 30 days.',
         [{ text: 'Get Started', onPress: onComplete }]
       );
     } catch (err: any) {
@@ -139,14 +139,14 @@ export default function SubscriptionOnboardingScreen({ onComplete }: Props) {
               <View style={styles.badgeRow}>
                 <View style={styles.trialBadge}>
                   <Sparkles size={14} color="#185E21" />
-                  <Text style={styles.trialBadgeText}>14-DAY FREE TRIAL</Text>
+                  <Text style={styles.trialBadgeText}>30-DAY FREE TRIAL</Text>
                 </View>
               </View>
 
               {/* Title & Subtitle */}
               <Text style={styles.title}>Unlock ShelfSafe Premium</Text>
               <Text style={styles.subtitle}>
-                Start your 14-day free trial today. Experience the full power of ShelfSafe with zero commitment.
+                Start your 30-day free trial today. Experience the full power of ShelfSafe with zero commitment.
               </Text>
 
               {/* Feature Highlights */}
@@ -242,7 +242,7 @@ export default function SubscriptionOnboardingScreen({ onComplete }: Props) {
                   ) : (
                     <>
                       <Sparkles size={18} color="#FFFFFF" />
-                      <Text style={styles.primaryBtnText}>Start 14-Day Free Trial</Text>
+                      <Text style={styles.primaryBtnText}>Start 30-Day Free Trial</Text>
                       <ArrowRight size={18} color="#FFFFFF" />
                     </>
                   )}
@@ -264,7 +264,7 @@ export default function SubscriptionOnboardingScreen({ onComplete }: Props) {
 
                 {/* Reassurance Note */}
                 <Text style={styles.reassuranceText}>
-                  No credit card required. Cancel anytime or continue on the Free plan after 14 days.
+                  No credit card required. Cancel anytime or continue on the Free plan after 30 days.
                 </Text>
               </View>
             </View>
