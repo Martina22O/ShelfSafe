@@ -302,15 +302,17 @@ function StoreDetailsSection({
   const [showConfirm, setShowConfirm] = useState(false);
 
   // Sync local inputs when remote store_settings update via Realtime
-  useEffect(() => {
+  const [prevStoreName, setPrevStoreName] = useState(storeName);
+  const [prevContactNumber, setPrevContactNumber] = useState(contactNumber);
+
+  if (storeName !== prevStoreName || contactNumber !== prevContactNumber) {
+    setPrevStoreName(storeName);
+    setPrevContactNumber(contactNumber);
     if (!savingStore && !showConfirm) {
-      const timer = setTimeout(() => {
-        setStoreNameInput(storeName || '');
-        setContactNumberInput(contactNumber || '');
-      }, 0);
-      return () => clearTimeout(timer);
+      setStoreNameInput(storeName || '');
+      setContactNumberInput(contactNumber || '');
     }
-  }, [storeName, contactNumber, savingStore, showConfirm]);
+  }
 
   const handleOpenConfirm = () => {
     setStoreError(null);
