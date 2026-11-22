@@ -19,12 +19,14 @@ import {
   AlertCircle,
   RefreshCw,
   Sparkles,
+  Headphones,
 } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { useRealtime } from '../lib/realtime';
 import { SubscriptionOnboardingModal } from './SubscriptionOnboardingModal';
 import { getUserSubscription } from '../lib/subscription';
+import { isCurrentUserSupportStaff } from '../lib/support';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -60,6 +62,7 @@ export function AppShell({ children }: AppShellProps) {
   const [signingOut, setSigningOut] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
 
   const currentUserIdRef = useRef<string | null>(null);
   const onboardingCheckedRef = useRef(false);
@@ -73,6 +76,10 @@ export function AppShell({ children }: AppShellProps) {
         const name = user.user_metadata?.name || user.email?.split('@')[0] || '';
         setUserName(name);
         setUserEmail(user.email || '');
+
+        isCurrentUserSupportStaff().then((staff) => {
+          if (isMounted) setIsStaff(staff);
+        });
 
         if (!onboardingCheckedRef.current) {
           getUserSubscription()
@@ -100,6 +107,7 @@ export function AppShell({ children }: AppShellProps) {
         setUserName('');
         setUserEmail('');
         setShowOnboarding(false);
+        setIsStaff(false);
         onboardingCheckedRef.current = false;
         return;
       }
@@ -108,6 +116,9 @@ export function AppShell({ children }: AppShellProps) {
         const name = session.user.user_metadata?.name || session.user.email?.split('@')[0] || '';
         setUserName(name);
         setUserEmail(session.user.email || '');
+        isCurrentUserSupportStaff().then((staff) => {
+          if (isMounted) setIsStaff(staff);
+        });
       }
     });
 
@@ -251,7 +262,10 @@ export function AppShell({ children }: AppShellProps) {
             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-[#7a7469]">
               Main Menu
             </div>
-            {NAV_ITEMS.map((item) => {
+            {(isStaff
+              ? [...NAV_ITEMS, { name: 'Support Desk', href: '/support/manage', icon: Headphones, badge: undefined } as NavItem]
+              : NAV_ITEMS
+            ).map((item: NavItem) => {
               const Icon = item.icon;
               const isActive =
                 item.href === '/dashboard'

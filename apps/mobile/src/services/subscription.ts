@@ -1,7 +1,7 @@
 /**
  * Service: subscription.ts
  * Manages ShelfSafe subscription plans, real-time entitlement checks,
- * 14-day free trial activations, onboarding completion, and
+ * 30-day free trial activations, onboarding completion, and
  * server-validated payment simulations for the mobile client.
  */
 import { supabase } from './supabase';
@@ -84,67 +84,193 @@ export interface TestCardDetails {
   cardholderName: string;
 }
 
+export type CardNetwork = 'visa' | 'mastercard' | 'amex' | 'discover' | 'diners' | 'jcb' | 'unknown';
+
+export function detectCardNetwork(rawDigits: string): CardNetwork {
+  if (/^4/.test(rawDigits)) return 'visa';
+  if (/^(5[1-5]|2[2-7])/.test(rawDigits)) return 'mastercard';
+  if (/^3[47]/.test(rawDigits)) return 'amex';
+  if (/^6(?:011|5)/.test(rawDigits)) return 'discover';
+  if (/^3(?:0[0-5]|[68])/.test(rawDigits)) return 'diners';
+  if (/^(?:2131|1800|35)/.test(rawDigits)) return 'jcb';
+  return 'unknown';
+}
+
+export function getMaxCardLength(network: CardNetwork): number {
+  switch (network) {
+    case 'amex': return 15;
+    case 'diners': return 14;
+    default: return 16;
+  }
+}
+
+export function getMaxCvvLength(network: CardNetwork): number {
+  return network === 'amex' ? 4 : 3;
+}
+
+export function formatCardNumber(value: string): { formatted: string; raw: string; network: CardNetwork } {
+  const digitsOnly = value.replace(/\D/g, '');
+  const network = detectCardNetwork(digitsOnly);
+  const maxLen = getMaxCardLength(network);
+  const raw = digitsOnly.slice(0, maxLen);
+
+  let formatted = '';
+  if (network === 'amex') {
+    // 4 - 6 - 5
+    const p1 = raw.slice(0, 4);
+    const p2 = raw.slice(4, 10);
+    const p3 = raw.slice(10, 15);
+    formatted = [p1, p2, p3].filter(Boolean).join(' ');
+  } else if (network === 'diners') {
+    // 4 - 6 - 4
+    const p1 = raw.slice(0, 4);
+    const p2 = raw.slice(4, 10);
+    const p3 = raw.slice(10, 14);
+    formatted = [p1, p2, p3].filter(Boolean).join(' ');
+  } else {
+    // 4 - 4 - 4 - 4
+    const parts = raw.match(/[\s\S]{1,4}/g) || [];
+    formatted = parts.join(' ');
+  }
+
+  return { formatted, raw, network };
+}
+
+export function formatExpiryDate(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  if (digits.length >= 3) {
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
+  }
+  return digits;
+}
+
+export function luhnCheck(digits: string): boolean {
+  if (!digits || digits.length < 13) return false;
+  let sum = 0;
+  let shouldDouble = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = parseInt(digits.charAt(i), 10);
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+  return sum % 10 === 0;
+}
+
+export interface CardValidationErrors {
+  cardholderName?: string;
+  cardNumber?: string;
+  expiryDate?: string;
+  cvv?: string;
+}
+
+export function validateCardholderName(name: string): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return 'Cardholder name is required.';
+  }
+  if (trimmed.length < 2) {
+    return 'Name must be at least 2 characters.';
+  }
+  if (!/^[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s'.-]+$/.test(trimmed)) {
+    return 'Name contains invalid characters.';
+  }
+  return null;
+}
+
+export function validateCardNumberField(cardNumber: string): string | null {
+  const digits = cardNumber.replace(/\D/g, '');
+  if (!digits) {
+    return 'Card number is required.';
+  }
+  const network = detectCardNetwork(digits);
+  const expectedLen = getMaxCardLength(network);
+  if (digits.length < expectedLen) {
+    return `Incomplete card number (${digits.length}/${expectedLen} digits).`;
+  }
+  if (!luhnCheck(digits)) {
+    return 'Invalid card number checksum.';
+  }
+  return null;
+}
+
+export function validateExpiryDateField(expiryDate: string): string | null {
+  const digits = expiryDate.replace(/\D/g, '');
+  if (!digits) {
+    return 'Enter a valid expiration date';
+  }
+  const match = expiryDate.match(/^(\d{2})\/(\d{2})$/);
+  if (!match) {
+    return 'Enter a valid expiration date';
+  }
+  const month = parseInt(match[1], 10);
+  const year = parseInt(`20${match[2]}`, 10);
+  if (month < 1 || month > 12) {
+    return 'Enter a valid expiration date';
+  }
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  if (year < currentYear || (year === currentYear && month < currentMonth)) {
+    return 'Enter a valid expiration date';
+  }
+  if (year > currentYear + 25) {
+    return 'Enter a valid expiration date';
+  }
+  return null;
+}
+
+export function validateCvvField(cvv: string, network: CardNetwork = 'unknown'): string | null {
+  const digits = cvv.replace(/\D/g, '');
+  const expectedLen = getMaxCvvLength(network);
+  if (!digits) {
+    return 'Security code is required.';
+  }
+  if (digits.length !== expectedLen) {
+    return network === 'amex' ? 'CVV must be 4 digits for Amex.' : 'CVV must be 3 digits.';
+  }
+  return null;
+}
+
 export const TEST_CARDS: Array<{
   label: string;
   cardNumber: string;
   expiryDate: string;
   cvv: string;
   cardholderName: string;
-}> = [
-  {
-    label: 'Visa',
-    cardNumber: '4242 4242 4242 4242',
-    expiryDate: '12/28',
-    cvv: '123',
-    cardholderName: 'Juan Dela Cruz',
-  },
-  {
-    label: 'Mastercard',
-    cardNumber: '5555 5555 5555 4444',
-    expiryDate: '06/29',
-    cvv: '888',
-    cardholderName: 'Maria Santos',
-  },
-];
+}> = [];
 
 /**
  * Validates card inputs on the client before proceeding with checkout.
  * Real card numbers or CVVs are never accepted or stored.
  */
-export function validateTestCard(details: TestCardDetails): { isValid: boolean; error?: string } {
-  if (!details.cardholderName || details.cardholderName.trim().length < 2) {
-    return { isValid: false, error: 'Please enter a valid cardholder name.' };
-  }
+export function validateTestCard(details: TestCardDetails): {
+  isValid: boolean;
+  error?: string;
+  errors: CardValidationErrors;
+} {
+  const nameErr = validateCardholderName(details.cardholderName);
+  const numErr = validateCardNumberField(details.cardNumber);
+  const expErr = validateExpiryDateField(details.expiryDate);
+  const digits = details.cardNumber.replace(/\D/g, '');
+  const network = detectCardNetwork(digits);
+  const cvvErr = validateCvvField(details.cvv, network);
 
-  const cleanNum = details.cardNumber.replace(/\s+/g, '');
-  if (!/^\d{16}$/.test(cleanNum)) {
-    return { isValid: false, error: 'Please enter a valid 16-digit card number.' };
-  }
+  const errors: CardValidationErrors = {};
+  if (nameErr) errors.cardholderName = nameErr;
+  if (numErr) errors.cardNumber = numErr;
+  if (expErr) errors.expiryDate = expErr;
+  if (cvvErr) errors.cvv = cvvErr;
 
-  const expMatch = details.expiryDate.match(/^(\d{2})\/(\d{2})$/);
-  if (!expMatch) {
-    return { isValid: false, error: 'Expiration date must be in MM/YY format.' };
-  }
-
-  const month = parseInt(expMatch[1], 10);
-  const year = parseInt(`20${expMatch[2]}`, 10);
-  if (month < 1 || month > 12) {
-    return { isValid: false, error: 'Invalid expiration month (01-12).' };
-  }
-
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  if (year < currentYear || (year === currentYear && month < currentMonth)) {
-    return { isValid: false, error: 'Card has expired. Enter a future date.' };
-  }
-
-  const cleanCvv = details.cvv.trim();
-  if (!/^\d{3,4}$/.test(cleanCvv)) {
-    return { isValid: false, error: 'CVV must be 3 or 4 digits.' };
-  }
-
-  return { isValid: true };
+  const firstError = nameErr || numErr || expErr || cvvErr;
+  return {
+    isValid: !firstError,
+    error: firstError || undefined,
+    errors,
+  };
 }
 
 /**
@@ -200,7 +326,7 @@ export async function getUserSubscription(): Promise<SubscriptionResponse<UserSu
 }
 
 /**
- * Starts the one-time 14-day Premium trial for the current authenticated user.
+ * Starts the one-time 30-day Premium trial for the current authenticated user.
  */
 export async function startFreeTrial(): Promise<SubscriptionResponse<any>> {
   try {

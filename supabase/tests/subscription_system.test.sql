@@ -85,7 +85,7 @@ BEGIN
     END;
 
     -- --------------------------------------------------------------------------
-    -- TEST 3: One-Time 14-Day Free Trial Activation
+    -- TEST 3: One-Time 30-Day Free Trial Activation
     -- --------------------------------------------------------------------------
     BEGIN
         -- Set session context as v_user_trial
@@ -95,12 +95,12 @@ BEGIN
         v_res_json := public.start_free_trial();
 
         IF (v_res_json->>'status') = 'trialing' AND (v_res_json->>'is_premium')::boolean = TRUE AND public.is_user_premium(v_user_trial) = TRUE THEN
-            INSERT INTO test_results VALUES (3, '3', '14-Day Free Trial activation', 'PASS', 'Trial started successfully with status=trialing and is_user_premium=true');
+            INSERT INTO test_results VALUES (3, '3', '30-Day Free Trial activation', 'PASS', 'Trial started successfully with status=trialing and is_user_premium=true');
         ELSE
-            INSERT INTO test_results VALUES (3, '3', '14-Day Free Trial activation', 'FAIL', format('Unexpected response: %s', v_res_json));
+            INSERT INTO test_results VALUES (3, '3', '30-Day Free Trial activation', 'FAIL', format('Unexpected response: %s', v_res_json));
         END IF;
     EXCEPTION WHEN OTHERS THEN
-        INSERT INTO test_results VALUES (3, '3', '14-Day Free Trial activation', 'FAIL', SQLERRM);
+        INSERT INTO test_results VALUES (3, '3', '30-Day Free Trial activation', 'FAIL', SQLERRM);
     END;
 
     -- --------------------------------------------------------------------------
