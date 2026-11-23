@@ -11,6 +11,13 @@
 -- 7. Staff update status and priority
 -- 8. User closes own ticket
 -- 9. Anon role execution is refused
+-- 10. Reject assignment to non-staff users
+-- 11. Direct client UPDATE on support_tickets blocked
+-- 12. is_support_staff probe authorization
+-- 13. Unauthorized caller calling update_ticket_by_staff is rejected
+-- 14. Anon callers blocked from messages and closing tickets
+-- 15. Direct client INSERT on support_tickets blocked
+-- 16. Direct client INSERT on support_ticket_messages blocked
 -- ==============================================================================
 
 CREATE TEMP TABLE IF NOT EXISTS test_results (
@@ -38,6 +45,7 @@ DECLARE
 
     v_count INTEGER;
     v_err_caught BOOLEAN;
+    v_bool_res BOOLEAN;
 BEGIN
     -- Setup mock users in auth.users
     INSERT INTO auth.users (id, email, raw_user_meta_data)
@@ -200,6 +208,7 @@ BEGIN
         PERFORM set_config('role', 'authenticated', true);
         PERFORM set_config('request.jwt.claim.sub', v_staff_id::text, true);
 
+        -- A. Assign to Sarah
         PERFORM public.update_ticket_by_staff(
             v_ticket1_id,
             'In Progress',
@@ -208,12 +217,30 @@ BEGIN
             'Assigned to Sarah for camera testing'
         );
 
+        -- B. Status-only update (p_assigned_to is NULL): must NOT log a false assignment change
+        PERFORM public.update_ticket_by_staff(
+            v_ticket1_id,
+            'In Progress',
+            'Medium',
+            NULL,
+            'Adjusting severity only'
+        );
+
+        -- Verify status/priority and verify exactly 1 assignment activity was logged (not 2)
         SELECT COUNT(*) INTO v_count
         FROM public.support_tickets
-        WHERE id = v_ticket1_id AND status = 'In Progress' AND priority = 'High';
+        WHERE id = v_ticket1_id AND status = 'In Progress' AND priority = 'Medium' AND assigned_to = v_staff_id;
 
         IF v_count = 1 THEN
-            INSERT INTO test_results VALUES (7, '7', 'Staff update status/priority', 'PASS', 'Status and priority updated to In Progress / High');
+            SELECT COUNT(*) INTO v_count
+            FROM public.support_ticket_activities
+            WHERE ticket_id = v_ticket1_id AND action_type = 'assigned';
+
+            IF v_count = 1 THEN
+                INSERT INTO test_results VALUES (7, '7', 'Staff update status/priority', 'PASS', 'Status/priority updated cleanly without false assignment logs');
+            ELSE
+                INSERT INTO test_results VALUES (7, '7', 'Staff update status/priority', 'FAIL', 'False assignment activity was improperly generated');
+            END IF;
         ELSE
             INSERT INTO test_results VALUES (7, '7', 'Staff update status/priority', 'FAIL', 'Update failed to persist');
         END IF;
@@ -230,12 +257,24 @@ BEGIN
 
         PERFORM public.close_own_ticket(v_ticket1_id);
 
+        -- Verify ticket status is Closed AND activity log captured previous status ('In Progress')
         SELECT COUNT(*) INTO v_count
         FROM public.support_tickets
         WHERE id = v_ticket1_id AND status = 'Closed';
 
         IF v_count = 1 THEN
-            INSERT INTO test_results VALUES (8, '8', 'User closes own ticket', 'PASS', 'User successfully marked their ticket as Closed');
+            SELECT COUNT(*) INTO v_count
+            FROM public.support_ticket_activities
+            WHERE ticket_id = v_ticket1_id
+              AND action_type = 'closed'
+              AND old_value = 'In Progress'
+              AND new_value = 'Closed';
+
+            IF v_count = 1 THEN
+                INSERT INTO test_results VALUES (8, '8', 'User closes own ticket', 'PASS', 'User marked ticket Closed and preserved previous status in activity log');
+            ELSE
+                INSERT INTO test_results VALUES (8, '8', 'User closes own ticket', 'FAIL', 'Activity log failed to capture prior status');
+            END IF;
         ELSE
             INSERT INTO test_results VALUES (8, '8', 'User closes own ticket', 'FAIL', 'Close operation failed');
         END IF;
@@ -261,6 +300,217 @@ BEGIN
             INSERT INTO test_results VALUES (9, '9', 'Anon execution blocked', 'PASS', 'Unauthenticated caller blocked from creating tickets');
         ELSE
             INSERT INTO test_results VALUES (9, '9', 'Anon execution blocked', 'FAIL', 'Anon was improperly allowed to create ticket');
+        END IF;
+    END;
+
+    -- --------------------------------------------------------------------------
+    -- TEST 10: Reject assignment to non-staff users
+    -- --------------------------------------------------------------------------
+    BEGIN
+        PERFORM set_config('role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_staff_id::text, true);
+
+        v_err_caught := FALSE;
+        BEGIN
+            PERFORM public.update_ticket_by_staff(
+                v_ticket1_id,
+                NULL,
+                NULL,
+                v_user2_id,
+                NULL
+            );
+        EXCEPTION WHEN OTHERS THEN
+            v_err_caught := TRUE;
+        END;
+
+        IF v_err_caught THEN
+            INSERT INTO test_results VALUES (10, '10', 'Reject non-staff assignment', 'PASS', 'Assigning non-staff account was strictly rejected');
+        ELSE
+            INSERT INTO test_results VALUES (10, '10', 'Reject non-staff assignment', 'FAIL', 'Non-staff user was improperly assigned');
+        END IF;
+    END;
+
+    -- --------------------------------------------------------------------------
+    -- TEST 11: Direct client UPDATE on support_tickets blocked
+    -- --------------------------------------------------------------------------
+    BEGIN
+        PERFORM set_config('role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_user1_id::text, true);
+
+        -- Attempt direct UPDATE bypassing RPC and activity log
+        UPDATE public.support_tickets
+        SET status = 'Open'
+        WHERE id = v_ticket1_id;
+
+        -- Verify status was NOT changed (remains Closed)
+        SELECT COUNT(*) INTO v_count
+        FROM public.support_tickets
+        WHERE id = v_ticket1_id AND status = 'Closed';
+
+        IF v_count = 1 THEN
+            INSERT INTO test_results VALUES (11, '11', 'Block direct ticket UPDATE', 'PASS', 'Direct client UPDATE was blocked by RLS');
+        ELSE
+            INSERT INTO test_results VALUES (11, '11', 'Block direct ticket UPDATE', 'FAIL', 'Direct client UPDATE bypassed audit RPCs');
+        END IF;
+    END;
+
+    -- --------------------------------------------------------------------------
+    -- TEST 12: is_support_staff probe authorization
+    -- --------------------------------------------------------------------------
+    BEGIN
+        -- User 1 (regular user) checks own status -> FALSE
+        PERFORM set_config('role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_user1_id::text, true);
+
+        SELECT public.is_support_staff() INTO v_bool_res;
+        IF v_bool_res = FALSE THEN
+            -- User 1 probes Sarah (staff) -> must return FALSE (probing non-self forbidden for non-staff)
+            SELECT public.is_support_staff(v_staff_id) INTO v_bool_res;
+            IF v_bool_res = FALSE THEN
+                -- Sarah (staff) checks own status -> TRUE
+                PERFORM set_config('request.jwt.claim.sub', v_staff_id::text, true);
+                SELECT public.is_support_staff() INTO v_bool_res;
+                IF v_bool_res = TRUE THEN
+                    -- Sarah (staff) inspects User 1 -> returns FALSE (staff inspection permitted)
+                    SELECT public.is_support_staff(v_user1_id) INTO v_bool_res;
+                    IF v_bool_res = FALSE THEN
+                        INSERT INTO test_results VALUES (12, '12', 'Staff status probing protection', 'PASS', 'Probing other users blocked for non-staff; staff self/target checks accurate');
+                    ELSE
+                        INSERT INTO test_results VALUES (12, '12', 'Staff status probing protection', 'FAIL', 'Staff check returned true for non-staff target');
+                    END IF;
+                ELSE
+                    INSERT INTO test_results VALUES (12, '12', 'Staff status probing protection', 'FAIL', 'Staff self-check failed');
+                END IF;
+            ELSE
+                INSERT INTO test_results VALUES (12, '12', 'Staff status probing protection', 'FAIL', 'Non-staff was able to probe staff identity');
+            END IF;
+        ELSE
+            INSERT INTO test_results VALUES (12, '12', 'Staff status probing protection', 'FAIL', 'Regular user returned true for staff check');
+        END IF;
+    END;
+
+    -- --------------------------------------------------------------------------
+    -- TEST 13: Unauthorized caller calling update_ticket_by_staff is rejected
+    -- --------------------------------------------------------------------------
+    BEGIN
+        PERFORM set_config('role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_user1_id::text, true);
+
+        v_err_caught := FALSE;
+        BEGIN
+            PERFORM public.update_ticket_by_staff(
+                v_ticket1_id,
+                'In Progress',
+                NULL,
+                NULL,
+                'Attempted malicious status update'
+            );
+        EXCEPTION WHEN OTHERS THEN
+            v_err_caught := TRUE;
+        END;
+
+        IF v_err_caught THEN
+            INSERT INTO test_results VALUES (13, '13', 'Reject non-staff ticket update', 'PASS', 'Unauthorized staff RPC call was strictly rejected');
+        ELSE
+            INSERT INTO test_results VALUES (13, '13', 'Reject non-staff ticket update', 'FAIL', 'Non-staff user was allowed to call update_ticket_by_staff');
+        END IF;
+    END;
+
+    -- --------------------------------------------------------------------------
+    -- TEST 14: Anon callers blocked from messages and closing tickets
+    -- --------------------------------------------------------------------------
+    BEGIN
+        PERFORM set_config('role', 'anon', true);
+        PERFORM set_config('request.jwt.claim.sub', '', true);
+
+        v_err_caught := FALSE;
+        BEGIN
+            PERFORM public.add_support_ticket_message(
+                v_ticket1_id,
+                'Anon spam message'
+            );
+        EXCEPTION WHEN OTHERS THEN
+            v_err_caught := TRUE;
+        END;
+
+        IF v_err_caught THEN
+            v_err_caught := FALSE;
+            BEGIN
+                PERFORM public.close_own_ticket(v_ticket1_id);
+            EXCEPTION WHEN OTHERS THEN
+                v_err_caught := TRUE;
+            END;
+
+            IF v_err_caught THEN
+                SELECT public.is_support_staff() INTO v_bool_res;
+                IF v_bool_res = FALSE THEN
+                    INSERT INTO test_results VALUES (14, '14', 'Anon support RPCs blocked', 'PASS', 'Anon execution blocked across messages, closure, and staff checks');
+                ELSE
+                    INSERT INTO test_results VALUES (14, '14', 'Anon support RPCs blocked', 'FAIL', 'Anon is_support_staff returned true');
+                END IF;
+            ELSE
+                INSERT INTO test_results VALUES (14, '14', 'Anon support RPCs blocked', 'FAIL', 'Anon was able to call close_own_ticket');
+            END IF;
+        ELSE
+            INSERT INTO test_results VALUES (14, '14', 'Anon support RPCs blocked', 'FAIL', 'Anon was able to call add_support_ticket_message');
+        END IF;
+    END;
+
+    -- --------------------------------------------------------------------------
+    -- TEST 15: Direct client INSERT on support_tickets blocked
+    -- --------------------------------------------------------------------------
+    BEGIN
+        PERFORM set_config('role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_user1_id::text, true);
+
+        v_err_caught := FALSE;
+        BEGIN
+            INSERT INTO public.support_tickets (
+                owner_id, category, subject, description, status, priority, ticket_number, assigned_to, assigned_name
+            ) VALUES (
+                v_user1_id, 'Account & Login', 'Forged ticket', 'Direct insert bypassing RPC', 'Resolved', 'Urgent', 'SS-999999', v_staff_id, 'Support Sarah'
+            );
+        EXCEPTION WHEN OTHERS THEN
+            v_err_caught := TRUE;
+        END;
+
+        SELECT COUNT(*) INTO v_count
+        FROM public.support_tickets
+        WHERE ticket_number = 'SS-999999';
+
+        IF v_err_caught AND v_count = 0 THEN
+            INSERT INTO test_results VALUES (15, '15', 'Block direct ticket INSERT', 'PASS', 'Direct client INSERT blocked; users cannot forge ticket status, priority, or number');
+        ELSE
+            INSERT INTO test_results VALUES (15, '15', 'Block direct ticket INSERT', 'FAIL', 'Direct client INSERT succeeded or created forged ticket row');
+        END IF;
+    END;
+
+    -- --------------------------------------------------------------------------
+    -- TEST 16: Direct client INSERT on support_ticket_messages blocked
+    -- --------------------------------------------------------------------------
+    BEGIN
+        PERFORM set_config('role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_user1_id::text, true);
+
+        v_err_caught := FALSE;
+        BEGIN
+            INSERT INTO public.support_ticket_messages (
+                ticket_id, sender_id, sender_role, sender_name, message, is_internal_note
+            ) VALUES (
+                v_ticket1_id, v_user1_id, 'support_agent', 'Forged Sarah', 'Forged internal staff note', TRUE
+            );
+        EXCEPTION WHEN OTHERS THEN
+            v_err_caught := TRUE;
+        END;
+
+        SELECT COUNT(*) INTO v_count
+        FROM public.support_ticket_messages
+        WHERE message = 'Forged internal staff note';
+
+        IF v_err_caught AND v_count = 0 THEN
+            INSERT INTO test_results VALUES (16, '16', 'Block direct message INSERT', 'PASS', 'Direct message INSERT blocked; sender role and internal note forgery prevented');
+        ELSE
+            INSERT INTO test_results VALUES (16, '16', 'Block direct message INSERT', 'FAIL', 'Direct message INSERT succeeded or created forged message row');
         END IF;
     END;
 

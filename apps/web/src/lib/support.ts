@@ -366,6 +366,7 @@ export async function updateTicketByStaff(params: {
   priority?: SupportPriority;
   assignedTo?: string | null;
   resolutionNotes?: string;
+  unassign?: boolean;
 }): Promise<{ success: boolean; data?: SupportTicket; error?: string }> {
   try {
     const supabase = createClient();
@@ -375,6 +376,7 @@ export async function updateTicketByStaff(params: {
       p_priority: params.priority || null,
       p_assigned_to: params.assignedTo || null,
       p_resolution_notes: params.resolutionNotes || null,
+      p_unassign: Boolean(params.unassign),
     });
 
     if (error) {

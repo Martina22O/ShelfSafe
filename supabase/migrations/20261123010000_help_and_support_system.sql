@@ -28,21 +28,44 @@ CREATE INDEX IF NOT EXISTS idx_support_staff_roles_active ON public.support_staf
 
 ALTER TABLE public.support_staff_roles ENABLE ROW LEVEL SECURITY;
 
--- Helper function: Check if a user is authorized support staff
+-- Helper function: Check if a user is authorized support staff.
+-- Ordinary users can only verify their own staff status.
+-- Only active staff members are permitted to check arbitrary user IDs.
 CREATE OR REPLACE FUNCTION public.is_support_staff(p_user_id UUID DEFAULT auth.uid())
 RETURNS BOOLEAN
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
 SET search_path = public
 AS $$
-    SELECT EXISTS (
+DECLARE
+    v_caller UUID := auth.uid();
+    v_target UUID := COALESCE(p_user_id, v_caller);
+BEGIN
+    IF v_caller IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    -- An ordinary user can only check their own staff status.
+    -- Prevent probing arbitrary accounts unless caller is active staff.
+    IF v_target <> v_caller THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM public.support_staff_roles
+            WHERE user_id = v_caller AND is_active = TRUE
+        ) THEN
+            RETURN FALSE;
+        END IF;
+    END IF;
+
+    RETURN EXISTS (
         SELECT 1 FROM public.support_staff_roles
-        WHERE user_id = p_user_id AND is_active = TRUE
+        WHERE user_id = v_target AND is_active = TRUE
     );
+END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.is_support_staff(UUID) TO authenticated, anon;
+REVOKE ALL ON FUNCTION public.is_support_staff(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_support_staff(UUID) TO authenticated;
 
 -- Staff roles RLS policies
 DROP POLICY IF EXISTS "Staff can read all staff roles" ON public.support_staff_roles;
@@ -109,23 +132,13 @@ CREATE POLICY "Users can view own tickets or staff can view all"
         owner_id = auth.uid() OR public.is_support_staff(auth.uid())
     );
 
--- Users can insert their own tickets
+-- Integrity & Audit protection:
+-- Direct client-side INSERT, UPDATE, and DELETE policies on public.support_tickets are disallowed.
+-- All ticket creation and mutations must occur strictly through trusted SECURITY DEFINER RPCs
+-- (create_support_ticket, update_ticket_by_staff, close_own_ticket) to guarantee immutable audit logs
+-- and prevent forging of ticket numbers, status, priority, or staff assignments.
 DROP POLICY IF EXISTS "Users can insert own tickets" ON public.support_tickets;
-CREATE POLICY "Users can insert own tickets"
-    ON public.support_tickets FOR INSERT
-    TO authenticated
-    WITH CHECK (
-        owner_id = auth.uid()
-    );
-
--- Only authorized support staff can update ticket status/priority/assignment directly
 DROP POLICY IF EXISTS "Staff can update tickets" ON public.support_tickets;
-CREATE POLICY "Staff can update tickets"
-    ON public.support_tickets FOR UPDATE
-    TO authenticated
-    USING (
-        public.is_support_staff(auth.uid())
-    );
 
 -- ==============================================================================
 -- 4. SUPPORT TICKET MESSAGES TABLE
@@ -165,25 +178,12 @@ CREATE POLICY "Users view public messages; staff view all"
         )
     );
 
--- Messages Insert RLS:
--- Users can insert non-internal messages on their own tickets. Staff can insert public or internal messages.
+-- Messages Integrity & Audit protection:
+-- Direct client-side INSERT policies on public.support_ticket_messages are disallowed.
+-- All message creation must occur strictly through the trusted SECURITY DEFINER RPC
+-- (add_support_ticket_message) to prevent forging sender role, identity, or internal notes,
+-- and to ensure all replies generate audit activity entries and update ticket timestamps.
 DROP POLICY IF EXISTS "Users insert to own tickets; staff insert to any" ON public.support_ticket_messages;
-CREATE POLICY "Users insert to own tickets; staff insert to any"
-    ON public.support_ticket_messages FOR INSERT
-    TO authenticated
-    WITH CHECK (
-        public.is_support_staff(auth.uid())
-        OR (
-            is_internal_note = FALSE
-            AND sender_role = 'user'
-            AND sender_id = auth.uid()
-            AND EXISTS (
-                SELECT 1 FROM public.support_tickets t
-                WHERE t.id = support_ticket_messages.ticket_id
-                AND t.owner_id = auth.uid()
-            )
-        )
-    );
 
 -- ==============================================================================
 -- 5. SUPPORT TICKET ACTIVITIES TABLE (AUDIT LOG)
@@ -222,10 +222,13 @@ CREATE POLICY "Users and staff can view ticket activities"
     TO authenticated
     USING (
         public.is_support_staff(auth.uid())
-        OR EXISTS (
-            SELECT 1 FROM public.support_tickets t
-            WHERE t.id = support_ticket_activities.ticket_id
-            AND t.owner_id = auth.uid()
+        OR (
+            action_type <> 'internal_note'
+            AND EXISTS (
+                SELECT 1 FROM public.support_tickets t
+                WHERE t.id = support_ticket_activities.ticket_id
+                AND t.owner_id = auth.uid()
+            )
         )
     );
 
@@ -362,6 +365,7 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.create_support_ticket(TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_support_ticket(TEXT, TEXT, TEXT, TEXT) TO authenticated;
 
 
@@ -418,6 +422,10 @@ BEGIN
         -- Non-staff user must be the ticket owner
         IF v_ticket.owner_id <> v_user_id THEN
             RAISE EXCEPTION 'Unauthorized: You do not have permission to reply to this ticket';
+        END IF;
+
+        IF v_ticket.status = 'Closed' THEN
+            RAISE EXCEPTION 'This ticket is closed. Please submit a new support request if you need further assistance.';
         END IF;
 
         IF p_is_internal_note THEN
@@ -500,16 +508,19 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.add_support_ticket_message(UUID, TEXT, TEXT, BOOLEAN) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.add_support_ticket_message(UUID, TEXT, TEXT, BOOLEAN) TO authenticated;
 
 
 -- C. STAFF UPDATE TICKET STATUS / PRIORITY / ASSIGNMENT / RESOLUTION
+DROP FUNCTION IF EXISTS public.update_ticket_by_staff(UUID, TEXT, TEXT, UUID, TEXT);
 CREATE OR REPLACE FUNCTION public.update_ticket_by_staff(
     p_ticket_id UUID,
     p_status TEXT DEFAULT NULL,
     p_priority TEXT DEFAULT NULL,
     p_assigned_to UUID DEFAULT NULL,
-    p_resolution_notes TEXT DEFAULT NULL
+    p_resolution_notes TEXT DEFAULT NULL,
+    p_unassign BOOLEAN DEFAULT FALSE
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -521,6 +532,8 @@ DECLARE
     v_staff_name TEXT;
     v_assigned_name TEXT;
     v_ticket RECORD;
+    v_final_assigned_to UUID;
+    v_final_assigned_name TEXT;
     v_now TIMESTAMPTZ := clock_timestamp();
 BEGIN
     IF v_user_id IS NULL OR NOT public.is_support_staff(v_user_id) THEN
@@ -549,18 +562,47 @@ BEGIN
         RAISE EXCEPTION 'Invalid priority. Must be Critical, High, Medium, or Low';
     END IF;
 
-    -- Resolve assigned name if assigned_to is supplied
-    IF p_assigned_to IS NOT NULL THEN
+    -- Handle Assignment / Unassignment logic cleanly without false activity logs
+    IF COALESCE(p_unassign, FALSE) OR p_assigned_to = '00000000-0000-0000-0000-000000000000'::UUID THEN
+        -- Explicit Unassignment requested
+        IF v_ticket.assigned_to IS NOT NULL THEN
+            INSERT INTO public.support_ticket_activities (
+                ticket_id, actor_id, actor_name, action_type, old_value, new_value, details
+            ) VALUES (
+                p_ticket_id, v_user_id, v_staff_name, 'assigned',
+                COALESCE(v_ticket.assigned_name, 'Unassigned'),
+                'Unassigned',
+                jsonb_build_object('assigned_to', NULL, 'unassigned', true)
+            );
+        END IF;
+        v_final_assigned_to := NULL;
+        v_final_assigned_name := NULL;
+    ELSIF p_assigned_to IS NOT NULL THEN
+        -- Explicit Assignment to a staff member: Must be an ACTIVE support staff member
         SELECT full_name INTO v_assigned_name
         FROM public.support_staff_roles
-        WHERE user_id = p_assigned_to;
+        WHERE user_id = p_assigned_to AND is_active = TRUE;
 
         IF v_assigned_name IS NULL THEN
-            SELECT COALESCE(raw_user_meta_data->>'name', email)
-            INTO v_assigned_name
-            FROM auth.users
-            WHERE id = p_assigned_to;
+            RAISE EXCEPTION 'Cannot assign ticket: assigned user is not an active support staff member';
         END IF;
+
+        IF p_assigned_to IS DISTINCT FROM v_ticket.assigned_to THEN
+            INSERT INTO public.support_ticket_activities (
+                ticket_id, actor_id, actor_name, action_type, old_value, new_value, details
+            ) VALUES (
+                p_ticket_id, v_user_id, v_staff_name, 'assigned',
+                COALESCE(v_ticket.assigned_name, 'Unassigned'),
+                v_assigned_name,
+                jsonb_build_object('assigned_to', p_assigned_to)
+            );
+        END IF;
+        v_final_assigned_to := p_assigned_to;
+        v_final_assigned_name := v_assigned_name;
+    ELSE
+        -- No assignment change supplied (status/priority/notes-only update)
+        v_final_assigned_to := v_ticket.assigned_to;
+        v_final_assigned_name := v_ticket.assigned_name;
     END IF;
 
     -- Record status change activity
@@ -586,24 +628,12 @@ BEGIN
         );
     END IF;
 
-    -- Record assignment change activity
-    IF p_assigned_to IS DISTINCT FROM v_ticket.assigned_to THEN
-        INSERT INTO public.support_ticket_activities (
-            ticket_id, actor_id, actor_name, action_type, old_value, new_value, details
-        ) VALUES (
-            p_ticket_id, v_user_id, v_staff_name, 'assigned',
-            COALESCE(v_ticket.assigned_name, 'Unassigned'),
-            COALESCE(v_assigned_name, 'Unassigned'),
-            jsonb_build_object('assigned_to', p_assigned_to)
-        );
-    END IF;
-
     -- Apply updates
     UPDATE public.support_tickets
     SET status = COALESCE(p_status, status),
         priority = COALESCE(p_priority, priority),
-        assigned_to = CASE WHEN p_assigned_to IS NOT NULL THEN p_assigned_to ELSE assigned_to END,
-        assigned_name = CASE WHEN p_assigned_to IS NOT NULL THEN v_assigned_name ELSE assigned_name END,
+        assigned_to = v_final_assigned_to,
+        assigned_name = v_final_assigned_name,
         resolution_notes = CASE WHEN p_resolution_notes IS NOT NULL THEN p_resolution_notes ELSE resolution_notes END,
         resolved_at = CASE
             WHEN p_status = 'Resolved' AND v_ticket.status <> 'Resolved' THEN v_now
@@ -618,7 +648,8 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.update_ticket_by_staff(UUID, TEXT, TEXT, UUID, TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION public.update_ticket_by_staff(UUID, TEXT, TEXT, UUID, TEXT, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.update_ticket_by_staff(UUID, TEXT, TEXT, UUID, TEXT, BOOLEAN) TO authenticated;
 
 
 -- D. CLOSE OWN TICKET (FOR REGULAR USERS)
@@ -631,6 +662,7 @@ AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_user_name TEXT;
+    v_old_status TEXT;
     v_ticket RECORD;
 BEGIN
     IF v_user_id IS NULL THEN
@@ -645,6 +677,13 @@ BEGIN
         RAISE EXCEPTION 'Ticket not found or unauthorized';
     END IF;
 
+    v_old_status := v_ticket.status;
+
+    -- If already closed, avoid redundant status changes or duplicate logs
+    IF v_old_status = 'Closed' THEN
+        RETURN to_jsonb(v_ticket);
+    END IF;
+
     SELECT COALESCE(raw_user_meta_data->>'name', email)
     INTO v_user_name
     FROM auth.users
@@ -656,14 +695,46 @@ BEGIN
     WHERE id = p_ticket_id
     RETURNING * INTO v_ticket;
 
+    -- Log previous status before close transition
     INSERT INTO public.support_ticket_activities (
         ticket_id, actor_id, actor_name, action_type, old_value, new_value
     ) VALUES (
-        p_ticket_id, v_user_id, v_user_name, 'closed', v_ticket.status, 'Closed'
+        p_ticket_id, v_user_id, v_user_name, 'closed', v_old_status, 'Closed'
     );
 
     RETURN to_jsonb(v_ticket);
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.close_own_ticket(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.close_own_ticket(UUID) TO authenticated;
+
+-- ==============================================================================
+-- 8. TABLE, SEQUENCE & FUNCTION PERMISSION GRANTS
+-- ==============================================================================
+-- Explicitly revoke direct client INSERT, UPDATE, and DELETE privileges so all mutations pass through audited RPCs
+REVOKE INSERT, UPDATE, DELETE ON public.support_tickets FROM authenticated, anon, PUBLIC;
+REVOKE INSERT, UPDATE, DELETE ON public.support_ticket_messages FROM authenticated, anon, PUBLIC;
+REVOKE INSERT, UPDATE, DELETE ON public.support_ticket_activities FROM authenticated, anon, PUBLIC;
+REVOKE INSERT, UPDATE, DELETE ON public.support_staff_roles FROM authenticated, anon, PUBLIC;
+REVOKE ALL ON SEQUENCE public.support_ticket_seq FROM authenticated, anon, PUBLIC;
+
+-- Only SELECT is granted to authenticated users (with RLS policies enforcing data isolation)
+GRANT SELECT ON public.support_tickets TO authenticated;
+GRANT SELECT ON public.support_ticket_messages TO authenticated;
+GRANT SELECT ON public.support_ticket_activities TO authenticated;
+GRANT SELECT ON public.support_staff_roles TO authenticated;
+
+-- Explicitly revoke default PUBLIC and anon EXECUTE privileges from all support RPCs
+REVOKE ALL ON FUNCTION public.is_support_staff(UUID) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.create_support_ticket(TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.add_support_ticket_message(UUID, TEXT, TEXT, BOOLEAN) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.update_ticket_by_staff(UUID, TEXT, TEXT, UUID, TEXT, BOOLEAN) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.close_own_ticket(UUID) FROM PUBLIC, anon;
+
+-- Grant EXECUTE strictly to authenticated application users
+GRANT EXECUTE ON FUNCTION public.is_support_staff(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_support_ticket(TEXT, TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.add_support_ticket_message(UUID, TEXT, TEXT, BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_ticket_by_staff(UUID, TEXT, TEXT, UUID, TEXT, BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.close_own_ticket(UUID) TO authenticated;
